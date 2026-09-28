@@ -157,6 +157,9 @@
             loose files under the application directory.
             </summary>
         </member>
+        <member name="P:SocketJack.HtmlPageResources.ResourceOverrideProvider">
+            <summary>Optional development override. Return null to retain normal embedded content and caching.</summary>
+        </member>
         <member name="M:SocketJack.HtmlPageResources.GetHtml(System.String)">
             <summary>
             Reads an embedded HTML page by file name and caches the decoded UTF-8 content.
@@ -424,6 +427,9 @@
         </member>
         <member name="P:SocketJack.Net.RtmpStats.BitrateKbps">
             <summary>Current bitrate in kilobits per second.</summary>
+        </member>
+        <member name="T:SocketJack.Net.Database.AdoSqlConnector">
+            <summary>Connector adapter for caller-supplied ADO.NET providers. No provider dependency is imposed on SocketJack.</summary>
         </member>
         <member name="T:SocketJack.Net.Database.ConcatenatedStream">
             <summary>
@@ -704,7 +710,13 @@
         <member name="P:SocketJack.Net.Database.DataServer.AutoSave">
             <summary>
             When <see langword="true"/>, every dirty data mutation (table/row add/remove)
-            schedules a verified flush to <see cref="P:SocketJack.Net.Database.DataServer.DataPath"/>.
+            persists changes to <see cref="P:SocketJack.Net.Database.DataServer.DataPath"/> before returning by default.
+            </summary>
+        </member>
+        <member name="P:SocketJack.Net.Database.DataServer.DurableAutoSave">
+            <summary>
+            Wait for durable storage before acknowledging a mutation. Disable only
+            for workloads that explicitly accept losing pending changes on a crash.
             </summary>
         </member>
         <member name="P:SocketJack.Net.Database.DataServer.HasUnsavedChanges">
@@ -738,8 +750,8 @@
         </member>
         <member name="P:SocketJack.Net.Database.DataServer.AutoSaveDebounceMs">
             <summary>
-            Interval in milliseconds to debounce auto-save writes.
-            Only the last mutation within this window triggers a write.
+            Maximum batching delay when DurableAutoSave is disabled. Further edits
+            do not postpone the scheduled write. Failed saves are retried every five seconds.
             </summary>
         </member>
         <member name="P:SocketJack.Net.Database.DataServer.EnablePayloadEncryption">
@@ -779,6 +791,9 @@
             <param name="Name">Server name for logging.</param>
             <param name="hosted">Must be <see langword="true"/>. Distinguishes this from the standalone constructor.</param>
             <param name="loadFromDisk">Load persisted state during construction.</param>
+        </member>
+        <member name="P:SocketJack.Net.Database.DataServer.SqlSyncRoot">
+            <summary>Shared synchronization boundary for embedded database mutations.</summary>
         </member>
         <member name="M:SocketJack.Net.Database.DataServer.Save">
             <summary>
@@ -892,6 +907,9 @@
             Maps a SQL Server data type name to a .NET <see cref="T:System.Type"/>.
             </summary>
         </member>
+        <member name="M:SocketJack.Net.Database.DataServer.BeginTransaction(SocketJack.Net.Database.SqlSession)">
+            <summary>Starts an optimistic serializable transaction. Commit detects changes to the committed store.</summary>
+        </member>
         <member name="T:SocketJack.Net.Database.DataServerSnapshot">
             <summary>
             Serializable snapshot of the entire DataServer state.
@@ -988,6 +1006,13 @@
             Command-line tool for generating DbContext from database schema.
             Can be used as a pre-build event or MSBuild target.
             </summary>
+        </member>
+        <member name="T:SocketJack.Net.Database.MySqlProtocolServer">
+            <summary>Opt-in MySQL classic-protocol listener over the managed DataServer.
+            Uses caching_sha2_password full authentication over TLS; no plaintext password exchange is allowed.</summary>
+        </member>
+        <member name="P:SocketJack.Net.Database.QueryResult.Handled">
+            <summary>Explicitly marks an extension-handled command, including zero-row writes.</summary>
         </member>
         <member name="P:SocketJack.Net.Database.QueryResult.ColumnTypes">
             <summary>
@@ -1139,6 +1164,12 @@
             <summary>
             Obsolete compatibility shim. HTML pages are now served from embedded memory.
             </summary>
+        </member>
+        <member name="T:SocketJack.Net.Database.SqlCommand">
+            <summary>A command carries values separately from SQL text.</summary>
+        </member>
+        <member name="T:SocketJack.Net.Database.ISqlConnector">
+            <summary>Implement this interface to add a database connection without changing the query engine.</summary>
         </member>
         <member name="P:SocketJack.Net.Database.SqlSession.ClientTdsVersion">
             <summary>
@@ -2263,6 +2294,12 @@
             <summary>
             <see langword="true"/> when the stream is complete and all queued data has been consumed.
             </summary>
+        </member>
+        <member name="P:SocketJack.Net.UploadStream.ExpectedLength">
+            <summary>The request body length advertised by Content-Length, or zero for an open-ended stream.</summary>
+        </member>
+        <member name="P:SocketJack.Net.UploadStream.BytesReceived">
+            <summary>The number of request-body bytes accepted by this upload stream.</summary>
         </member>
         <member name="P:SocketJack.Net.UploadStream.Connection">
             <summary>
@@ -4821,6 +4858,27 @@
             Send a serializable object to all connected UDP clients.
             </summary>
         </member>
+        <member name="T:SocketJack.Net.UdpTransferRequest">
+            <summary>Accept synchronously from TransferRequested. Remote names are display metadata, never destination paths.</summary>
+        </member>
+        <member name="T:SocketJack.Net.UdpReliableOptions">
+            <summary>Configure before connecting/listening. Limits are local resource budgets, not bandwidth caps.</summary>
+        </member>
+        <member name="P:SocketJack.Net.UdpReliableOptions.Ordering">
+            <summary>Wait for earlier objects and run callbacks sequentially. Default: false.</summary>
+        </member>
+        <member name="P:SocketJack.Net.UdpReliableOptions.ReceiveWorkers">
+            <summary>Maximum concurrent independent object decoders/callbacks per peer.</summary>
+        </member>
+        <member name="P:SocketJack.Net.UdpReliableOptions.BufferSize">
+            <summary>Socket and reusable transport I/O buffers, at most 32 KiB. Object budgets are separate.</summary>
+        </member>
+        <member name="T:SocketJack.Net.UdpReliableStatistics">
+            <summary>Transport counters include retries and headers; payload counters exclude them.</summary>
+        </member>
+        <member name="T:SocketJack.Net.UDP_Reliable">
+            <summary>Reliable, indexed UDP. Both endpoints must select this mode. It does not provide encryption.</summary>
+        </member>
         <member name="T:SocketJack.Net.WebSocketFrameHelper">
             <summary>
             Shared WebSocket frame-building and JS constructor generation utilities
@@ -5142,6 +5200,13 @@
             <summary>
               Overrides the current thread's CurrentUICulture property for all
               resource lookups using this strongly typed resource class.
+            </summary>
+        </member>
+        <member name="T:SocketJack.Serialization.BinarySerializer">
+            <summary>
+            SocketJack binary format v1. Byte arrays are raw bytes, integers use variable-length encoding,
+            and decoding creates inert values until Wrapper applies the socket's type whitelist.
+            Select the same serializer at both endpoints. Usable with TCP and UDP.
             </summary>
         </member>
         <member name="T:SocketJack.Serialization.ISerializer">

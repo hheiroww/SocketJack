@@ -10,6 +10,7 @@ namespace SocketJack.Net.Database {
         public string ServerName { get; set; }
         public string ServerVersion { get; set; }
         public bool IsAuthenticated { get; set; }
+        internal ManagedTransaction Transaction { get; set; }
 
         /// <summary>
         /// The TDS protocol version sent by the client in Login7 (bytes 4-7, big-endian).

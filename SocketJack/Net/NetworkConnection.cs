@@ -1032,7 +1032,7 @@ namespace SocketJack.Net {
                         string json = ((JsonElement)val).GetRawText();
                         redirectBytes = System.Text.UTF8Encoding.UTF8.GetBytes(json);
                     }
-                    PeerRedirect redirect = Target.Options.Serializer.DeserializeRedirect(Target, redirectBytes);
+                    PeerRedirect redirect = Target.Options.Serializer is SocketJack.Serialization.BinarySerializer binary ? binary.UnwrapRedirect(Target, wrapper) : Target.Options.Serializer.DeserializeRedirect(Target, redirectBytes);
                     Target.HandleReceive(Sender, redirect, valueType, ByteLength);
                 } else {
                     object unwrapped = null;

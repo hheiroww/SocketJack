@@ -334,6 +334,7 @@ namespace SocketJack.Net {
             typeof(Pong),
             typeof(Identifier),
             typeof(Identifier[]),
+            typeof(System.Collections.Concurrent.ConcurrentDictionary<string, string>),
             typeof(PeerRedirect),
             typeof(PeerServer),
             typeof(Wrapper),
@@ -366,6 +367,9 @@ namespace SocketJack.Net {
         public TypeList Blacklist { get; internal set; } = new TypeList(new[] { typeof(object), typeof(Socket), typeof(NetworkConnection) } );
 
         #region UDP Options
+
+        public UdpMode UdpMode { get; set; } = UdpMode.UDP;
+        public UdpReliableOptions UdpReliable { get; set; } = new UdpReliableOptions();
 
         /// <summary>
         /// Maximum datagram payload size in bytes for UDP.

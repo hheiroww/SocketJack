@@ -1242,7 +1242,7 @@ namespace SocketJack.Net {
                 if (prefix == "/") {
                     relativePath = path;
                 } else if (path.Equals(prefix, StringComparison.OrdinalIgnoreCase)) {
-                    // Exact match on prefix with no trailing path � try index files
+                    // Exact match on prefix with no trailing path ï¿½ try index files
                     relativePath = "/";
                 } else if (path.StartsWith(prefix + "/", StringComparison.OrdinalIgnoreCase)) {
                     relativePath = path.Substring(prefix.Length);
@@ -2370,7 +2370,7 @@ namespace SocketJack.Net {
                 && te.IndexOf("chunked", StringComparison.OrdinalIgnoreCase) >= 0) {
                 return false;
             }
-            // No Content-Length and not chunked � body is whatever was received.
+            // No Content-Length and not chunked ï¿½ body is whatever was received.
             return true;
         }
 
@@ -3004,16 +3004,16 @@ namespace SocketJack.Net {
                 }
 
                 // Check if we're already buffering an HTTP request for this connection.
-                // If so, skip protocol detection and HTTP validation � just accumulate data.
+                // If so, skip protocol detection and HTTP validation ï¿½ just accumulate data.
                 bool isBuffering = _requestBuffers.ContainsKey(e.Connection.ID);
 
                 if (!isBuffering) {
-                    // Detect new RTMP connections (version byte 0x03 + C1 zero field at offset 5-8)
+                    // Detect RTMP by its C0 version byte. FFmpeg and OBS commonly
+                    // send a complex C1 handshake whose version field is non-zero.
                     if (_rtmpPublishRoutes.Count > 0) {
                         var probeBytes = TryGetRequestBytes(e.Obj);
                         if (probeBytes != null && probeBytes.Length >= 9
-                            && probeBytes[0] == 0x03
-                            && probeBytes[5] == 0 && probeBytes[6] == 0 && probeBytes[7] == 0 && probeBytes[8] == 0) {
+                            && probeBytes[0] == 0x03) {
                             var session = CreateRtmpSession(e.Connection);
                             session.ProcessData(probeBytes);
                             return;
@@ -3052,6 +3052,7 @@ namespace SocketJack.Net {
 
                 var buffer = _requestBuffers.GetOrAdd(e.Connection.ID, _ => new List<byte>());
                 byte[] rawRequestBytes;
+                long contentLength;
                 lock (buffer) {
                     buffer.AddRange(incoming);
 
@@ -3063,7 +3064,7 @@ namespace SocketJack.Net {
                     // If Content-Length is present, wait for the full body unless
                     // an upload-stream route matches (those start processing with
                     // partial body data and receive the rest incrementally).
-                    long contentLength = ExtractContentLength(buffer, hdrEnd);
+                    contentLength = ExtractContentLength(buffer, hdrEnd);
                     bool isUploadStreamRoute = IsUploadStreamRoute(buffer, hdrEnd);
                     if (contentLength > 0 && buffer.Count < hdrEnd + contentLength) {
                         if (!isUploadStreamRoute)
@@ -3140,7 +3141,7 @@ namespace SocketJack.Net {
                 if (TryProxyHostRequest(context, e.Connection, request))
                     goto WriteHttpResponse;
 
-                // Check for streaming routes first � these keep the connection open
+                // Check for streaming routes first ï¿½ these keep the connection open
                 var streamHandler = ResolveStreamRoute(request);
                 if (streamHandler != null) {
                     _activeStreamConnections.TryAdd(e.Connection.ID, 0);
@@ -3178,7 +3179,7 @@ namespace SocketJack.Net {
                     }
 
                     if (!preferRegularRoute) {
-                        var upload = new UploadStream(e.Connection);
+                        var upload = new UploadStream(e.Connection, contentLength);
                         _activeUploadConnections.TryAdd(e.Connection.ID, upload);
 
                         // Queue initial body data if present in the first read
@@ -3205,27 +3206,40 @@ namespace SocketJack.Net {
                                 upload.Complete();
                                 _activeUploadConnections.TryRemove(connId, out _);
 
-                                // Send a 200 OK response so the HTTP client doesn't hang
-                                // waiting for a response that never comes.
+                                // Send the response prepared by the upload handler.  Older upload
+                                // handlers do not set one, so keep their historical "OK" body.
                                 try {
                                     var responseStream = conn.Stream;
                                     if (responseStream != null && !conn.Closed && !conn.Closing) {
-                                        var okBody = Encoding.UTF8.GetBytes("OK");
-                                        var okHeader = Encoding.UTF8.GetBytes(
-                                            "HTTP/1.1 200 OK\r\n" +
-                                            "Content-Type: text/plain\r\n" +
-                                            "Content-Length: " + okBody.Length + "\r\n" +
-                                            "Connection: close\r\n\r\n");
-                                        responseStream.Write(okHeader, 0, okHeader.Length);
-                                        responseStream.Write(okBody, 0, okBody.Length);
-                                        responseStream.Flush();
-                                        TrackHttpBytesSent(conn, okHeader.Length + okBody.Length);
+                                        var uploadResponse = context.Response;
+                                        uploadResponse.EnsureBodyBytes();
+                                        if (uploadResponse.BodyBytes == null || uploadResponse.BodyBytes.Length == 0) {
+                                            uploadResponse.Body = "OK";
+                                            uploadResponse.ContentType = "text/plain";
+                                        }
+                                        if (!uploadResponse.Headers.ContainsKey("Server"))
+                                            uploadResponse.Headers["Server"] = "SocketJack";
+                                        if (!uploadResponse.Headers.ContainsKey("Access-Control-Allow-Origin") && !string.IsNullOrWhiteSpace(Options?.HttpDefaultCorsOrigin))
+                                            uploadResponse.Headers["Access-Control-Allow-Origin"] = Options.HttpDefaultCorsOrigin;
+                                        if (!uploadResponse.Headers.ContainsKey("Date"))
+                                            uploadResponse.Headers["Date"] = DateTime.UtcNow.ToString("R");
+                                        if (!uploadResponse.Headers.ContainsKey("Connection"))
+                                            uploadResponse.Headers["Connection"] = "close";
+
+                                        var (headerBytes, bodyBytes) = uploadResponse.ToBytesWithHeader();
+                                        WriteFixedLengthResponse(responseStream, headerBytes, bodyBytes, conn, bodyBytes.Length);
+                                        WriteHttpAccessLog(conn, request, context, endpointSecurityDecision, bodyBytes.Length, false);
                                     }
                                 } catch { }
 
-                                WriteHttpAccessLog(conn, request, context, endpointSecurityDecision, 2, false);
-
                                 // Graceful connection close
+                                try {
+                                    var socket = conn.Socket;
+                                    if (socket != null && socket.Connected) {
+                                        socket.LingerState = new LingerOption(true, 2);
+                                        socket.Shutdown(SocketShutdown.Send);
+                                    }
+                                } catch { }
                                 try { self.CloseConnection(conn, DisconnectionReason.LocalSocketClosed); } catch { }
                             }
                         });
@@ -3380,7 +3394,7 @@ WriteHttpResponse:
                 // network immediately rather than waiting for a full TCP segment.
                 try { e.Connection.Socket.NoDelay = true; } catch { }
 
-                // Capture the stream reference once � a background thread
+                // Capture the stream reference once ï¿½ a background thread
                 // can dispose the socket between property accesses.
                 var responseStream = e.Connection.Stream;
                 if (responseStream != null && !e.Connection.Closed && !e.Connection.Closing) {
@@ -3442,7 +3456,7 @@ WriteHttpResponse:
 CloseHttpConnection:
                 // Graceful HTTP close sequence:
                 // 1. Set linger so the OS waits for the send buffer to drain on Close().
-                // 2. Shut down the send direction first � this queues a FIN *after*
+                // 2. Shut down the send direction first ï¿½ this queues a FIN *after*
                 //    any remaining response bytes, preventing an RST.
                 // 3. Call Close() for resource cleanup.
                 try {
@@ -4218,7 +4232,7 @@ CloseHttpConnection:
                     }
                 }
             } else {
-                // Binary body � fall back to fixed-size chunks
+                // Binary body ï¿½ fall back to fixed-size chunks
                 int offset = 0;
                 while (offset < _BodyBytes.Length) {
                     int remaining = _BodyBytes.Length - offset;
@@ -4495,18 +4509,44 @@ CloseHttpConnection:
         private readonly ConcurrentQueue<byte[]> _queue = new ConcurrentQueue<byte[]>();
         private readonly SemaphoreSlim _signal = new SemaphoreSlim(0);
         private readonly NetworkConnection _connection;
+        private readonly object _stateLock = new object();
+        private readonly long _expectedLength;
+        private long _receivedLength;
         private volatile bool _completed;
 
-        internal UploadStream(NetworkConnection connection) {
+        internal UploadStream(NetworkConnection connection, long expectedLength = 0) {
             _connection = connection;
+            _expectedLength = Math.Max(0, expectedLength);
         }
 
         /// <summary>
         /// Enqueues a chunk of raw data received from the network.
         /// </summary>
         internal void Enqueue(byte[] data) {
-            if (_completed) return;
-            _queue.Enqueue(data);
+            if (data == null || data.Length == 0) return;
+
+            byte[] queuedData = data;
+            lock (_stateLock) {
+                if (_completed) return;
+
+                if (_expectedLength > 0) {
+                    long remaining = _expectedLength - _receivedLength;
+                    if (remaining <= 0) {
+                        _completed = true;
+                        return;
+                    }
+                    if (queuedData.LongLength > remaining) {
+                        var trimmed = new byte[(int)remaining];
+                        Buffer.BlockCopy(queuedData, 0, trimmed, 0, trimmed.Length);
+                        queuedData = trimmed;
+                    }
+                }
+
+                _queue.Enqueue(queuedData);
+                _receivedLength += queuedData.LongLength;
+                if (_expectedLength > 0 && _receivedLength >= _expectedLength)
+                    _completed = true;
+            }
             try { _signal.Release(); } catch (ObjectDisposedException) { }
         }
 
@@ -4514,7 +4554,9 @@ CloseHttpConnection:
         /// Marks the stream as complete. No more data will arrive.
         /// </summary>
         internal void Complete() {
-            _completed = true;
+            lock (_stateLock) {
+                _completed = true;
+            }
             try { _signal.Release(); } catch (ObjectDisposedException) { }
         }
 
@@ -4522,6 +4564,14 @@ CloseHttpConnection:
         /// <see langword="true"/> when the stream is complete and all queued data has been consumed.
         /// </summary>
         public bool IsCompleted => _completed && _queue.IsEmpty;
+
+        /// <summary>The request body length advertised by Content-Length, or zero for an open-ended stream.</summary>
+        public long ExpectedLength => _expectedLength;
+
+        /// <summary>The number of request-body bytes accepted by this upload stream.</summary>
+        public long BytesReceived {
+            get { lock (_stateLock) return _receivedLength; }
+        }
 
         /// <summary>
         /// The <see cref="NetworkConnection"/> that this upload stream is associated with.

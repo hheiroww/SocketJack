@@ -456,6 +456,11 @@ namespace SocketJack.Net {
             LogAsync(new[] { string.Format(string.Join(Environment.NewLine, lines), args) });
         }
         protected internal void Send(NetworkConnection Connection, object Obj) {
+            if (this is UdpClient udpClient) { udpClient.Send(Obj); return; }
+            if (this is UdpServer udpServer) {
+                if (Connection != null) udpServer.Send(Connection.ID.ToString(), Obj);
+                return;
+            }
             if (Connection.Socket == null)
                 return;
             if (Connection.Socket.Connected) {
@@ -470,8 +475,9 @@ namespace SocketJack.Net {
         }
 
         void ISocket.Send(NetworkConnection connection, object Obj) {
+            if (this is UdpServer || this is UdpClient) { Send(connection, Obj); return; }
             if (!Connected) return;
-            Send(Connection, Obj);
+            Send(connection, Obj);
         }
 
         public virtual void Send(Identifier Recipient, object Obj) {
@@ -819,6 +825,7 @@ namespace SocketJack.Net {
         }
 
         protected internal void SendSegmented(NetworkConnection Client, object Obj) {
+            if (this is UdpClient || this is UdpServer) { Send(Client, Obj); return; }
             Task.Run(() => {
                 byte[] SerializedBytes = Options.Serializer.Serialize(new Wrapper(Obj, this));
                 Segment[] SegmentedObject = SerializedBytes.GetSegments();

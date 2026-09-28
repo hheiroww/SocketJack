@@ -195,3 +195,8 @@ SocketJack is open source and licensed under the [MIT License](https://github.co
 
 </details>
 <!-- LINECOUNTER-OUTPUT:END -->
+
+
+## UDP_Reliable
+
+Reliable indexed UDP is available through `UDP_Reliable.CreateClient` and `CreateServer`. See [usage, limits, and measured results](../docs/UDP_Reliable.md).

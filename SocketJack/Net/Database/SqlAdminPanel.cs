@@ -874,9 +874,7 @@ namespace SocketJack.Net.Database {
 
                 // If the QueryExecuting event didn't handle the query,
                 // fall back to a basic in-memory table query.
-                if (!result.HasResultSet && result.Columns.Count == 0 && result.Rows.Count == 0 && result.RowsAffected == 0) {
-                    result = ExecuteInMemoryQuery(ds, sqlSession, sql);
-                }
+                // DataServer owns execution for embedded, web, and wire clients.
 
                 var sb = new StringBuilder();
                 sb.Append("{");
@@ -4355,9 +4353,6 @@ namespace SocketJack.Net.Database {
 
             try {
                 var result = ds.ExecuteQuery(sqlSession, sql);
-                if (!result.HasResultSet && result.Columns.Count == 0 && result.Rows.Count == 0 && result.RowsAffected == 0) {
-                    result = ExecuteInMemoryQuery(ds, sqlSession, sql);
-                }
 
                 switch ((endpoint.ResponseFormat ?? "json").ToLowerInvariant()) {
                     case "plaintext":
@@ -4390,9 +4385,6 @@ namespace SocketJack.Net.Database {
                     return policyError;
 
                 var result = ds.ExecuteQuery(sqlSession, sql);
-                if (!result.HasResultSet && result.Columns.Count == 0 && result.Rows.Count == 0 && result.RowsAffected == 0) {
-                    result = ExecuteInMemoryQuery(ds, sqlSession, sql);
-                }
 
                 switch (step.Type.ToLowerInvariant()) {
                     case "lookup":
@@ -5323,9 +5315,6 @@ namespace SocketJack.Net.Database {
                             IsAuthenticated = true
                         };
                         var result = ds.ExecuteQuery(sqlSession, sql);
-                        if (!result.HasResultSet && result.Columns.Count == 0 && result.Rows.Count == 0 && result.RowsAffected == 0) {
-                            result = ExecuteInMemoryQuery(ds, sqlSession, sql);
-                        }
                         string afterHash = beforeHash;
                         if (!string.IsNullOrWhiteSpace(beforeHash) && ds.Databases.TryGetValue(database, out var afterDb))
                             afterHash = ComputeSqlDatabaseSnapshotHash(afterDb);

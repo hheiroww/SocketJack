@@ -141,7 +141,7 @@ namespace SocketJack.Serialization {
             Type T = Obj.GetType();
             Type = GetTypeName(T);
             if (IsTypeAllowed(Obj, sender)) {
-                if (T.IsArray || T.IsValueType) {
+                if (T.IsArray || T.IsValueType || T == typeof(string)) {
                     value = Obj;
                 } else {
                     lock (Obj) {
@@ -203,7 +203,7 @@ namespace SocketJack.Serialization {
                 this.Type = Type.Name;
                 return null;
             }
-            if (Type.IsValueType | Type.IsArray) {
+            if (Type.IsValueType || Type.IsArray || Type == typeof(string)) {
                 return sender.Options.Serializer.GetValue(value, Type, true);
             } else {
                 var instance = FormatterServices.GetSafeUninitializedObject(Type);
@@ -244,7 +244,7 @@ namespace SocketJack.Serialization {
                 this.Type = Type.Name;
                 return null;
             }
-            if (Type.IsValueType | Type.IsArray) {
+            if (Type.IsValueType || Type.IsArray || Type == typeof(string)) {
                 return sender.Options.Serializer.GetValue(value, Type, true);
             } else {
                 var instance = FormatterServices.GetSafeUninitializedObject(Type);
@@ -374,7 +374,9 @@ namespace SocketJack.Serialization {
                 string valueTypeName = ValueInstance.GetType().Name;
 
                 if (Reference.Info.PropertyType == typeof(object)) {
-                    if (isJson && v != null) {
+                    if (sender.Options.Serializer is BinarySerializer && v != null) {
+                        v = new Wrapper(v, sender);
+                    } else if (isJson && v != null) {
                         JsonSerializer serializer = (JsonSerializer)sender.Options.Serializer;
                         if (!serializer.HasConverter(v.GetType())) {
                             var wrappedValue = new Wrapper(v, sender);

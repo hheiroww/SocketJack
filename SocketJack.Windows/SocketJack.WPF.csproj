@@ -36,7 +36,7 @@
     <Description>High-performance, fully managed .NET networking library for TCP, UDP, and WebSocket communication. LLM. Features built-in peer-to-peer with NAT traversal, pluggable System.Text.Json serialization, SslStream TLS 1.2 encryption, GZip/Deflate compression, bandwidth throttling, and live WPF control sharing. Send any object across a unified, transport-agnostic API. Targets .NET Standard 2.1, .NET 8</Description>
     <IsPackable>True</IsPackable>
     <Company>JackOfFates</Company>
-    <Version>2026.7</Version>
+    <Version>2026.12</Version>
     <BuildPackage>true</BuildPackage>
     <NeutralLanguage>en-001</NeutralLanguage>
     <IncludeSymbols>False</IncludeSymbols>
@@ -316,6 +316,7 @@
     <Compile Include="..\SocketJack\Net\Database\DbContextGeneratorTool.cs" Link="Net\Database\DbContextGeneratorTool.cs" />
     <Compile Include="..\SocketJack\Net\Database\QueryResult.cs" Link="Net\Database\QueryResult.cs" />
     <Compile Include="..\SocketJack\Net\Database\AdminSuite.cs" Link="Net\Database\AdminSuite.cs" />
+    <Compile Include="..\SocketJack\Net\Database\AdminSuite.WebUiSync.cs" Link="Net\Database\AdminSuite.WebUiSync.cs" />
     <Compile Include="..\SocketJack\Net\Database\SqlAdminPanel.cs" Link="Net\Database\SqlAdminPanel.cs" />
     <Compile Include="..\SocketJack\Net\Database\SqlSession.cs" Link="Net\Database\SqlSession.cs" />
     <Compile Include="..\SocketJack\Net\Database\Table.cs" Link="Net\Database\Table.cs" />
@@ -367,6 +368,12 @@
     <Compile Include="..\SocketJack\Net\Torrent\TorrentMetadata.cs" Link="Torrent\TorrentMetadata.cs" />
     <Compile Include="..\SocketJack\Net\Torrent\TorrentTracker.cs" Link="Torrent\TorrentTracker.cs" />
     <Compile Include="..\SocketJack\Net\UdpClient.cs" Link="Net\UdpClient.cs" />
+    <Compile Include="..\SocketJack\Net\UDP_Reliable.cs" Link="Net\UDP_Reliable.cs" />
+    <Compile Include="..\SocketJack\Net\UdpReliableWire.cs" Link="Net\UdpReliableWire.cs" />
+    <Compile Include="..\SocketJack\Net\UdpReliableTransport.cs" Link="Net\UdpReliableTransport.cs" />
+    <Compile Include="..\SocketJack\Net\UdpReliableSocketOperation.cs" Link="Net\UdpReliableSocketOperation.cs" />
+    <Compile Include="..\SocketJack\Net\UdpReliableIntegration.cs" Link="Net\UdpReliableIntegration.cs" />
+    <Compile Include="..\SocketJack\Net\UdpReliableTransfers.cs" Link="Net\UdpReliableTransfers.cs" />
     <Compile Include="..\SocketJack\Net\UdpConnection.cs" Link="Net\UdpConnection.cs" />
     <Compile Include="..\SocketJack\Net\UdpServer.cs" Link="Net\UdpServer.cs" />
     <Compile Include="..\SocketJack\Net\WebSocketFrameHelper.cs" Link="Net\WebSocketFrameHelper.cs" />
@@ -377,6 +384,7 @@
     <Compile Include="..\SocketJack\Net\AgentBuilder\AgentBuilderModels.cs" Link="Net\AgentBuilder\AgentBuilderModels.cs" />
     <Compile Include="..\SocketJack\Net\AgentBuilder\AgentBuilderReflectionExecutor.cs" Link="Net\AgentBuilder\AgentBuilderReflectionExecutor.cs" />
     <Compile Include="..\SocketJack\Net\AgentBuilder\AgentBuilderWorkflowEngine.cs" Link="Net\AgentBuilder\AgentBuilderWorkflowEngine.cs" />
+    <Compile Include="..\SocketJack\Serialization\BinarySerializer.cs" Link="Serialization\BinarySerializer.cs" />
     <Compile Include="..\SocketJack\Serialization\ISerializer.cs" Link="Serialization\ISerializer.cs" />
     <Compile Include="..\SocketJack\Serialization\Json\Converters\BitmapConverter.cs" Link="Serialization\Json\Converters\BitmapConverter.cs" />
     <Compile Include="..\SocketJack\Serialization\Json\Converters\ByteArrayConverter.cs" Link="Serialization\Json\Converters\ByteArrayConverter.cs" />

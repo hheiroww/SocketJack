@@ -33,7 +33,7 @@ namespace SocketJack.Net.Database {
     /// import schema and data from an existing SQL Server instance.
     /// </para>
     /// </summary>
-    public class DataServer : TcpServer {
+    public partial class DataServer : TcpServer {
 
         #region Properties
 
@@ -196,9 +196,15 @@ namespace SocketJack.Net.Database {
 
         /// <summary>
         /// When <see langword="true"/>, every dirty data mutation (table/row add/remove)
-        /// schedules a verified flush to <see cref="DataPath"/>.
+        /// persists changes to <see cref="DataPath"/> before returning by default.
         /// </summary>
         public bool AutoSave { get; set; } = true;
+
+        /// <summary>
+        /// Wait for durable storage before acknowledging a mutation. Disable only
+        /// for workloads that explicitly accept losing pending changes on a crash.
+        /// </summary>
+        public bool DurableAutoSave { get; set; } = true;
 
         /// <summary>
         /// Indicates whether a mutation has been scheduled but not yet persisted.
@@ -230,14 +236,19 @@ namespace SocketJack.Net.Database {
         public int CacheOptimizationMaxKeys { get; set; } = 1024;
 
         /// <summary>
-        /// Interval in milliseconds to debounce auto-save writes.
-        /// Only the last mutation within this window triggers a write.
+        /// Maximum batching delay when DurableAutoSave is disabled. Further edits
+        /// do not postpone the scheduled write. Failed saves are retried every five seconds.
         /// </summary>
         public int AutoSaveDebounceMs { get; set; } = 500;
 
         private readonly SemaphoreSlim _persistenceLock = new SemaphoreSlim(1, 1);
         private readonly RandomNumberGenerator _rng = RandomNumberGenerator.Create();
         private Timer _debounceTimer;
+        private readonly object _saveTimerGate = new object();
+        private Task _backgroundSaveTask = Task.CompletedTask;
+        private bool _persistenceDisposed;
+        private Exception _loadFailure;
+        private const string DurablePayloadHeader = "SJDP1:";
         private readonly DatabaseCacheOptimizer _cacheOptimizer = new DatabaseCacheOptimizer();
         private int _dirtyVersion;
         private int _savedVersion;
@@ -824,10 +835,31 @@ namespace SocketJack.Net.Database {
             return clientIp;
         }
 
+        /// <summary>Shared synchronization boundary for embedded database mutations.</summary>
+        public object SqlSyncRoot { get; } = new object();
+
+        public IReadOnlyList<QueryResult> Execute(SqlSession session, SqlCommand command, CancellationToken cancellationToken = default) {
+            if (session == null || !session.IsAuthenticated)
+                throw new SqlExecutionException("Authentication is required.", "28000", 18456);
+            if (command == null) throw new ArgumentNullException(nameof(command));
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (SqlSyncRoot) {
+                // Existing hooks remain supported. New hooks must set Handled for
+                // successful zero-row commands; they must not inspect parameterized SQL.
+                if (command.Parameters.Count == 0) {
+                    var initial = new QueryResult();
+                    var result = initial;
+                    QueryExecuting?.Invoke(session, command.Text, ref result);
+                    if (result != null && (result.Handled || !ReferenceEquals(initial, result) || result.HasResultSet || result.RowsAffected != 0))
+                        return new[] { result };
+                }
+                return new ManagedSqlEngine(this, session, command, cancellationToken).Run();
+            }
+        }
+
         internal QueryResult ExecuteQuery(SqlSession session, string query) {
-            var result = new QueryResult();
-            QueryExecuting?.Invoke(session, query, ref result);
-            return result;
+            var results = Execute(session, new SqlCommand(query));
+            return results[results.Count - 1];
         }
 
         #endregion
@@ -900,7 +932,8 @@ namespace SocketJack.Net.Database {
         }
 
         private async Task SaveAsync(CancellationToken cancellationToken, bool onlyIfDirty) {
-            if (string.IsNullOrWhiteSpace(DataPath)) return;
+            if (string.IsNullOrWhiteSpace(DataPath))
+                throw new InvalidOperationException("A DataPath is required to save database changes.");
             bool lockTaken = false;
             int saveVersion = Volatile.Read(ref _dirtyVersion);
             if (onlyIfDirty && saveVersion == Volatile.Read(ref _savedVersion))
@@ -909,6 +942,8 @@ namespace SocketJack.Net.Database {
             try {
                 await _persistenceLock.WaitAsync(cancellationToken).ConfigureAwait(false);
                 lockTaken = true;
+                if (_loadFailure != null)
+                    throw new InvalidOperationException("Database loading failed. Reload successfully before saving to avoid overwriting existing data.", _loadFailure);
 
                 saveVersion = Volatile.Read(ref _dirtyVersion);
                 if (onlyIfDirty && saveVersion == Volatile.Read(ref _savedVersion))
@@ -922,13 +957,15 @@ namespace SocketJack.Net.Database {
                 else
                     await WritePersistedJsonAsync(DataPath, snapshot, cancellationToken).ConfigureAwait(false);
 
-                if (EnableCacheOptimizing)
-                    _cacheOptimizer.SaveMetadata(GetResolvedCacheMetadataPath(), CacheOptimizationMaxKeys);
-
                 MarkPersisted(saveVersion, snapshotHash);
+                if (EnableCacheOptimizing) {
+                    try { _cacheOptimizer.SaveMetadata(GetResolvedCacheMetadataPath(), CacheOptimizationMaxKeys); }
+                    catch (Exception ex) { LogFormat("[{0}] Cache metadata save failed: {1}", new[] { Name, ex.Message }); }
+                }
                 LogFormat("[{0}] Data saved to {1} (sha256 {2})", new[] { Name, DataPath, ShortHash(snapshotHash) });
             } catch (Exception ex) {
                 LogFormat("[{0}] Save failed: {1}", new[] { Name, ex.Message });
+                throw;
             } finally {
                 if (lockTaken)
                     _persistenceLock.Release();
@@ -974,17 +1011,23 @@ namespace SocketJack.Net.Database {
                     loaded = await LoadLegacyFileAsync(cancellationToken, DataPath).ConfigureAwait(false);
                 }
 
-                if (!loaded)
+                if (!loaded) {
+                    _loadFailure = null;
                     return;
+                }
 
                 if (loadedFromLegacy && IsSplitStoragePath())
                     await MigrateFromLegacyToSplitAsync(cancellationToken).ConfigureAwait(false);
 
-                ReloadOptimizedCache();
                 MarkPersisted(Volatile.Read(ref _dirtyVersion), ComputePayloadHash(BuildSnapshot()));
+                _loadFailure = null;
+                try { ReloadOptimizedCache(); }
+                catch (Exception ex) { LogFormat("[{0}] Cache metadata load failed: {1}", new[] { Name, ex.Message }); }
                 LogFormat("[{0}] Data loaded from {1}", new[] { Name, DataPath });
             } catch (Exception ex) {
+                if (lockTaken) _loadFailure = ex;
                 LogFormat("[{0}] Load failed: {1}", new[] { Name, ex.Message });
+                throw;
             } finally {
                 if (lockTaken)
                     _persistenceLock.Release();
@@ -1025,7 +1068,7 @@ namespace SocketJack.Net.Database {
             };
 
             string tablesDirectory = GetSplitStorageTablesPath();
-            if (Directory.Exists(tablesDirectory) && manifest.Databases != null) {
+            if (manifest.Databases != null) {
                 foreach (var dbKvp in manifest.Databases) {
                     var dbSnapshot = new DatabaseSnapshot {
                         Name = dbKvp.Value?.Name,
@@ -1034,21 +1077,19 @@ namespace SocketJack.Net.Database {
 
                     if (dbKvp.Value?.Tables != null) {
                         foreach (var tableKvp in dbKvp.Value.Tables) {
-                            if (string.IsNullOrWhiteSpace(tableKvp.Value))
-                                continue;
-                            if (tableKvp.Value.Contains(Path.DirectorySeparatorChar) ||
-                                tableKvp.Value.Contains(Path.AltDirectorySeparatorChar))
-                                continue;
+                            if (string.IsNullOrWhiteSpace(tableKvp.Value) ||
+                                Path.GetFileName(tableKvp.Value) != tableKvp.Value)
+                                throw new InvalidDataException("Invalid database table file in manifest.");
                             string tableFile = Path.Combine(tablesDirectory, tableKvp.Value);
                             if (!File.Exists(tableFile))
-                                continue;
+                                throw new FileNotFoundException("A persisted database table is missing.", tableFile);
 
                             string expectedHash = null;
                             if (dbKvp.Value.TableHashes != null)
                                 dbKvp.Value.TableHashes.TryGetValue(tableKvp.Key, out expectedHash);
 
                             TableSnapshot tableSnapshot = await ReadPersistedJsonAsync<TableSnapshot>(tableFile, cancellationToken, expectedHash).ConfigureAwait(false);
-                            if (tableSnapshot == null) continue;
+                            if (tableSnapshot == null) throw new InvalidDataException("A persisted database table is empty: " + tableFile);
                             dbSnapshot.Tables[tableKvp.Key] = tableSnapshot;
                         }
                     }
@@ -1092,6 +1133,9 @@ namespace SocketJack.Net.Database {
             foreach (var dbKvp in Databases) {
                 var dbSnap = new DatabaseSnapshot {
                     Name = dbKvp.Value?.Name,
+                    OwnerUsername = dbKvp.Value?.OwnerUsername,
+                    SqlAdminUsername = dbKvp.Value?.SqlAdminUsername,
+                    SqlAdminPassword = dbKvp.Value?.SqlAdminPassword,
                     Tables = new Dictionary<string, TableSnapshot>(StringComparer.OrdinalIgnoreCase)
                 };
 
@@ -1156,6 +1200,9 @@ namespace SocketJack.Net.Database {
         }
 
         private async Task<string> WriteTextAtomicAsync(string path, string text, CancellationToken cancellationToken) {
+            // The checksum and payload must be committed in the same atomic replacement.
+            // A separate sidecar can lag behind a successful write after a hard exit.
+            text = DurablePayloadHeader + ComputeTextHash(text) + "\n" + text;
             string normalizedPath = Path.GetFullPath(path);
             string directory = Path.GetDirectoryName(normalizedPath);
             if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
@@ -1194,7 +1241,6 @@ namespace SocketJack.Net.Database {
                 if (!HashesEqual(actualHash, expectedHash))
                     throw new IOException("Persistence hash verification failed for " + normalizedPath + ".");
 
-                await WriteTextDurableAsync(hashPath, actualHash + Environment.NewLine, cancellationToken).ConfigureAwait(false);
                 return actualHash;
             } finally {
                 try {
@@ -1214,6 +1260,17 @@ namespace SocketJack.Net.Database {
             string text = await File.ReadAllTextAsync(normalizedPath, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
             string actualHash = ComputeTextHash(text);
             string expectedHash = NormalizeHash(expectedPersistedHash);
+            if (text.StartsWith(DurablePayloadHeader, StringComparison.Ordinal)) {
+                if ((string.IsNullOrWhiteSpace(expectedHash) || HashesEqual(actualHash, expectedHash))
+                    && TryReadDurablePayload(text, out string payload))
+                    return payload;
+                // Table hashes belong to one committed manifest; never substitute another generation.
+                if (!string.IsNullOrWhiteSpace(expectedHash))
+                    throw new IOException("Persisted table hash mismatch for " + normalizedPath + ".");
+                string recovered = await TryReadVerifiedBackupTextAsync(normalizedPath, cancellationToken).ConfigureAwait(false);
+                if (recovered != null) return recovered;
+                throw new IOException("Persisted data checksum mismatch for " + normalizedPath + ".");
+            }
             if (string.IsNullOrWhiteSpace(expectedHash))
                 expectedHash = await ReadHashSidecarAsync(normalizedPath, cancellationToken).ConfigureAwait(false);
 
@@ -1227,20 +1284,33 @@ namespace SocketJack.Net.Database {
                 ShortHash(actualHash)
             });
 
-            string backupText = await TryReadVerifiedBackupTextAsync(normalizedPath, cancellationToken).ConfigureAwait(false);
+            string backupText = await TryReadVerifiedBackupTextAsync(normalizedPath, cancellationToken, expectedPersistedHash).ConfigureAwait(false);
             if (backupText != null)
                 return backupText;
 
             throw new IOException("Persisted data hash mismatch for " + normalizedPath + ".");
         }
 
-        private async Task<string> TryReadVerifiedBackupTextAsync(string normalizedPath, CancellationToken cancellationToken) {
+        private static bool TryReadDurablePayload(string text, out string payload) {
+            payload = null;
+            int separator = text.IndexOf('\n');
+            if (separator != DurablePayloadHeader.Length + 64) return false;
+            string candidate = text.Substring(separator + 1);
+            if (!HashesEqual(text.Substring(DurablePayloadHeader.Length, 64), ComputeTextHash(candidate))) return false;
+            payload = candidate;
+            return true;
+        }
+
+        private async Task<string> TryReadVerifiedBackupTextAsync(string normalizedPath, CancellationToken cancellationToken, string requiredHash = null) {
             string backupPath = normalizedPath + ".bak";
             if (!File.Exists(backupPath))
                 return null;
 
             string backupText = await File.ReadAllTextAsync(backupPath, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
             string backupActualHash = ComputeTextHash(backupText);
+            if (!string.IsNullOrWhiteSpace(requiredHash) && !HashesEqual(backupActualHash, requiredHash)) return null;
+            if (backupText.StartsWith(DurablePayloadHeader, StringComparison.Ordinal))
+                return TryReadDurablePayload(backupText, out string payload) ? payload : null;
             string backupExpectedHash = await ReadHashSidecarAsync(backupPath, cancellationToken).ConfigureAwait(false);
             if (!string.IsNullOrWhiteSpace(backupExpectedHash) && !HashesEqual(backupActualHash, backupExpectedHash)) {
                 LogFormat("[{0}] Backup hash mismatch while loading {1}: expected {2}, got {3}", new[] {
@@ -1382,6 +1452,9 @@ namespace SocketJack.Net.Database {
             if (snapshot.Databases != null) {
                 foreach (var dbKvp in snapshot.Databases) {
                     var runtimeDb = Databases.GetOrAdd(dbKvp.Key, _ => new Database(dbKvp.Value?.Name ?? dbKvp.Key));
+                    runtimeDb.OwnerUsername = dbKvp.Value?.OwnerUsername;
+                    runtimeDb.SqlAdminUsername = dbKvp.Value?.SqlAdminUsername;
+                    runtimeDb.SqlAdminPassword = NormalizeStoredPassword(dbKvp.Value?.SqlAdminPassword);
                     if (dbKvp.Value?.Tables == null)
                         continue;
 

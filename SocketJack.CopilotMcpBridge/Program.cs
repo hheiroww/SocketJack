@@ -792,6 +792,30 @@ public sealed class SocketJackModelProxyForwarder
         }
 
         byte[] body = await ReadRequestBodyAsync(context.Request, cancellationToken).ConfigureAwait(false);
+        if (context.Request.Method.Equals("POST", StringComparison.OrdinalIgnoreCase) &&
+            SocketJackProxyPath.IsOllamaChatPath(upstreamPath))
+        {
+            ProxyResponse ollamaResponse;
+            try
+            {
+                byte[] openAiBody = SocketJackOllamaChatAdapter.BuildOpenAiChatRequest(body, _options.ModelId);
+                ProxyResponse openAiResponse = await ForwardOpenAiChatViaWebChatAsync(
+                    openAiBody,
+                    OpenAiProxyResponseShape.ChatCompletions,
+                    cancellationToken).ConfigureAwait(false);
+                ollamaResponse = SocketJackOllamaChatAdapter.BuildChatResponse(openAiResponse, _options.ModelId);
+            }
+            catch (JsonException ex)
+            {
+                ollamaResponse = SocketJackOpenAiChatAdapter.BuildErrorResponse(
+                    StatusCodes.Status400BadRequest,
+                    "Invalid Ollama chat request JSON: " + ex.Message);
+            }
+
+            await WriteProxyResponseAsync(context, ollamaResponse, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
         if (SocketJackProxyPath.IsOpenAiChatCompletionsPath(upstreamPath) ||
             SocketJackProxyPath.IsOpenAiResponsesPath(upstreamPath))
         {
@@ -3595,10 +3619,85 @@ public static class SocketJackProxyPath
     {
         return path.Equals("/api/tags", StringComparison.OrdinalIgnoreCase);
     }
+
+    public static bool IsOllamaChatPath(string path)
+    {
+        return path.Equals("/api/chat", StringComparison.OrdinalIgnoreCase);
+    }
 }
 
 public static class SocketJackOllamaChatAdapter
 {
+    public static byte[] BuildOpenAiChatRequest(byte[] requestBody, string selectedModelId)
+    {
+        JsonObject ollama = JsonNode.Parse(requestBody) as JsonObject ?? new JsonObject();
+        var openAi = new JsonObject
+        {
+            ["model"] = FirstNonEmpty(ollama["model"]?.ToString(), selectedModelId, "socketjack-model"),
+            // A completed Ollama response is valid even when the caller requested streaming,
+            // and avoids translating SSE fragments into Ollama NDJSON here.
+            ["stream"] = false
+        };
+
+        if (ollama["messages"] is JsonArray messages)
+            openAi["messages"] = JsonNode.Parse(messages.ToJsonString());
+        else
+            openAi["messages"] = new JsonArray();
+
+        if (ollama["tools"] is JsonArray tools)
+            openAi["tools"] = JsonNode.Parse(tools.ToJsonString());
+        if (ollama["format"] != null)
+            openAi["response_format"] = JsonNode.Parse(ollama["format"]!.ToJsonString());
+
+        if (ollama["options"] is JsonObject options)
+        {
+            CopyOption(options, openAi, "temperature", "temperature");
+            CopyOption(options, openAi, "top_p", "top_p");
+            CopyOption(options, openAi, "num_predict", "max_tokens");
+            CopyOption(options, openAi, "stop", "stop");
+        }
+
+        return Encoding.UTF8.GetBytes(openAi.ToJsonString());
+    }
+
+    public static ProxyResponse BuildChatResponse(ProxyResponse openAiResponse, string selectedModelId)
+    {
+        if (openAiResponse.StatusCode < StatusCodes.Status200OK ||
+            openAiResponse.StatusCode >= StatusCodes.Status300MultipleChoices)
+        {
+            return openAiResponse;
+        }
+
+        JsonObject openAi = JsonNode.Parse(openAiResponse.Body) as JsonObject ?? new JsonObject();
+        JsonObject? choice = (openAi["choices"] as JsonArray)?[0] as JsonObject;
+        JsonObject? sourceMessage = choice?["message"] as JsonObject;
+        var message = new JsonObject
+        {
+            ["role"] = sourceMessage?["role"]?.ToString() ?? "assistant",
+            ["content"] = sourceMessage?["content"]?.ToString() ?? ""
+        };
+        if (sourceMessage?["tool_calls"] is JsonArray toolCalls)
+            message["tool_calls"] = JsonNode.Parse(toolCalls.ToJsonString());
+
+        JsonObject? usage = openAi["usage"] as JsonObject;
+        var root = new JsonObject
+        {
+            ["model"] = FirstNonEmpty(openAi["model"]?.ToString(), selectedModelId, "socketjack-model"),
+            ["created_at"] = DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture),
+            ["message"] = message,
+            ["done"] = true,
+            ["done_reason"] = choice?["finish_reason"]?.ToString() ?? "stop",
+            ["prompt_eval_count"] = ReadInt(usage?["prompt_tokens"]),
+            ["eval_count"] = ReadInt(usage?["completion_tokens"])
+        };
+        return new ProxyResponse(
+            StatusCodes.Status200OK,
+            "OK",
+            "application/json",
+            new Dictionary<string, string>(),
+            Encoding.UTF8.GetBytes(root.ToJsonString()));
+    }
+
     public static ProxyResponse BuildTagsResponse(string selectedModelId)
     {
         string model = string.IsNullOrWhiteSpace(selectedModelId) ? "socketjack-model" : selectedModelId.Trim();
@@ -3626,6 +3725,24 @@ public static class SocketJackOllamaChatAdapter
         };
         byte[] body = Encoding.UTF8.GetBytes(root.ToJsonString());
         return new ProxyResponse(StatusCodes.Status200OK, "OK", "application/json", new Dictionary<string, string>(), body);
+    }
+
+    private static void CopyOption(JsonObject options, JsonObject destination, string sourceName, string destinationName)
+    {
+        if (options[sourceName] != null)
+            destination[destinationName] = JsonNode.Parse(options[sourceName]!.ToJsonString());
+    }
+
+    private static string FirstNonEmpty(params string?[] values)
+    {
+        return values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim() ?? "";
+    }
+
+    private static int ReadInt(JsonNode? value)
+    {
+        return int.TryParse(value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsed)
+            ? parsed
+            : 0;
     }
 }
 

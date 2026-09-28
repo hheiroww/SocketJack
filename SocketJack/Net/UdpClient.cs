@@ -20,7 +20,7 @@ namespace SocketJack.Net {
     /// Multithreaded UDP Client.
     /// Modeled after TcpClient but uses connectionless UDP datagrams.
     /// </summary>
-    public class UdpClient : NetworkBase {
+    public partial class UdpClient : NetworkBase {
 
         #region Properties
 
@@ -47,7 +47,7 @@ namespace SocketJack.Net {
 
         public override bool Connected {
             get {
-                return _Connected;
+                return _Connected && (Options?.UdpMode != UdpMode.UDP_Reliable || ReliablePeer?.IsReady == true);
             }
         }
         private bool _Connected = false;
@@ -91,6 +91,8 @@ namespace SocketJack.Net {
         protected internal UdpConnection UdpConn;
 
         private IPAddress[] ResolveAllIPv4FromHostEntry(string Host) {
+            if (IPAddress.TryParse(Host, out var literal) && literal.AddressFamily == AddressFamily.InterNetwork) return new[] { literal };
+            if (string.Equals(Host, "localhost", StringComparison.OrdinalIgnoreCase)) return new[] { IPAddress.Loopback };
             IPHostEntry hostEntry = null;
             MethodExtensions.TryInvoke(() => hostEntry = Dns.GetHostEntry(Host));
             if (hostEntry == null) {
@@ -263,9 +265,9 @@ namespace SocketJack.Net {
         }
 
         private async void UdpClient_OnDisconnected(DisconnectedEventArgs args) {
-            base.Peers.Clear();
+            base.Peers?.Clear();
             LogFormat("[{0}] Disconnected -> {1}:{2}", new[] { string.Format(@"{0}{1}", new[] { Name, RemoteIdentity == null ? "" : "\\" + RemoteIdentity.ID.ToUpper() }), LastHost, LastPort.ToString() });
-            if (Options.AutoReconnect && !isDisposed)
+            if (!isDisposed && Options?.AutoReconnect == true)
                 await Reconnect();
         }
 
@@ -431,8 +433,18 @@ namespace SocketJack.Net {
 
                 _Connected = true;
 
-                StartUdpReceiving();
-                StartUdpSending();
+                if (Options.UdpMode == UdpMode.UDP_Reliable) {
+                    ReliableTransport = new UdpReliableTransport(_Socket, false, Options, p => { }, ReliableReceive, ReliableFailed);
+                    ReliableTransport.Start();
+                    using (var connectTimeout = new CancellationTokenSource(Options.ConnectionTimeout)) {
+                        ReliablePeer = await ReliableTransport.Connect(_RemoteEndPoint, connectTimeout.Token);
+                        UdpConn.ReliablePeer = ReliablePeer;
+                        ReliablePeer.Transfers = new UdpReliableTransfers(ReliablePeer, request => TransferRequested?.Invoke(request));
+                    }
+                } else {
+                    StartUdpReceiving();
+                    StartUdpSending();
+                }
                 StartUdpHeartbeat();
 
                 LogFormat("[{0}] Connected  -> {1}:{2}", new[] { Name, Host, Port.ToString() });
@@ -465,13 +477,17 @@ namespace SocketJack.Net {
         /// Disconnect from the server.
         /// </summary>
         public void Disconnect() {
-            if (Options.AutoReconnect) {
+            if (Options?.AutoReconnect == true && !isDisposed) {
                 Options.AutoReconnect = false;
                 ResetAutoReconnect = true;
             }
             if (_Connected) {
+                var reliableTransport = ReliableTransport;
+                ReliableTransport = null;
+                ReliablePeer = null;
                 _CurrentHost = default;
                 _Connected = false;
+                reliableTransport?.Dispose();
                 StopPingLoop();
                 _receiveCts?.Cancel();
                 _sendCts?.Cancel();
@@ -502,6 +518,7 @@ namespace SocketJack.Net {
         /// </summary>
         /// <param name="Obj">An object.</param>
         public void Send(object Obj) {
+            if (Options.UdpMode == UdpMode.UDP_Reliable) { ObserveReliable(SendReliable(Obj, false, CancellationToken.None)); return; }
             if (!_Connected || _Socket == null || _RemoteEndPoint == null) return;
 
             var wrapped = new Wrapper(Obj, this);
@@ -688,7 +705,9 @@ namespace SocketJack.Net {
         private void DeserializeAndDispatch(byte[] bytes, int byteLength, IPEndPoint sender) {
             try {
                 byte[] data = bytes;
-                if (Options.UseCompression) {
+                if (Options.UseCompression && Options.UdpMode == UdpMode.UDP_Reliable) {
+                    data = UdpReliableObjects.Decompress(data, Options);
+                } else if (Options.UseCompression) {
                     var result = MethodExtensions.TryInvoke(Options.CompressionAlgorithm.Decompress, ref data);
                     if (result.Success) {
                         data = result.Result;
@@ -722,7 +741,7 @@ namespace SocketJack.Net {
                             string json = ((JsonElement)val).GetRawText();
                             redirectBytes = Encoding.UTF8.GetBytes(json);
                         }
-                        PeerRedirect redirect = Options.Serializer.DeserializeRedirect(this, redirectBytes);
+                        PeerRedirect redirect = Options.Serializer is SocketJack.Serialization.BinarySerializer binary ? binary.UnwrapRedirect(this, wrapper) : Options.Serializer.DeserializeRedirect(this, redirectBytes);
                         HandleReceive(Connection, redirect, valueType, byteLength);
                     } else {
                         object unwrapped = null;

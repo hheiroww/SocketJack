@@ -4757,6 +4757,23 @@ body.agent-mode .solution-explorer {
     padding: 0;
     border-radius: 10px;
 }
+.solution-head .git-import-button {
+    width: auto;
+    padding: 0 10px;
+    white-space: nowrap;
+}
+.solution-action-icon {
+    width: 17px;
+    height: 17px;
+    display: block;
+    margin: auto;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.9;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    pointer-events: none;
+}
 .solution-status {
     color: var(--muted);
     font: 0.72rem var(--ui-font);
@@ -6406,6 +6423,23 @@ body.agent-mode .prompt-processing-control:focus-visible {
 }
 .tool-call-row.status-failed {
     border-color: rgba(248, 113, 113, 0.36);
+}
+.tool-call-group-body {
+    display: grid;
+    gap: 5px;
+    max-height: 400px;
+    min-width: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+    padding: 0 7px 7px 31px;
+}
+.tool-call-group-body > .tool-call-row {
+    background: rgba(2, 6, 23, 0.42);
+}
+.tool-call-group-body > .tool-call-row .tool-call-body {
+    padding-left: 25px;
 }
 .tool-call-row summary {
     display: grid;
@@ -15391,6 +15425,12 @@ body.comments-panel-open:not(.portrait-layout) .comments-panel-toggle {
     right: var(--comments-drawer-width) !important;
 }
 
+/* Keep both left drawer controls on the outside edge of every open drawer. */
+body:not(.portrait-layout) #sessionPanelEdgeToggle,
+body:not(.portrait-layout) #solutionPanelEdgeToggle {
+    left: var(--left-drawer-parent-space) !important;
+}
+
 .edge-panel-icon {
     width: 20px;
     height: 20px;
@@ -16745,7 +16785,7 @@ body[data-header-layout-preset="wide"] .header-layout-block { flex-basis:100%; }
             <h2 id="loginTitle">Sign in</h2>
             <button id="loginClose" class="secondary login-close" type="button" aria-label="Close tab" title="Close tab">X</button>
         </div>
-        <p id="loginSubtitle" class="login-subtitle">Sign in with an account from this heirowLLM Workstation.</p>
+        <p id="loginSubtitle" class="login-subtitle">Sign in with your heirowLLM account. SocketJack.com accounts work on this Workstation.</p>
         <label>Username <input id="loginUsername" type="text" autocomplete="username" required></label>
         <label>Password <input id="loginPassword" type="password" autocomplete="current-password" required></label>
         <label class="login-remember"><input id="loginRemember" type="checkbox" checked>Remember this browser</label>
@@ -17044,6 +17084,9 @@ body[data-header-layout-preset="wide"] .header-layout-block { flex-basis:100%; }
                         <button id="workspaceBuilderTab" class="workspace-tab" type="button" role="tab" data-workspace-view="builder" aria-controls="featureWorkspace" aria-selected="false" tabindex="-1" title="Agent Builder" hidden>
                             <svg class="workspace-tab-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="2.5"></circle><circle cx="18" cy="6" r="2.5"></circle><circle cx="18" cy="18" r="2.5"></circle><path d="M8.4 11.1 15.6 7M8.4 12.9l7.2 4.1"></path></svg><span>Agent Builder</span>
                         </button>
+                        <button id="workspaceWebUiTab" class="workspace-tab" type="button" role="tab" data-workspace-view="webui" aria-controls="featureWorkspace" aria-selected="false" tabindex="-1" title="heirowWebUI visual web designer" hidden>
+                            <svg class="workspace-tab-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M3 9h18M8 9v11M6 6.5h.01M9 6.5h.01M13 13h5M13 16h3"></path></svg><span>heirowWebUI</span>
+                        </button>
                         <button id="workspacePictureBankTab" class="workspace-tab" type="button" role="tab" data-workspace-view="picturebank" aria-controls="featureWorkspace" aria-selected="false" tabindex="-1" title="PictureBank">
                             <svg class="workspace-tab-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="m5 18 5-5 3 3 2-2 4 4"></path></svg><span>PictureBank</span>
                         </button>
@@ -17120,9 +17163,9 @@ body[data-header-layout-preset="wide"] .header-layout-block { flex-basis:100%; }
                 <div class="solution-actions">
                     <span id="solutionLoadingThrobber" class="rgb-panel-throbber" aria-hidden="true"></span>
                     <span id="solutionExplorerStatus" class="solution-status">Loading</span>
-                    <button id="importGitHubRepository" class="ghost panel-refresh" type="button" title="Import GitHub repository into this session" aria-label="Import GitHub repository">GH</button>
-	                    <button id="projectVersionsToggle" class="ghost panel-refresh" type="button" title="Project Version Control" aria-label="Project Version Control">V</button>
-                    <button id="refreshSolutionExplorer" class="ghost panel-refresh" type="button" title="Refresh Project Files" aria-label="Refresh Project Files">R</button>
+                    <button id="importGitHubRepository" class="ghost git-import-button" type="button" title="Import Git repository into this session" aria-label="Git Import">Git Import</button>
+	                    <button id="projectVersionsToggle" class="ghost" type="button" title="Project Version Control" aria-label="Project Version Control"><svg class="solution-action-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="5" r="2"></circle><circle cx="6" cy="19" r="2"></circle><circle cx="18" cy="7" r="2"></circle><path d="M6 7v10M8 7h4a6 6 0 0 1 6 6v4"></path></svg></button>
+                    <button id="refreshSolutionExplorer" class="ghost panel-refresh" type="button" title="Refresh Project Files" aria-label="Refresh Project Files">&#x21BB;</button>
                 </div>
             </div>
             <details id="projectWorkspaceBrowser" class="project-workspace-browser" open>
@@ -17183,7 +17226,7 @@ body[data-header-layout-preset="wide"] .header-layout-block { flex-basis:100%; }
                 <div class="project-workflow-actions">
                     <button id="projectWorkflowUseMirror" class="ghost" type="button" title="Use session mirror root">M</button>
                     <button id="projectWorkflowLinkRoot" class="ghost" type="button" title="Link project root">L</button>
-                    <button id="projectWorkflowRefresh" class="ghost" type="button" title="Refresh project workflow">R</button>
+                    <button id="projectWorkflowRefresh" class="ghost" type="button" title="Refresh project workflow" aria-label="Refresh project workflow">&#x21BB;</button>
                 </div>
             </div>
             <div id="projectVersionsPanel" class="project-versions-panel" hidden>
@@ -17238,7 +17281,7 @@ body[data-header-layout-preset="wide"] .header-layout-block { flex-basis:100%; }
                             <div id="personaPlexStatus" class="personaplex-status">Idle</div>
                         </div>
                         <div class="personaplex-actions">
-                            <button id="personaPlexRefresh" class="ghost" type="button" title="Refresh Voice Mode">R</button>
+                            <button id="personaPlexRefresh" class="ghost" type="button" title="Refresh Voice Mode" aria-label="Refresh Voice Mode">&#x21BB;</button>
                             <button id="personaPlexSave" class="ghost" type="button" title="Save Voice Mode settings" hidden>Save</button>
                             <button id="personaPlexClose" class="ghost" type="button" title="Close Voice Mode">x</button>
                         </div>
@@ -17842,7 +17885,7 @@ body[data-header-layout-preset="wide"] .header-layout-block { flex-basis:100%; }
         <h2 id="webOnboardingTitle">Welcome to heirowLLM Web Chat</h2>
         <p>Your browser is connected to this Workstation. Projects group sessions, Files hold session attachments, and model/runtime choices stay on this machine.</p>
         <div class="onboarding-grid">
-            <div class="onboarding-step"><strong>1. Sign in</strong><span>Use a Workstation account. Uploads, sessions, permissions, and usage belong to that user.</span></div>
+            <div class="onboarding-step"><strong>1. Sign in</strong><span>Use your heirowLLM account. SocketJack.com accounts work here; permissions are assigned by this Workstation.</span></div>
             <div class="onboarding-step"><strong>2. Choose a project</strong><span>Open Projects to organize chats. Start New with Context when you want a clean session that keeps selected context.</span></div>
             <div class="onboarding-step"><strong>3. Add files or images</strong><span>Attach beside the composer. Permission requests remain visible and require approval.</span></div>
             <div class="onboarding-step"><strong>4. Pick a model</strong><span>The model list reflects what is downloaded and enabled on the Workstation Models tab.</span></div>
@@ -18017,12 +18060,13 @@ const menuSqlManager = document.getElementById('menuSqlManager');
 const workspaceViewTabStrip = document.getElementById('workspaceViewTabStrip');
 const workspaceChatTab = document.getElementById('workspaceChatTab');
 const workspaceBuilderTab = document.getElementById('workspaceBuilderTab');
+const workspaceWebUiTab = document.getElementById('workspaceWebUiTab');
 const workspacePictureBankTab = document.getElementById('workspacePictureBankTab');
 const workspaceStocksTab = document.getElementById('workspaceStocksTab');
 const workspaceSqlTab = document.getElementById('workspaceSqlTab');
 const workspaceDirectorTab = document.getElementById('workspaceDirectorTab');
 const workspaceSongTab = document.getElementById('workspaceSongTab');
-const workspaceTabs = [workspaceChatTab, workspaceBuilderTab, workspacePictureBankTab, workspaceStocksTab, workspaceSqlTab, workspaceDirectorTab, workspaceSongTab].filter(Boolean);
+const workspaceTabs = [workspaceChatTab, workspaceBuilderTab, workspaceWebUiTab, workspacePictureBankTab, workspaceStocksTab, workspaceSqlTab, workspaceDirectorTab, workspaceSongTab].filter(Boolean);
 const featureWorkspace = document.getElementById('featureWorkspace');
 const featureWorkspaceFrame = document.getElementById('featureWorkspaceFrame');
 const menuAdministrativeTools = document.getElementById('menuAdministrativeTools');
@@ -19440,8 +19484,8 @@ function redirectToSocketJackRegistration() {
 }
 function detectLocalApiPrefix() {
     const parts = (window.location.pathname || '').split('/').filter(Boolean);
-    if (parts.length >= 2 && parts[0].toLowerCase() === 'proxy')
-        return '/' + parts[0] + '/' + parts[1];
+    if (parts.length >= 1 && parts[0].toLowerCase() === 'proxy')
+        return '/' + parts.slice(0, Math.min(2, parts.length)).join('/');
     return '';
 }
 
@@ -19476,6 +19520,15 @@ function localRoutePath(path) {
     if (!shouldUseExplicitLocalApiPrefix())
         return normalized.startsWith(localApiPrefix + '/') ? normalized.slice(localApiPrefix.length) || '/' : normalized;
     return explicitLocalRoutePath(normalized);
+}
+
+// Iframes and ordinary links are resolved by the browser rather than the fetch
+// proxy. Always retain the visible Workstation mount prefix for navigation.
+function localNavigationPath(path) {
+    const normalized = normalizedLocalPath(path);
+    if (!normalized || !localApiPrefix) return normalized;
+    if (normalized === localApiPrefix || normalized.startsWith(localApiPrefix + '/')) return normalized;
+    return localApiPrefix + normalized;
 }
 
 function normalizeLocalApiResource(resource) {
@@ -20459,8 +20512,8 @@ function setLoginGateVisible(visible, options) {
     document.body.classList.toggle('auth-required', !!visible);
     if (loginSubtitle) {
         loginSubtitle.textContent = loginGateOptional
-            ? 'Sign in with an account from this Workstation.'
-            : 'Sign in with an account from this heirowLLM Workstation.';
+            ? 'Sign in with your heirowLLM account.'
+            : 'Sign in with your heirowLLM account. SocketJack.com accounts work on this Workstation.';
     }
     if (loginClose) {
         const closeLabel = loginGateOptional ? 'Continue with free chat' : 'Close tab';
@@ -20501,7 +20554,7 @@ function canUseChatWithoutLogin(session) {
 function updatePremiumTokenHint() {
     const show = !!(!shouldHideLocalLoginUi() && !sharedView && !isSocketJackAuthenticated(authSession) && usageState && usageState.tokensRequired === false);
     if (premiumTokenText) {
-        premiumTokenText.textContent = 'Sign in with this Workstation account for chat, history, uploads, sharing, and tools.';
+        premiumTokenText.textContent = 'Sign in with your heirowLLM account for chat, history, uploads, sharing, and tools.';
     }
     if (premiumTokenHint) {
         premiumTokenHint.hidden = !show;
@@ -21051,6 +21104,7 @@ async function saveWorkstationOptions() {
 const workspaceViewDefinitions = {
     chat: { title: 'Chat', path: '' },
     builder: { title: 'Agent Builder', path: '/Builder' },
+    webui: { title: 'heirowWebUI', path: '/heirowWebUI/' },
     picturebank: { title: 'PictureBank', path: '/PictureBank' },
     stocks: { title: 'heirowStocks', path: '/Stocks' },
     sql: { title: 'SQL Manager', path: '/sql' },
@@ -21066,6 +21120,7 @@ let requestedWorkspaceView = (() => {
 })();
 
 function workspaceViewAllowed(view) {
+    if (view === 'webui') return !!(authSession && authSession.authenticated);
     if (view === 'builder') return !!(permissionState && permissionState.agentBuilder);
     if (view === 'sql') return !!(permissionState && permissionState.sqlAdmin);
     if (view === 'picturebank') return !!(permissionState && permissionState.pictureBank);
@@ -21088,24 +21143,38 @@ function openWorkspaceTab(view) {
     });
     if (featureActive && featureWorkspaceFrame) {
         const definition = workspaceViewDefinitions[view];
+        const workspacePath = localNavigationPath(definition.path);
+        const source = view === 'webui'
+            ? workspacePath + '?workstation=1&sessionId=' + encodeURIComponent(currentSessionId || ensureSessionId()) + '&projectId=' + encodeURIComponent(currentProjectId || selectedProjectId || 'unsorted')
+            : workspacePath;
         const activeTab = workspaceTabs.find(tab => tab.dataset.workspaceView === view);
         if (featureWorkspace && activeTab)
             featureWorkspace.setAttribute('aria-labelledby', activeTab.id);
-        if (featureWorkspaceFrame.dataset.view !== view) {
+        if (featureWorkspaceFrame.dataset.view !== view || featureWorkspaceFrame.dataset.source !== source) {
+            if (view === 'webui') {
+                try {
+                    const token = readSocketJackToken();
+                    if (token) featureWorkspaceFrame.contentWindow.sessionStorage.setItem('heirowWebUIToken', token);
+                    else featureWorkspaceFrame.contentWindow.sessionStorage.removeItem('heirowWebUIToken');
+                } catch { }
+            }
             featureWorkspaceFrame.dataset.view = view;
+            featureWorkspaceFrame.dataset.source = source;
             featureWorkspaceFrame.title = definition.title;
-            featureWorkspaceFrame.src = definition.path;
+            featureWorkspaceFrame.src = source;
         }
     }
     closeAllAppMenus();
 }
 
 function refreshWorkspaceTabs() {
+    const webUiAllowed = workspaceViewAllowed('webui');
     const builderAllowed = workspaceViewAllowed('builder');
     const sqlAllowed = workspaceViewAllowed('sql');
     const directorAllowed = workspaceViewAllowed('director');
     const songAllowed = workspaceViewAllowed('song');
     if (workspaceBuilderTab) workspaceBuilderTab.hidden = !builderAllowed;
+    if (workspaceWebUiTab) workspaceWebUiTab.hidden = !webUiAllowed;
     if (workspaceSqlTab) workspaceSqlTab.hidden = !sqlAllowed;
     if (workspaceDirectorTab) workspaceDirectorTab.hidden = !directorAllowed;
     if (workspaceSongTab) workspaceSongTab.hidden = !songAllowed;
@@ -21139,6 +21208,14 @@ if (workspaceViewTabStrip) {
         openWorkspaceTab(visibleTabs[nextIndex].dataset.workspaceView || 'chat');
     });
 }
+window.addEventListener('message', event => {
+    if (event.origin !== window.location.origin || event.source !== featureWorkspaceFrame?.contentWindow) return;
+    const message = event.data || {};
+    if (message.type !== 'heirowwebui-project-created' && message.type !== 'heirowwebui-files-changed') return;
+    void loadSessions(false).catch(() => { });
+    if (message.type === 'heirowwebui-files-changed' && message.sessionId && message.sessionId === currentSessionId)
+        void refreshSessionFiles(currentSessionId, null).catch(() => { });
+});
 const workspaceMenuViews = new Map([
     [menuHeirowDirector, 'director'],
     [menuHeirowSong, 'song'],
@@ -21301,6 +21378,18 @@ async function logout() {
     authSession = null;
     isDatabaseAdmin = false;
     isServerOwner = false;
+    chatSessions = [];
+    chatProjects = [];
+    currentSessionId = null;
+    currentProjectId = 'unsorted';
+    selectedProjectId = 'unsorted';
+    if (featureWorkspaceFrame) {
+        featureWorkspaceFrame.src = 'about:blank';
+        featureWorkspaceFrame.dataset.view = '';
+        featureWorkspaceFrame.dataset.source = '';
+    }
+    openWorkspaceTab('chat');
+    renderSessionList();
     updateAuthUserPill(null);
     applyRemoteAdminAvailability();
     refreshWorkspaceTabs();
@@ -31186,7 +31275,8 @@ function formatToolCallStatus(call) {
 function formatToolDisplayName(name) {
     const value = coerceString(name, '').replace(/^llmruntime:/i, '').replace(/[_:.-]+/g, ' ').replace(/\s+/g, ' ').trim();
     if (!value) return 'Tool call';
-    return value.replace(/\b\w/g, char => char.toUpperCase());
+    const acronyms = { api: 'API', css: 'CSS', git: 'Git', html: 'HTML', http: 'HTTP', js: 'JS', llm: 'LLM', sql: 'SQL', ui: 'UI', url: 'URL', vs: 'VS' };
+    return value.split(' ').map(word => acronyms[word.toLowerCase()] || (word.charAt(0).toUpperCase() + word.slice(1))).join(' ');
 }
 
 function parseToolJsonPreview(value) {
@@ -31420,13 +31510,23 @@ function summarizeToolCallResult(call) {
     return lines.filter(Boolean).slice(0, 18).join('\n');
 }
 
-function createToolCallActivityRow(call) {
+function toolActivityStateValue(uiState, collectionName, key, fallback) {
+    const collection = uiState && uiState[collectionName];
+    return collection && Object.prototype.hasOwnProperty.call(collection, key) ? collection[key] : fallback;
+}
+
+function createToolCallActivityRow(call, uiState, stateKey, options) {
     const normalized = normalizeToolCallEvent(call);
     const imagePreview = toolCallImagePreview(normalized);
     const row = document.createElement('details');
     const status = normalizeToolCallStatus(normalized && normalized.status);
+    const key = stateKey || ('call:' + coerceString(normalized && normalized.id, 'unknown'));
     row.className = 'tool-call-row status-' + status;
-    row.open = !!imagePreview || status === 'failed' || status === 'started' || status === 'progress';
+    row.dataset.toolStateKey = key;
+    const defaultOpen = options && typeof options.defaultOpen === 'boolean'
+        ? options.defaultOpen
+        : (!!imagePreview || status === 'failed' || status === 'started' || status === 'progress');
+    row.open = !!toolActivityStateValue(uiState, 'openByKey', key, defaultOpen);
     const summary = document.createElement('summary');
     const indicator = document.createElement('span');
     indicator.className = 'tool-call-indicator';
@@ -31464,6 +31564,118 @@ function createToolCallActivityRow(call) {
     }
     row.appendChild(body);
     return row;
+}
+
+function isGroupedFileReadToolCall(call) {
+    const name = coerceString(call && call.name, '').toLowerCase();
+    return name === 'vs_read_file' || name === 'read_file';
+}
+
+function aggregateToolCallStatus(calls) {
+    const statuses = (Array.isArray(calls) ? calls : []).map(call => normalizeToolCallStatus(call && call.status));
+    if (statuses.includes('failed')) return 'failed';
+    if (statuses.includes('started') || statuses.includes('progress')) return 'progress';
+    return 'completed';
+}
+
+function createFileReadActivityGroup(calls, uiState) {
+    const normalizedCalls = normalizeToolCallEvents(calls);
+    const first = normalizedCalls[0];
+    const name = coerceString(first && first.name, 'vs_read_file').toLowerCase();
+    const status = aggregateToolCallStatus(normalizedCalls);
+    const key = 'group:' + name + ':' + coerceString(first && first.id, 'reads');
+    const group = document.createElement('details');
+    group.className = 'tool-call-row tool-call-group status-' + status;
+    group.dataset.toolStateKey = key;
+    const childWasOpen = normalizedCalls.some(call => !!toolActivityStateValue(uiState, 'openByKey', 'call:' + call.id, false));
+    group.open = !!toolActivityStateValue(uiState, 'openByKey', key, childWasOpen || status === 'failed' || status === 'progress');
+
+    const summary = document.createElement('summary');
+    const indicator = document.createElement('span');
+    indicator.className = 'tool-call-indicator';
+    indicator.setAttribute('aria-hidden', 'true');
+    const main = document.createElement('span');
+    main.className = 'tool-call-main';
+    const title = document.createElement('span');
+    title.className = 'tool-call-title';
+    title.textContent = formatToolDisplayName(name) + ' (' + normalizedCalls.length + ')';
+    const sub = document.createElement('span');
+    sub.className = 'tool-call-summary';
+    const lastDescriptor = toolCallPrimaryDescriptor(normalizedCalls[normalizedCalls.length - 1]);
+    sub.textContent = lastDescriptor || (normalizedCalls.length + ' file reads');
+    main.append(title, sub);
+    const meta = document.createElement('span');
+    meta.className = 'tool-call-meta';
+    const failed = normalizedCalls.filter(call => normalizeToolCallStatus(call.status) === 'failed').length;
+    const running = normalizedCalls.filter(call => ['started', 'progress'].includes(normalizeToolCallStatus(call.status))).length;
+    const completed = normalizedCalls.length - failed - running;
+    const metaBits = [];
+    if (completed) metaBits.push(completed + ' done');
+    if (running) metaBits.push(running + ' running');
+    if (failed) metaBits.push(failed + ' failed');
+    meta.textContent = metaBits.join(' | ');
+    summary.append(indicator, main, meta);
+    group.appendChild(summary);
+
+    const body = document.createElement('div');
+    body.className = 'tool-call-group-body';
+    body.dataset.toolScrollKey = key;
+    const savedScrollTop = Number(toolActivityStateValue(uiState, 'scrollByKey', key, 0)) || 0;
+    normalizedCalls.forEach(call => {
+        body.appendChild(createToolCallActivityRow(call, uiState, 'call:' + call.id, {
+            defaultOpen: normalizeToolCallStatus(call.status) === 'failed'
+        }));
+    });
+    group.appendChild(body);
+    if (savedScrollTop > 0) {
+        requestAnimationFrame(() => {
+            if (body.isConnected) body.scrollTop = savedScrollTop;
+        });
+    }
+    return group;
+}
+
+function captureAssistantToolActivityUiState(parts, container) {
+    const uiState = parts._toolActivityUiState || {
+        openByKey: Object.create(null),
+        scrollByKey: Object.create(null),
+        listCollapsed: true
+    };
+    if (container) {
+        container.querySelectorAll('details[data-tool-state-key]').forEach(details => {
+            uiState.openByKey[details.dataset.toolStateKey] = !!details.open;
+        });
+        container.querySelectorAll('[data-tool-scroll-key]').forEach(scroller => {
+            uiState.scrollByKey[scroller.dataset.toolScrollKey] = scroller.scrollTop || 0;
+        });
+        const currentList = container.querySelector('.tool-call-list');
+        if (currentList) uiState.listCollapsed = currentList.classList.contains('collapsed');
+    }
+    parts._toolActivityUiState = uiState;
+    return uiState;
+}
+
+function buildToolActivityRenderItems(calls) {
+    const items = [];
+    for (let index = 0; index < calls.length;) {
+        const call = calls[index];
+        if (!isGroupedFileReadToolCall(call)) {
+            items.push({ type: 'call', call });
+            index++;
+            continue;
+        }
+        const name = coerceString(call && call.name, '').toLowerCase();
+        const groupedCalls = [call];
+        index++;
+        while (index < calls.length && coerceString(calls[index] && calls[index].name, '').toLowerCase() === name) {
+            groupedCalls.push(calls[index]);
+            index++;
+        }
+        items.push(groupedCalls.length > 1
+            ? { type: 'file-read-group', calls: groupedCalls }
+            : { type: 'call', call: groupedCalls[0] });
+    }
+    return items;
 }
 
 function toolCallImagePreview(call) {
@@ -31593,16 +31805,17 @@ function updateAssistantToolActivity(parts, toolCalls) {
     if (!parts || !parts.toolActivity) return;
     const calls = normalizeToolCallEvents(toolCalls);
     parts._toolCalls = calls;
-    const visibleCalls = calls;
     const container = parts.toolActivity;
+    const uiState = captureAssistantToolActivityUiState(parts, container);
+    const renderItems = buildToolActivityRenderItems(calls);
     container.textContent = '';
-    container.hidden = !visibleCalls.length;
-    if (!visibleCalls.length) return;
+    container.hidden = !renderItems.length;
+    if (!renderItems.length) return;
     const listEl = document.createElement('div');
     listEl.className = 'tool-call-list';
     const collapseLimit = 80;
-    if (visibleCalls.length > collapseLimit) {
-        listEl.classList.add('collapsed');
+    if (renderItems.length > collapseLimit) {
+        listEl.classList.toggle('collapsed', uiState.listCollapsed !== false);
         const head = document.createElement('div');
         head.className = 'tool-call-list-head';
         const toggle = document.createElement('button');
@@ -31612,7 +31825,7 @@ function updateAssistantToolActivity(parts, toolCalls) {
         const setToggleText = () => {
             const collapsed = listEl.classList.contains('collapsed');
             toggle.textContent = collapsed
-                ? 'Show all ' + visibleCalls.length + ' tool calls'
+                ? 'Show all ' + calls.length + ' tool calls'
                 : 'Collapse to latest ' + collapseLimit;
             toggle.title = collapsed
                 ? 'Expand tool activity'
@@ -31623,15 +31836,18 @@ function updateAssistantToolActivity(parts, toolCalls) {
             event.preventDefault();
             event.stopPropagation();
             listEl.classList.toggle('collapsed');
+            uiState.listCollapsed = listEl.classList.contains('collapsed');
             setToggleText();
         });
         setToggleText();
         head.appendChild(toggle);
         listEl.appendChild(head);
     }
-    visibleCalls.forEach((call, index) => {
-        const row = createToolCallActivityRow(call);
-        if (visibleCalls.length > collapseLimit && index < visibleCalls.length - collapseLimit)
+    renderItems.forEach((item, index) => {
+        const row = item.type === 'file-read-group'
+            ? createFileReadActivityGroup(item.calls, uiState)
+            : createToolCallActivityRow(item.call, uiState, 'call:' + item.call.id);
+        if (renderItems.length > collapseLimit && index < renderItems.length - collapseLimit)
             row.classList.add('tool-call-extra');
         listEl.appendChild(row);
     });
@@ -45170,9 +45386,5 @@ const chickenPanelResizeObserver=typeof ResizeObserver==='function'?new ResizeOb
 </script>
 </body>
 </html>
-
-
-
-
 
 

@@ -16,6 +16,8 @@ namespace SocketJack
         private const string ResourcePrefix = "SocketJack.Html.";
         private static readonly ConcurrentDictionary<string, string> Cache = new ConcurrentDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private static readonly ConcurrentDictionary<string, byte[]> BinaryCache = new ConcurrentDictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
+        /// <summary>Optional development override. Return null to retain normal embedded content and caching.</summary>
+        public static Func<string, byte[]> ResourceOverrideProvider { get; set; }
 
         /// <summary>
         /// Reads an embedded HTML page by file name and caches the decoded UTF-8 content.
@@ -23,6 +25,8 @@ namespace SocketJack
         public static string GetHtml(string fileName)
         {
             string normalized = NormalizeFileName(fileName);
+            byte[] overrideBytes = ResourceOverrideProvider?.Invoke(normalized);
+            if (overrideBytes != null) return Encoding.UTF8.GetString(overrideBytes);
             return string.IsNullOrWhiteSpace(normalized)
                 ? string.Empty
                 : Cache.GetOrAdd(normalized, LoadHtml);
@@ -43,6 +47,8 @@ namespace SocketJack
         public static byte[] GetBytes(string fileName)
         {
             string normalized = NormalizeFileName(fileName);
+            byte[] overrideBytes = ResourceOverrideProvider?.Invoke(normalized);
+            if (overrideBytes != null) return overrideBytes;
             return string.IsNullOrWhiteSpace(normalized)
                 ? Array.Empty<byte>()
                 : BinaryCache.GetOrAdd(normalized, LoadBytes);

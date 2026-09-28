@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.IO;
@@ -193,9 +193,7 @@ namespace SocketJack.Net.Database {
                     ProcessRpc(connection, session, data);
                     break;
                 case 0x0E: // Transaction Manager Request
-                    // SSMS sends TM requests for BEGIN/COMMIT/ROLLBACK.
-                    // Acknowledge with a simple DONE.
-                    SendDone(connection, 0, 0, 0);
+                    SendErrorResponse(connection, session, 40510, "Transaction-manager requests are not implemented; no transaction was started or committed.");
                     break;
                 case 0x06: // Attention (cancel)
                     // Respond with DONE + ATTN flag so the client knows we acknowledged.
@@ -370,14 +368,9 @@ namespace SocketJack.Net.Database {
 
             var sslStream = new SslStream(wrapperStream, leaveInnerStreamOpen: true);
 
-            // ENCRYPT_OFF (login-only TLS) must use TLS 1.2
-            // post-handshake NewSessionTicket messages that appear on the wire
-            // as TLS records AFTER the client has switched to plaintext, causing
-            // the client's TDS parser to see byte 0x17 (Token 23) and crash.
-            // ENCRYPT_ON keeps TLS active for the whole session so TLS 1.3 is safe.
-            var protocols = (session.NegotiatedEncryption == 0x00)
-                ? SslProtocols.Tls12
-                : SslProtocols.None;
+            // TDS 7.x wraps the TLS handshake in PRELOGIN packets. Use TLS 1.2;
+            // TLS 1.3 requires a separate TDS 8.0 TLS-first handshake.
+            var protocols = SslProtocols.Tls12;
 
             sslStream.AuthenticateAsServer(cert, clientCertificateRequired: false,
                 enabledSslProtocols: protocols,
@@ -815,10 +808,7 @@ namespace SocketJack.Net.Database {
                                         case 0x02: // FEDAUTH (Federated Authentication) — skip
                                             // Skip: server doesn't support federated auth
                                             break;
-                                        case 0x04: // TCE (ColumnEncryption) — version 1
-                                            combinedWriter.Write(featureId);
-                                            combinedWriter.Write((uint)1);
-                                            combinedWriter.Write((byte)0x01);
+                                        case 0x04: // Column encryption is not implemented.
                                             break;
                                         case 0x05: // GlobalTransactions — not enabled
                                             combinedWriter.Write(featureId);
@@ -920,45 +910,7 @@ namespace SocketJack.Net.Database {
 
                 string query = Encoding.Unicode.GetString(data, sqlOffset, data.Length - sqlOffset).TrimEnd('\0');
 
-                // Let the user's QueryExecuting handler process the query first.
-                var result = _dataServer.ExecuteQuery(session, query);
-
-                if (result.HasResultSet) {
-                    SendResultSet(connection, result);
-                    return;
-                }
-
-                // SSMS sends multi-statement batches like:
-                //   SET NOCOUNT ON\nSELECT SERVERPROPERTY(...) ...
-                // We need to look at ALL statements in the batch, not just the first.
-                // If the batch contains a SELECT, we must return a result set.
-                string trimmed = query.TrimStart();
-
-                // Check if the batch contains a SELECT or EXEC statement anywhere.
-                bool batchHasSelect = ContainsStatement(trimmed, "SELECT ")
-                                   || ContainsStatement(trimmed, "EXEC ")
-                                   || ContainsStatement(trimmed, "EXECUTE ");
-
-                if (batchHasSelect) {
-                    // Try to answer SSMS's GetServerInformation query which uses
-                    // SERVERPROPERTY() and @@VERSION.
-                    var autoResults = TryHandleServerInfoQuery(session, trimmed);
-                    if (autoResults != null) {
-                        SendMultiResultSet(connection, autoResults);
-                        return;
-                    }
-
-                    // For any other SELECT/EXEC that the handler didn't populate,
-                    // return an empty result set so the client's DataSet has a
-                    // Tables[0] and doesn't throw "Cannot find table 0".
-                    var empty = new QueryResult { HasResultSet = true };
-                    empty.Columns.Add("result");
-                    SendResultSet(connection, empty);
-                    return;
-                }
-
-                // Handle statements that don't expect result sets.
-                SendDone(connection, 0, 0, result.RowsAffected);
+                SendBatchResults(connection, _dataServer.Execute(session, new SqlCommand(query)));
             } catch (Exception ex) {
                 SendErrorResponse(connection, 0, "Query execution error: " + ex.Message);
             }
@@ -1071,31 +1023,25 @@ namespace SocketJack.Net.Database {
                     }
                 }
 
-                // Try to extract the SQL text from sp_executesql (procId=10) or
-                // sp_prepexec (procId=13) — the first NTEXT/NVARCHAR parameter
-                // contains the actual SQL statement.
-                string sql = null;
-                if (rpcProcId == 10 || rpcProcId == 13 || 
-                    (procName != null && procName.Equals("sp_executesql", StringComparison.OrdinalIgnoreCase))) {
-                    sql = TryExtractFirstNvarcharParam(data, pos);
-                }
-
-                string logName = procName ?? (rpcProcId > 0 ? "ProcID=" + rpcProcId : "unknown");
-
-                // Let the QueryExecuting handler try to handle the extracted SQL.
-                if (sql != null) {
-                    var result = _dataServer.ExecuteQuery(session, sql);
-                    if (result.HasResultSet) {
-                        SendResultSet(connection, result);
-                        return;
+                if (rpcProcId != 10 && !string.Equals(procName, "sp_executesql", StringComparison.OrdinalIgnoreCase))
+                    throw new SqlExecutionException("Unsupported RPC: " + (procName ?? rpcProcId.ToString()), "0A000", 2812);
+                var arguments = new List<KeyValuePair<string, object>>();
+                using (var input = new MemoryStream(data)) using (var reader = new BinaryReader(input)) {
+                    input.Position = pos;
+                    reader.ReadUInt16(); // OptionFlags
+                    while (input.Position < input.Length) {
+                        int length = reader.ReadByte();
+                        string name = Encoding.Unicode.GetString(reader.ReadBytes(length * 2));
+                        byte flags = reader.ReadByte();
+                        if ((flags & 1) != 0) throw new SqlExecutionException("Output RPC parameters are not implemented.", "0A000");
+                        var type = TdsValueCodec.ReadType(reader);
+                        arguments.Add(new KeyValuePair<string, object>(name, TdsValueCodec.ReadValue(reader, type)));
                     }
                 }
-
-                // Return an empty result set for RPC calls that expect one,
-                // preventing "Cannot find table 0" on the client side.
-                var empty = new QueryResult { HasResultSet = true };
-                empty.Columns.Add("result");
-                SendResultSet(connection, empty);
+                if (arguments.Count < 1 || !(arguments[0].Value is string sql)) throw new InvalidDataException("sp_executesql requires SQL text.");
+                var command = new SqlCommand(sql);
+                for (int i = 2; i < arguments.Count; i++) command.Parameters.Add(arguments[i].Key, arguments[i].Value);
+                SendBatchResults(connection, _dataServer.Execute(session, command));
             } catch (Exception ex) {
                 SendErrorResponse(connection, 0, "RPC execution error: " + ex.Message);
             }
@@ -1364,6 +1310,19 @@ namespace SocketJack.Net.Database {
             }
         }
 
+        private void SendBatchResults(NetworkConnection connection, IReadOnlyList<QueryResult> results) {
+            using (var buffer = new MemoryStream()) {
+                using (var writer = new BinaryWriter(buffer)) {
+                    for (int i = 0; i < results.Count; i++) {
+                        var result = results[i];
+                        if (result.HasResultSet) WriteResultSetTokens(writer, result);
+                        WriteDoneToken(writer, connection, (ushort)(0x10 | (i + 1 < results.Count ? 1 : 0)), 0, result.RowsAffected);
+                    }
+                    SendTdsPacket(connection, null, 0x04, buffer.ToArray());
+                }
+            }
+        }
+
         /// <summary>
         /// Sends multiple result sets in a single TDS message (single EOM packet).
         /// For each result set, writes COLMETADATA + ROW(s) followed by
@@ -1405,71 +1364,7 @@ namespace SocketJack.Net.Database {
         /// Does NOT write a DONE token — the caller is responsible for that.
         /// </summary>
         private void WriteResultSetTokens(BinaryWriter writer, QueryResult result) {
-            // --- COLMETADATA token (0x81) ---
-            writer.Write((byte)0x81);
-            writer.Write((ushort)result.Columns.Count);
-
-            for (int i = 0; i < result.Columns.Count; i++) {
-                byte colType = (result.ColumnTypes != null && i < result.ColumnTypes.Count)
-                    ? result.ColumnTypes[i] : (byte)0xE7;
-
-                writer.Write((uint)0);   // UserType
-                writer.Write((ushort)0); // Flags
-
-                if (colType == 0x38) {
-                    // INTN (nullable int): type 0x26, length 4
-                    writer.Write((byte)0x26);
-                    writer.Write((byte)4);
-                } else {
-                    // NVARCHAR
-                    writer.Write((byte)0xE7);
-                    writer.Write((ushort)8000); // MaxLength
-
-                    // Collation (5 bytes): SQL_Latin1_General_CP1_CI_AS
-                    // LCID 0x0409 (LE) + flags 0x00D0 + SortId 0x34
-                    writer.Write((byte)0x09);
-                    writer.Write((byte)0x04);
-                    writer.Write((byte)0x00);
-                    writer.Write((byte)0xD0);
-                    writer.Write((byte)0x34);
-                }
-
-                var colNameBytes = Encoding.Unicode.GetBytes(result.Columns[i]);
-                writer.Write((byte)(colNameBytes.Length / 2));
-                writer.Write(colNameBytes);
-            }
-
-            // --- ROW tokens (0xD1) ---
-            foreach (var row in result.Rows) {
-                writer.Write((byte)0xD1);
-
-                for (int i = 0; i < row.Length; i++) {
-                    byte colType = (result.ColumnTypes != null && i < result.ColumnTypes.Count)
-                        ? result.ColumnTypes[i] : (byte)0xE7;
-
-                    if (colType == 0x38) {
-                        if (row[i] == null) {
-                            writer.Write((byte)0);
-                        } else {
-                            writer.Write((byte)4);
-                            int intVal;
-                            if (row[i] is int iv)
-                                intVal = iv;
-                            else
-                                int.TryParse(row[i].ToString(), out intVal);
-                            writer.Write(intVal);
-                        }
-                    } else {
-                        if (row[i] == null) {
-                            writer.Write((ushort)0xFFFF);
-                        } else {
-                            var valueBytes = Encoding.Unicode.GetBytes(row[i].ToString());
-                            writer.Write((ushort)(valueBytes.Length));
-                            writer.Write(valueBytes);
-                        }
-                    }
-                }
-            }
+            TdsValueCodec.WriteResult(writer, result);
         }
 
         /// <summary>
@@ -1494,37 +1389,24 @@ namespace SocketJack.Net.Database {
         }
 
         internal void SendTdsPacket(NetworkConnection connection, SqlSession session, byte packetType, byte[] data) {
-            try {
-                using (var ms = new MemoryStream()) {
-                    using (var writer = new BinaryWriter(ms)) {
-                        writer.Write(packetType);
-                        writer.Write((byte)0x01);
-                        ushort length = (ushort)(data.Length + 8);
-                        writer.Write((byte)(length >> 8));
-                        writer.Write((byte)(length & 0xFF));
-                        // SPID - use a non-zero value; some clients may expect this
-                        ushort spid = (ushort)((connection.ID.GetHashCode() & 0x7FFF) | 0x0001);
-                        writer.Write((byte)(spid >> 8));
-                        writer.Write((byte)(spid & 0xFF));
-                        writer.Write((byte)1);           // PacketID (1 for single-packet messages)
-                        writer.Write((byte)0);
-                        writer.Write(data);
-
-                        var packet = ms.ToArray();
-                        var stream = (session != null)
-                            ? GetTdsStream(connection, session)
-                            : GetTdsStream(connection);
-                        if (stream != null) {
-                            lock (connection.SendQueueRaw) {
-                                stream.Write(packet, 0, packet.Length);
-                                stream.Flush();
-                            }
-                            connection.TrackBytesSent(packet.Length);
-                        }
-                    }
-                }
-            } catch (Exception ex) {
-                _dataServer.LogFormat("[{0}] SendTdsPacket error: {1}", new[] { _dataServer.Name, ex.Message });
+            var stream = session != null ? GetTdsStream(connection, session) : GetTdsStream(connection);
+            if (stream == null) throw new IOException("TDS connection has no stream.");
+            const int capacity = 4088;
+            lock (connection.SendQueueRaw) {
+                int offset = 0; byte packetId = 1;
+                do {
+                    int count = Math.Min(capacity, data.Length - offset);
+                    int size = count + 8;
+                    ushort spid = (ushort)((connection.ID.GetHashCode() & 0x7FFF) | 1);
+                    byte[] header = { packetType, (byte)(offset + count == data.Length ? 1 : 0), (byte)(size >> 8), (byte)size, (byte)(spid >> 8), (byte)spid, packetId++, 0 };
+                    var packet = new byte[size];
+                    Buffer.BlockCopy(header, 0, packet, 0, 8);
+                    Buffer.BlockCopy(data, offset, packet, 8, count);
+                    stream.Write(packet, 0, packet.Length);
+                    connection.TrackBytesSent(size);
+                    offset += count;
+                } while (offset < data.Length);
+                stream.Flush();
             }
         }
 

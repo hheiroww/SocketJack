@@ -25,7 +25,7 @@ namespace SocketJack {
             var orderedSegments = Cache[segment.SID].OrderBy(s => s.Index).ToList();
             for (int i = 0, loopTo = orderedSegments.Count - 1; i <= loopTo; i++) {
                 var s = orderedSegments[i];
-                byte[] Data = System.Text.Encoding.UTF8.GetBytes(s.Data);
+                byte[] Data = Convert.FromBase64String(s.Data);
                 Combined = ByteExtensions.Concat(new[] { Combined, Data });
             }
             Cache.Remove(segment.SID);
@@ -38,7 +38,10 @@ namespace SocketJack {
 
         public Segment(string SID, byte[] Data, int Index, int Count) {
             this.SID = SID;
-            this.Data = System.Text.Encoding.UTF8.GetString(Data);
+            // Segment payloads can contain compressed or otherwise arbitrary bytes.
+            // UTF-8 string conversion is lossy for those values, so use a byte-safe
+            // representation while the Segment itself is serialized as JSON.
+            this.Data = Convert.ToBase64String(Data);
             this.Index = Index;
             this.Count = Count;
         }

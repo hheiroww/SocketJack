@@ -9,7 +9,7 @@ using System.Text.Json;
 
 namespace SocketJack.Net.Database {
 
-    internal sealed class AdminSuite {
+    internal sealed partial class AdminSuite {
         private const string AdminDatabaseName = "SocketJack";
         private const string SettingsTableName = "SocketJackAdminSettings";
         private const string PagesTableName = "SocketJackAdminPages";
@@ -17,6 +17,8 @@ namespace SocketJack.Net.Database {
         private const string ControlsTableName = "SocketJackAdminControls";
         private const string CrudTableName = "SocketJackAdminCrudDefinitions";
         private const string AuditTableName = "SocketJackAdminAudit";
+        private const string DesignerTableName = "SocketJackWebUiProjects";
+        private static readonly object PageSaveGate = new object();
         private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
         private readonly MutableTcpServer _server;
@@ -44,10 +46,17 @@ namespace SocketJack.Net.Database {
             _server.Map("POST", basePath + "/api/settings/override-all/preview", (conn, req, ct) => ApiOverrideAllPreview(req));
             _server.Map("POST", basePath + "/api/settings/override-all/apply", (conn, req, ct) => ApiOverrideAllApply(req));
             _server.Map("GET", basePath + "/api/pages/list", (conn, req, ct) => ApiPagesList(req));
+            _server.Map("GET", basePath + "/api/pages/source", (conn, req, ct) => ApiPageSource(req));
             _server.Map("POST", basePath + "/api/pages/save", (conn, req, ct) => ApiPagesSave(req));
             _server.Map("POST", basePath + "/api/pages/delete", (conn, req, ct) => ApiPagesDelete(req));
             _server.Map("GET", basePath + "/api/assets/list", (conn, req, ct) => ApiAssetsList(req));
             _server.Map("POST", basePath + "/api/assets/save", (conn, req, ct) => ApiAssetsSave(req));
+            _server.Map("POST", basePath + "/api/heirowwebui/link-code", (conn, req, ct) => ApiHeirowWebUiLinkCode(req));
+            _server.Map("POST", basePath + "/api/socketjack/connect", (conn, req, ct) => ApiHeirowWebUiConnect(req));
+            _server.Map("GET", basePath + "/api/socketjack/catalog", (conn, req, ct) => ApiHeirowWebUiCatalog(req));
+            _server.Map("GET", basePath + "/api/socketjack/content", (conn, req, ct) => ApiHeirowWebUiContent(req));
+            _server.Map("POST", basePath + "/api/socketjack/publish", (conn, req, ct) => ApiHeirowWebUiPublish(req));
+            _server.Map("POST", basePath + "/api/socketjack/revoke", (conn, req, ct) => ApiHeirowWebUiRevoke(req));
             _server.Map("GET", basePath + "/api/controls/list", (conn, req, ct) => ApiControlsList(req));
             _server.Map("POST", basePath + "/api/controls/save", (conn, req, ct) => ApiControlsSave(req));
             _server.Map("GET", basePath + "/api/crud/list", (conn, req, ct) => ApiCrudList(req));
@@ -70,7 +79,7 @@ namespace SocketJack.Net.Database {
                 basePath + "/api/settings/save", basePath + "/api/settings/override-all/preview",
                 basePath + "/api/settings/override-all/apply", basePath + "/api/pages/list",
                 basePath + "/api/pages/save", basePath + "/api/pages/delete", basePath + "/api/assets/list",
-                basePath + "/api/assets/save", basePath + "/api/controls/list", basePath + "/api/controls/save",
+                basePath + "/api/assets/save", basePath + "/api/heirowwebui/link-code", basePath + "/api/socketjack/connect", basePath + "/api/socketjack/catalog", basePath + "/api/socketjack/content", basePath + "/api/socketjack/publish", basePath + "/api/socketjack/revoke", basePath + "/api/controls/list", basePath + "/api/controls/save",
                 basePath + "/api/crud/list", basePath + "/api/crud/save", basePath + "/api/crud/delete",
                 basePath + "/api/crud/client/*", basePath + "/api/crud/run/*"
             }) {
@@ -165,13 +174,32 @@ namespace SocketJack.Net.Database {
             return JsonOk(new { success = true, targetStorageMode = targetMode, affectedCount = affected });
         }
 
-        private object ApiPagesList(HttpRequest req) {
+        private object ApiPageSource(HttpRequest req) {
+            if (!RequireAdmin(req, out _, out var error)) return error;
+            lock (PageSaveGate) {
+                var page = GetPagesTable().Rows.Select(PageFromRow).FirstOrDefault(p => p.Id == req.QueryParameters.GetValueOrDefault("id", ""));
+                if (page == null) return JsonError(req, 404, "Page not found.");
+                string content = page.SqlHtml;
+                if (page.StorageMode == "disk") {
+                    if (!TryReadDiskContent(page.DirectoryPath, page.Route, out var bytes, out _, out _)) return JsonError(req, 404, "Source file not found.");
+                    using (var reader = new StreamReader(new MemoryStream(bytes), Encoding.UTF8, true)) content = reader.ReadToEnd();
+                }
+                return JsonOk(new { content, revision = page.Revision });
+            }
+        }
+
+        private object ApiPagesList(HttpRequest req) { lock (PageSaveGate) return ApiPagesListCore(req); }
+        private object ApiPagesListCore(HttpRequest req) {
             if (!RequireAdmin(req, out _, out var error))
                 return error;
             return JsonOk(new { pages = GetPagesTable().Rows.Select(PageFromRow).OrderBy(p => p.Route).ToList() });
         }
 
         private object ApiPagesSave(HttpRequest req) {
+            lock (PageSaveGate) return ApiPagesSaveCore(req);
+        }
+
+        private object ApiPagesSaveCore(HttpRequest req) {
             if (!RequireAdmin(req, out var session, out var error))
                 return error;
             var body = req.Body ?? "";
@@ -196,18 +224,54 @@ namespace SocketJack.Net.Database {
             int existing = FindRowIndex(table, 0, page.Id);
             if (existing < 0)
                 existing = FindRowIndex(table, 1, page.Route);
+            string expectedRevision = ReadJsonString(body, "expectedRevision", "");
+            if (!string.IsNullOrEmpty(expectedRevision) &&
+                (existing < 0 || !string.Equals(PageFromRow(table.Rows[existing]).Revision, expectedRevision, StringComparison.Ordinal)))
+                return JsonError(req, 409, "The page changed outside the designer. Reload before saving.");
+            if (existing >= 0) page.DesignerMetadata = PageFromRow(table.Rows[existing]).DesignerMetadata;
+            if (!string.IsNullOrEmpty(expectedRevision) && page.StorageMode == "disk") {
+                using (var parsed = JsonDocument.Parse(body)) if (parsed.RootElement.TryGetProperty("html", out var sourceHtml)) {
+                    string target = Path.GetFullPath(page.DirectoryPath);
+                    if (Directory.Exists(target)) {
+                        string candidate = Path.GetFullPath(Path.Combine(target, page.Route.Replace('/', Path.DirectorySeparatorChar)));
+                        if (!IsPathInsideRoot(candidate, target)) return JsonError(req, 400, "Source path escapes its root.");
+                        target = candidate;
+                    }
+                    if (!File.Exists(target)) return JsonError(req, 404, "Source file not found.");
+                    var original = File.ReadAllBytes(target); string before; Encoding encoding;
+                    using (var reader = new StreamReader(new MemoryStream(original), Encoding.UTF8, true)) { before = reader.ReadToEnd(); encoding = reader.CurrentEncoding; }
+                    string after = sourceHtml.GetString() ?? "";
+                    if (before != after) {
+                        var preamble = encoding.GetPreamble(); bool hadPreamble = preamble.Length > 0 && original.Take(preamble.Length).SequenceEqual(preamble);
+                        string temporary = target + ".heirow-" + Guid.NewGuid().ToString("N");
+                        try { File.WriteAllBytes(temporary, (hadPreamble ? preamble : Array.Empty<byte>()).Concat(encoding.GetBytes(after)).ToArray()); File.Copy(target, target + ".heirow-recovery", true); File.Copy(temporary, target, true); }
+                        finally { if (File.Exists(temporary)) File.Delete(temporary); }
+                    }
+                }
+            }
             page.CreatedUtc = existing >= 0 ? GetRow(table.Rows[existing], 8) : Now();
             page.UpdatedUtc = Now();
             if (existing >= 0)
                 table.Rows[existing] = PageToRow(page);
             else
                 table.Rows.Add(PageToRow(page));
+            using (var metadataBody = JsonDocument.Parse(body)) {
+                if (metadataBody.RootElement.TryGetProperty("designerMetadata", out var metadata)) {
+                    var designerTable = GetAdminDatabase().Tables[DesignerTableName];
+                    int designerIndex = FindRowIndex(designerTable, 0, page.Id);
+                    page.DesignerMetadata = metadata.ValueKind == JsonValueKind.String ? metadata.GetString() : metadata.GetRawText();
+                    var row = new object[] { page.Id, page.DesignerMetadata ?? "", Now() };
+                    if (designerIndex >= 0) designerTable.Rows[designerIndex] = row;
+                    else designerTable.Rows.Add(row);
+                }
+            }
             DataServer.ScheduleSave();
             WriteAudit(session.Username, "page.save", page.Route, page.StorageMode);
             return JsonOk(new { success = true, page });
         }
 
-        private object ApiPagesDelete(HttpRequest req) {
+        private object ApiPagesDelete(HttpRequest req) { lock (PageSaveGate) return ApiPagesDeleteCore(req); }
+        private object ApiPagesDeleteCore(HttpRequest req) {
             if (!RequireAdmin(req, out var session, out var error))
                 return error;
             string id = ReadBodyString(req, "id", "");
@@ -228,7 +292,8 @@ namespace SocketJack.Net.Database {
             return JsonOk(new { assets = GetAssetsTable().Rows.Select(AssetFromRow).OrderBy(a => a.Name).ToList() });
         }
 
-        private object ApiAssetsSave(HttpRequest req) {
+        private object ApiAssetsSave(HttpRequest req) { lock (PageSaveGate) return ApiAssetsSaveCore(req); }
+        private object ApiAssetsSaveCore(HttpRequest req) {
             if (!RequireAdmin(req, out var session, out var error))
                 return error;
             var body = req.Body ?? "";
@@ -250,6 +315,8 @@ namespace SocketJack.Net.Database {
                 asset.ContentType = HttpServer.GetMimeType(asset.Name);
             var table = GetAssetsTable();
             int existing = FindRowIndex(table, 0, asset.Id);
+            string expectedRevision = ReadJsonString(body, "expectedRevision", "");
+            if (!string.IsNullOrEmpty(expectedRevision) && (existing < 0 || AssetFromRow(table.Rows[existing]).Revision != expectedRevision)) return JsonError(req, 409, "The asset changed outside the designer.");
             asset.CreatedUtc = existing >= 0 ? GetRow(table.Rows[existing], 8) : Now();
             asset.UpdatedUtc = Now();
             if (existing >= 0)
@@ -627,6 +694,7 @@ namespace SocketJack.Net.Database {
                 ColumnSpec("Id"), ColumnSpec("Username", 160), ColumnSpec("EventType", 120), ColumnSpec("Target"),
                 ColumnSpec("Detail"), ColumnSpec("CreatedUtc", 80)
             });
+            EnsureTable(db, DesignerTableName, new[] { ColumnSpec("PageId"), ColumnSpec("Metadata"), ColumnSpec("UpdatedUtc", 80) });
             if (string.IsNullOrWhiteSpace(GetSetting("defaultPageStorageMode", "")))
                 SetSetting("defaultPageStorageMode", "sql");
             DataServer.ScheduleSave();
@@ -944,7 +1012,9 @@ namespace SocketJack.Net.Database {
             return new object[] { p.Id, p.Route, p.Title, p.StorageMode, p.DirectoryPath, p.SqlHtml, p.Css, p.Js, p.CreatedUtc, p.UpdatedUtc };
         }
 
-        private static AdminPage PageFromRow(object[] row) {
+        private AdminPage PageFromRow(object[] row) {
+            var designerTable = GetAdminDatabase().Tables[DesignerTableName];
+            int designerIndex = FindRowIndex(designerTable, 0, GetRow(row, 0));
             return new AdminPage {
                 Id = GetRow(row, 0),
                 Route = GetRow(row, 1),
@@ -955,7 +1025,8 @@ namespace SocketJack.Net.Database {
                 Css = GetRow(row, 6),
                 Js = GetRow(row, 7),
                 CreatedUtc = GetRow(row, 8),
-                UpdatedUtc = GetRow(row, 9)
+                UpdatedUtc = GetRow(row, 9),
+                DesignerMetadata = designerIndex >= 0 ? GetRow(designerTable.Rows[designerIndex], 1) : ""
             };
         }
 
@@ -1190,6 +1261,15 @@ namespace SocketJack.Net.Database {
         }
 
         private sealed class AdminPage {
+            public string DesignerMetadata { get; set; }
+            public string Revision {
+                get {
+                    using (var sha = System.Security.Cryptography.SHA256.Create()) {
+                        var content = JsonSerializer.Serialize(new[] { Id, Route, Title, StorageMode, DirectoryPath, SqlHtml, Css, Js, DesignerMetadata, StorageMode == "disk" && TryReadDiskContent(DirectoryPath, Route, out var diskBytes, out _, out _) ? Convert.ToBase64String(diskBytes) : "" });
+                        return BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(content))).Replace("-", "").ToLowerInvariant();
+                    }
+                }
+            }
             public string Id { get; set; }
             public string Route { get; set; }
             public string Title { get; set; }
@@ -1203,6 +1283,8 @@ namespace SocketJack.Net.Database {
         }
 
         private sealed class AdminAsset {
+            public string Revision { get { using (var sha = System.Security.Cryptography.SHA256.Create()) return BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new[] { Id, PageId, Name, Kind, ContentType, StorageMode, DirectoryPath, Content })))).Replace("-", "").ToLowerInvariant(); } }
+
             public string Id { get; set; }
             public string PageId { get; set; }
             public string Name { get; set; }

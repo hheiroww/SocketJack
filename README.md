@@ -89,6 +89,8 @@ public sealed record ChatMessage(string Text);
 
 `UdpServer` and `UdpClient` use the same typed callback style for datagram workflows. This is useful for discovery, presence, lightweight state, games, telemetry, local-network devices, and low-overhead service coordination.
 
+`UDP_Reliable` adds indexed fragmentation, acknowledgments, selective retries, ordered delivery, and verified stream/file transfers. See the [API, limits, and measured results](docs/UDP_Reliable.md).
+
 ### #WebSockets
 
 SocketJack includes browser-compatible WebSocket clients and servers. WebSocket connections can use the same serialization, compression, callbacks, peer metadata, and P2P routing as native SocketJack connections.

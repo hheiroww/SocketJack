@@ -27,6 +27,7 @@ namespace SocketJack.Net.WebSockets {
 
     public class WebSocketClient : IDisposable, ISocket {
         private bool _handshakeComplete = false;
+        private readonly SemaphoreSlim _writeSemaphore = new(1, 1);
 
         #region Properties
 
@@ -824,13 +825,14 @@ namespace SocketJack.Net.WebSockets {
             obj = Object;
 #endif
             byte[] serializedBytes = Options.Serializer.Serialize(new Wrapper(obj, this));
-            if (Options.UseCompression) {
-                serializedBytes = Options.CompressionAlgorithm.Compress(serializedBytes);
-            }
             if (serializedBytes.Length > 8192) {
                 await SendSegmented(Connection, serializedBytes, obj.GetType(), obj);
             } else {
-                await WriteWebSocketFrameAsync(serializedBytes, Options.UseCompression ? 0x2 : 0x1, cancellationToken);
+                byte[] payload = serializedBytes;
+                if (Options.UseCompression) {
+                    payload = Options.CompressionAlgorithm.Compress(payload);
+                }
+                await WriteWebSocketFrameAsync(payload, Options.UseCompression ? 0x2 : 0x1, cancellationToken);
                 if (Options.Logging && Options.LogSendEvents) {
                     Type objType = obj.GetType();
                     if (Globals.IgnoreLoggedTypes.Contains(objType)) return;
@@ -883,30 +885,36 @@ namespace SocketJack.Net.WebSockets {
             if (_stream == null)
                 return;
 
-            var headerLen = GetWebSocketHeaderLength(payload.Length);
-            const int maskLen = 4;
-            var frameLen = headerLen + maskLen + payload.Length;
-            var rented = ArrayPool<byte>.Shared.Rent(frameLen);
-
+            await _writeSemaphore.WaitAsync(cancellationToken);
             try {
-                // Avoid Span locals in async methods for netstandard2.1 compatibility.
-                var headerBuf = new byte[10];
-                var writtenHeader = WriteWebSocketHeader(headerBuf, opcode, payload.Length);
-                Buffer.BlockCopy(headerBuf, 0, rented, 0, writtenHeader);
+                var headerLen = GetWebSocketHeaderLength(payload.Length);
+                const int maskLen = 4;
+                var frameLen = headerLen + maskLen + payload.Length;
+                var rented = ArrayPool<byte>.Shared.Rent(frameLen);
 
-                var maskKey = new byte[maskLen];
-                RandomNumberGenerator.Fill(maskKey);
-                Buffer.BlockCopy(maskKey, 0, rented, writtenHeader, maskLen);
+                try {
+                    // Avoid Span locals in async methods for netstandard2.1 compatibility.
+                    var headerBuf = new byte[10];
+                    var writtenHeader = WriteWebSocketHeader(headerBuf, opcode, payload.Length);
+                    Buffer.BlockCopy(headerBuf, 0, rented, 0, writtenHeader);
 
-                var payloadOffset = writtenHeader + maskLen;
-                for (int i = 0; i < payload.Length; i++) {
-                    rented[payloadOffset + i] = (byte)(payload[i] ^ maskKey[i % 4]);
+                    var maskKey = new byte[maskLen];
+                    RandomNumberGenerator.Fill(maskKey);
+                    Buffer.BlockCopy(maskKey, 0, rented, writtenHeader, maskLen);
+
+                    var payloadOffset = writtenHeader + maskLen;
+                    for (int i = 0; i < payload.Length; i++) {
+                        rented[payloadOffset + i] = (byte)(payload[i] ^ maskKey[i % 4]);
+                    }
+
+                    await _stream.WriteAsync(rented, 0, frameLen, cancellationToken);
                 }
-
-                await _stream.WriteAsync(rented, 0, frameLen, cancellationToken);
+                finally {
+                    ArrayPool<byte>.Shared.Return(rented);
+                }
             }
             finally {
-                ArrayPool<byte>.Shared.Return(rented);
+                _writeSemaphore.Release();
             }
         }
 

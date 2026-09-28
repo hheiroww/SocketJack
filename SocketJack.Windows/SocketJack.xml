@@ -118,6 +118,9 @@
             loose files under the application directory.
             </summary>
         </member>
+        <member name="P:SocketJack.HtmlPageResources.ResourceOverrideProvider">
+            <summary>Optional development override. Return null to retain normal embedded content and caching.</summary>
+        </member>
         <member name="M:SocketJack.HtmlPageResources.GetHtml(System.String)">
             <summary>
             Reads an embedded HTML page by file name and caches the decoded UTF-8 content.
@@ -2099,6 +2102,12 @@
             <summary>
             <see langword="true"/> when the stream is complete and all queued data has been consumed.
             </summary>
+        </member>
+        <member name="P:SocketJack.Net.UploadStream.ExpectedLength">
+            <summary>The request body length advertised by Content-Length, or zero for an open-ended stream.</summary>
+        </member>
+        <member name="P:SocketJack.Net.UploadStream.BytesReceived">
+            <summary>The number of request-body bytes accepted by this upload stream.</summary>
         </member>
         <member name="P:SocketJack.Net.UploadStream.Connection">
             <summary>

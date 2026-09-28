@@ -90,7 +90,7 @@ namespace SocketJack.Net {
             // connection (including HTTP clients), corrupting their response stream.
             DeferPeerInitialization = true;
 
-            // Remove the base HttpServer's receive handler — MutableTcpServer routes
+            // Remove the base HttpServer's receive handler â€” MutableTcpServer routes
             // HTTP through HttpProtocolHandler via RouteReceive instead.
             this.OnReceive -= GetRequestAsync;
 
@@ -111,7 +111,7 @@ namespace SocketJack.Net {
             // Defer peer initialization until a connection is identified as SocketJack.
             DeferPeerInitialization = true;
 
-            // Remove the base HttpServer's receive handler — MutableTcpServer routes
+            // Remove the base HttpServer's receive handler â€” MutableTcpServer routes
             // HTTP through HttpProtocolHandler via RouteReceive instead.
             this.OnReceive -= GetRequestAsync;
 
@@ -267,7 +267,7 @@ namespace SocketJack.Net {
                 return;
             }
 
-            // First data on this connection — detect the protocol.
+            // First data on this connection â€” detect the protocol.
             byte[] probe = TryGetRawBytes(e.Obj);
             if (probe == null || probe.Length == 0)
                 return;
@@ -287,7 +287,7 @@ namespace SocketJack.Net {
                 }
             }
 
-            // Check built-in WebSocket handler before HTTP — a WebSocket upgrade
+            // Check built-in WebSocket handler before HTTP â€” a WebSocket upgrade
             // starts as an HTTP GET request, so the HTTP handler would also match.
             if (_webSocketHandler.CanHandle(probe)) {
                 _connectionHandlers.TryAdd(connId, _webSocketHandler);
@@ -296,7 +296,7 @@ namespace SocketJack.Net {
                 return;
             }
 
-            // Check built-in HTTP handler — HTTP requests are short-lived
+            // Check built-in HTTP handler â€” HTTP requests are short-lived
             // and must be answered promptly.  SocketJack is checked after so that
             // an HTTP client connecting to the same port is never misrouted.
             if (_httpHandler.CanHandle(probe)) {
@@ -315,12 +315,12 @@ namespace SocketJack.Net {
                 return;
             }
 
-            // Check for RTMP connections (version byte 0x03 + C1 zero field at offset 5-8).
+            // Check for RTMP connections by the C0 version byte. Modern FFmpeg/OBS
+            // use the complex handshake and put non-zero version data in C1 bytes
+            // 4-7, so requiring those bytes to be zero rejects valid publishers.
             // Delegate to the base HttpServer's GetRequestAsync which has full RTMP
             // handshake, session management, and publish route support built in.
-            if (probe.Length >= 9
-                && probe[0] == 0x03
-                && probe[5] == 0 && probe[6] == 0 && probe[7] == 0 && probe[8] == 0) {
+            if (probe.Length >= 9 && probe[0] == 0x03) {
                 _connectionHandlers.TryAdd(connId, _rtmpDelegateHandler);
                 e.Connection._Protocol = TcpProtocol.Rtmp;
                 e.Connection.SuppressConnectionTest = true;
@@ -335,7 +335,7 @@ namespace SocketJack.Net {
             }
             ApplyEndpointSecurityDelay(unknownDecision);
 
-            // No handler matched — data flows through to other OnReceive subscribers.
+            // No handler matched â€” data flows through to other OnReceive subscribers.
         }
 
         private void OnClientDisconnected_Cleanup(DisconnectedEventArgs args) {
@@ -361,8 +361,8 @@ namespace SocketJack.Net {
         /// Overrides peer synchronization so that only connections confirmed as
         /// SocketJack receive broadcast peer updates.  Without this filter,
         /// <c>SendBroadcast</c> pushes
-        /// SocketJack-framed bytes into every connection's send queue —
-        /// including HTTP connections — corrupting their response stream.
+        /// SocketJack-framed bytes into every connection's send queue â€”
+        /// including HTTP connections â€” corrupting their response stream.
         /// </summary>
         protected internal override void SyncPeer(NetworkConnection Client) {
             Task.Run(() => {
@@ -726,7 +726,7 @@ namespace SocketJack.Net {
             if (incoming == null || incoming.Length == 0)
                 return;
 
-            // Detect first data on a SocketJack connection — initialize peer if enabled.
+            // Detect first data on a SocketJack connection â€” initialize peer if enabled.
             // This runs before ProcessBuffer so the peer is registered in Peers before
             // any deserialized message handlers (e.g. MetadataKeyValue) execute.
             bool isNewConnection = !_buffers.ContainsKey(connection.ID);
@@ -773,36 +773,36 @@ namespace SocketJack.Net {
                 target.ApplyEndpointSecurityDelay(securityDecision);
 
 
-                // Deserialize and dispatch through the normal SocketJack pipeline.
-                Task.Run(() => {
-                    try {
-                        byte[] bytes = payload;
-                        if (target.Options.UseCompression) {
-                            bytes = target.Options.CompressionAlgorithm.Decompress(bytes);
-                        }
-                        if (sender != null && sender.PatternCache != null) {
-                            if (!sender.PatternCache.TryResolveReceived(bytes, target.Options, out bytes, out string cacheError)) {
-                                target.InvokeOnError(sender, new Exception(cacheError));
-                                return;
-                            }
-                        }
-                        Wrapper wrapper = target.Options.Serializer.Deserialize(bytes);
-                        if (wrapper == null) return;
-                        var valueType = wrapper.GetValueType();
-                        if (wrapper.value != null || wrapper.Type != "") {
-                            object unwrapped = wrapper.Unwrap(target);
-                            if (unwrapped != null) {
-                                target.HandleReceive(sender, unwrapped, valueType, payloadLength);
-                                var genericType = typeof(ReceivedEventArgs<>).MakeGenericType(unwrapped.GetType());
-                                var receivedEventArgs = (IReceivedEventArgs)Activator.CreateInstance(genericType);
-                                receivedEventArgs.Initialize(target, sender, unwrapped, payloadLength);
-                                target.InvokeCallbacks(receivedEventArgs);
-                            }
-                        }
-                    } catch (Exception ex) {
-                        target.InvokeOnError(sender, ex);
+                // Preserve receive order. Segment reassembly is stateful, so dispatching every
+                // frame through Task.Run lets later segments race earlier ones and corrupts
+                // large screen/audio messages under sustained load.
+                try {
+                    byte[] bytes = payload;
+                    if (target.Options.UseCompression) {
+                        bytes = target.Options.CompressionAlgorithm.Decompress(bytes);
                     }
-                });
+                    if (sender != null && sender.PatternCache != null) {
+                        if (!sender.PatternCache.TryResolveReceived(bytes, target.Options, out bytes, out string cacheError)) {
+                            target.InvokeOnError(sender, new Exception(cacheError));
+                            return;
+                        }
+                    }
+                    Wrapper wrapper = target.Options.Serializer.Deserialize(bytes);
+                    if (wrapper == null) return;
+                    var valueType = wrapper.GetValueType();
+                    if (wrapper.value != null || wrapper.Type != "") {
+                        object unwrapped = wrapper.Unwrap(target);
+                        if (unwrapped != null) {
+                            target.HandleReceive(sender, unwrapped, valueType, payloadLength);
+                            var genericType = typeof(ReceivedEventArgs<>).MakeGenericType(unwrapped.GetType());
+                            var receivedEventArgs = (IReceivedEventArgs)Activator.CreateInstance(genericType);
+                            receivedEventArgs.Initialize(target, sender, unwrapped, payloadLength);
+                            target.InvokeCallbacks(receivedEventArgs);
+                        }
+                    }
+                } catch (Exception ex) {
+                    target.InvokeOnError(sender, ex);
+                }
             }
         }
     }
@@ -1576,29 +1576,30 @@ namespace SocketJack.Net {
         }
 
         private static void DispatchPayload(MutableTcpServer server, NetworkConnection connection, byte[] payload, int payloadLen, bool isBinary) {
-            Task.Run(() => {
-                try {
-                    byte[] data = payload;
-                    if (server.Options.UseCompression && isBinary) {
-                        data = server.Options.CompressionAlgorithm.Decompress(data);
-                    }
-                    Wrapper wrapper = server.Options.Serializer.Deserialize(data);
-                    if (wrapper == null) return;
-                    var valueType = wrapper.GetValueType();
-                    if (wrapper.value != null || wrapper.Type != "") {
-                        object unwrapped = wrapper.Unwrap(server);
-                        if (unwrapped != null) {
-                            server.HandleReceive(connection, unwrapped, valueType, payloadLen);
-                            var genericType = typeof(ReceivedEventArgs<>).MakeGenericType(unwrapped.GetType());
-                            var receivedEventArgs = (IReceivedEventArgs)Activator.CreateInstance(genericType);
-                            receivedEventArgs.Initialize(server, connection, unwrapped, payloadLen);
-                            server.InvokeCallbacks(receivedEventArgs);
-                        }
-                    }
-                } catch (Exception ex) {
-                    server.InvokeOnError(connection, ex);
+            // Process frames in the order they were parsed from this WebSocket. Segment
+            // reassembly depends on that order and is fast; application handlers can still
+            // schedule expensive work after the object has been reconstructed.
+            try {
+                byte[] data = payload;
+                if (server.Options.UseCompression && isBinary) {
+                    data = server.Options.CompressionAlgorithm.Decompress(data);
                 }
-            });
+                Wrapper wrapper = server.Options.Serializer.Deserialize(data);
+                if (wrapper == null) return;
+                var valueType = wrapper.GetValueType();
+                if (wrapper.value != null || wrapper.Type != "") {
+                    object unwrapped = wrapper.Unwrap(server);
+                    if (unwrapped != null) {
+                        server.HandleReceive(connection, unwrapped, valueType, payloadLen);
+                        var genericType = typeof(ReceivedEventArgs<>).MakeGenericType(unwrapped.GetType());
+                        var receivedEventArgs = (IReceivedEventArgs)Activator.CreateInstance(genericType);
+                        receivedEventArgs.Initialize(server, connection, unwrapped, payloadLen);
+                        server.InvokeCallbacks(receivedEventArgs);
+                    }
+                }
+            } catch (Exception ex) {
+                server.InvokeOnError(connection, ex);
+            }
         }
 
         #endregion

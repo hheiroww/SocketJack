@@ -21,6 +21,14 @@ namespace SocketJack.Net {
     /// </summary>
     public class UdpConnection : IDisposable {
 
+        internal UdpReliablePeer ReliablePeer;
+        public UdpReliableStatistics ReliableStatistics => ReliablePeer?.Statistics;
+        public Task SendAsync(object value, CancellationToken cancellationToken = default) {
+            if (Parent is UdpClient client) return client.SendAsync(value, cancellationToken);
+            if (Parent is UdpServer server) return server.SendToAsync(this, value, cancellationToken);
+            throw new InvalidOperationException("Unknown UDP parent.");
+        }
+
         #region Properties
 
         /// <summary>
@@ -223,6 +231,7 @@ namespace SocketJack.Net {
             lock (_closeLock) {
                 if (!Closed && !Closing) {
                     _Closing = true;
+                    ReliablePeer?.Fail(new IOException("Local UDP connection closed."));
                     var e = new DisconnectedEventArgs(sender, null, Reason);
                     SendQueue.Clear();
                     InvokeDisconnected(sender, e);

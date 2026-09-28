@@ -416,18 +416,20 @@ namespace SocketJack.Net.Database {
         }
 
         private void PerformTlsHandshake(string host) {
-            _sslStream = new SslStream(_networkStream, true, ValidateServerCertificate);
-#if NET5_0_OR_GREATER
-            _sslStream.AuthenticateAsClient(host, null, SslProtocols.Tls12 | SslProtocols.Tls13, false);
-#else
+            var wrapper = new TdsWrapperStream(_networkStream);
+            _sslStream = new SslStream(wrapper, true, ValidateServerCertificate);
             _sslStream.AuthenticateAsClient(host, null, SslProtocols.Tls12, false);
-#endif
+            wrapper.Passthrough = true;
             _stream = _sslStream;
         }
 
         private async Task PerformTlsHandshakeAsync(string host, CancellationToken cancellationToken) {
-            _sslStream = new SslStream(_networkStream, true, ValidateServerCertificate);
-            await _sslStream.AuthenticateAsClientAsync(host).ConfigureAwait(false);
+            var wrapper = new TdsWrapperStream(_networkStream);
+            _sslStream = new SslStream(wrapper, true, ValidateServerCertificate);
+            using (cancellationToken.Register(() => _tcpClient?.Dispose())) {
+                await _sslStream.AuthenticateAsClientAsync(host, null, SslProtocols.Tls12, false).ConfigureAwait(false);
+            }
+            wrapper.Passthrough = true;
             _stream = _sslStream;
         }
 
@@ -449,9 +451,8 @@ namespace SocketJack.Net.Database {
                     var username = Username;
                     var password = EncryptPassword(Password);
 
-                    // Calculate offsets - fixed portion is 98 bytes
-                    // (includes 4-byte FeatureExtOffset at the end)
-                    int fixedLength = 98;
+                    // LOGIN7 fixed portion is 94 bytes; no feature extension is advertised.
+                    int fixedLength = 94;
                     int offset = fixedLength;
 
                     // Length placeholder (will update at end)
@@ -482,7 +483,7 @@ namespace SocketJack.Net.Database {
                     writer.Write((byte)0x00);
 
                     // Option Flags 3: UNKNOWN_COLLATION_HANDLING | EXTENSION (bit 4)
-                    writer.Write((byte)0x10);
+                    writer.Write((byte)0x00);
 
                     // Client Timezone
                     writer.Write((int)TimeZoneInfo.Local.BaseUtcOffset.TotalMinutes);
@@ -552,10 +553,6 @@ namespace SocketJack.Net.Database {
                     // SSPI Long (4-byte length for >64K SSPI)
                     writer.Write((uint)0);
 
-                    // Feature extension offset
-                    int featureExtOffset = offset;
-                    writer.Write((uint)featureExtOffset);
-
                     // Variable data
                     writer.Write(Encoding.Unicode.GetBytes(clientName));
                     writer.Write(Encoding.Unicode.GetBytes(username));
@@ -564,14 +561,6 @@ namespace SocketJack.Net.Database {
                     writer.Write(Encoding.Unicode.GetBytes(serverName));
                     writer.Write(Encoding.Unicode.GetBytes(libraryName));
                     writer.Write(Encoding.Unicode.GetBytes(database));
-
-                    // Feature extension data
-                    // SessionRecovery (0x01) - not supported
-                    writer.Write((byte)0x01);
-                    writer.Write((uint)0);
-
-                    // Terminator
-                    writer.Write((byte)0xFF);
 
                     // Update length
                     var data = ms.ToArray();
@@ -599,10 +588,10 @@ namespace SocketJack.Net.Database {
         }
 
         private byte[] EncryptPassword(string password) {
-            // TDS password encryption: XOR each byte with 0xA5, then swap nibbles
+            // LOGIN7 obfuscation: swap nibbles, then XOR with 0xA5.
             var bytes = Encoding.Unicode.GetBytes(password);
             for (int i = 0; i < bytes.Length; i++) {
-                bytes[i] = (byte)(((bytes[i] ^ 0xA5) << 4) | ((bytes[i] ^ 0xA5) >> 4));
+                bytes[i] = (byte)(((bytes[i] << 4) | (bytes[i] >> 4)) ^ 0xA5);
             }
             return bytes;
         }
@@ -724,20 +713,18 @@ namespace SocketJack.Net.Database {
 
         private TdsPacket ReceiveTdsPacket() {
             lock (_receiveLock) {
-                // Read header
-                var header = new byte[8];
-                ReadExact(header, 0, 8);
-
-                byte packetType = header[0];
-                byte status = header[1];
-                ushort length = (ushort)((header[2] << 8) | header[3]);
-
-                // Read data
-                var data = new byte[length - 8];
-                if (data.Length > 0)
-                    ReadExact(data, 0, data.Length);
-
-                return new TdsPacket { PacketType = packetType, Status = status, Data = data };
+                using (var message = new MemoryStream()) {
+                    byte packetType = 0, status;
+                    do {
+                        var header = new byte[8]; ReadExact(header,0,8);
+                        int length = (header[2] << 8) | header[3];
+                        if (length < 8 || message.Length + length - 8 > 16 * 1024 * 1024) throw new InvalidDataException("Invalid or oversized TDS message.");
+                        if (packetType != 0 && packetType != header[0]) throw new InvalidDataException("TDS packet type changed within message.");
+                        packetType=header[0]; status=header[1];
+                        var data=new byte[length-8]; ReadExact(data,0,data.Length); message.Write(data,0,data.Length);
+                    } while ((status & 1) == 0);
+                    return new TdsPacket { PacketType=packetType, Status=status, Data=message.ToArray() };
+                }
             }
         }
 
@@ -783,6 +770,7 @@ namespace SocketJack.Net.Database {
                 result.Columns = _currentColumns.ConvertAll(c => c.Name);
             }
 
+            if (LastError != null) throw new SqlExecutionException(LastError);
             return result;
         }
 
@@ -835,7 +823,7 @@ namespace SocketJack.Net.Database {
                         long rowCount = BitConverter.ToInt64(data, pos);
                         pos += 8;
                         result.RowsAffected = rowCount;
-                        if ((status & 0x01) != 0) // DONE_FINAL
+                        if ((status & 0x01) == 0) // no DONE_MORE: final completion
                             return true;
                         break;
 
@@ -917,66 +905,15 @@ namespace SocketJack.Net.Database {
         }
 
         private int ParseTypeInfo(byte[] data, int pos, ColumnMetadata col) {
-            switch (col.Type) {
-                case 0xE7: // NVARCHAR
-                case 0xEF: // NCHAR
-                case 0x63: // NTEXT
-                    col.MaxLength = BitConverter.ToUInt16(data, pos);
-                    pos += 2;
-                    col.Collation = new byte[5];
-                    Array.Copy(data, pos, col.Collation, 0, 5);
-                    pos += 5;
-                    break;
-
-                case 0xA7: // VARCHAR
-                case 0xAF: // CHAR
-                case 0x23: // TEXT
-                    col.MaxLength = BitConverter.ToUInt16(data, pos);
-                    pos += 2;
-                    col.Collation = new byte[5];
-                    Array.Copy(data, pos, col.Collation, 0, 5);
-                    pos += 5;
-                    break;
-
-                case 0xAD: // BINARY
-                case 0xA5: // VARBINARY
-                    col.MaxLength = BitConverter.ToUInt16(data, pos);
-                    pos += 2;
-                    break;
-
-                case 0x26: // INTN
-                case 0x6A: // DECIMALN
-                case 0x6C: // NUMERICN
-                case 0x6D: // FLOATN
-                case 0x6E: // MONEYN
-                case 0x6F: // DATETIMEN
-                case 0x24: // GUID
-                    col.MaxLength = data[pos++];
-                    if (col.Type == 0x6A || col.Type == 0x6C) {
-                        col.Precision = data[pos++];
-                        col.Scale = data[pos++];
-                    }
-                    break;
-
-                case 0x38: // INT
-                case 0x30: // TINYINT
-                case 0x34: // SMALLINT
-                case 0x7F: // BIGINT
-                case 0x3E: // FLOAT
-                case 0x3B: // REAL
-                case 0x3A: // SMALLMONEY
-                case 0x3C: // MONEY
-                case 0x3D: // DATETIME
-                case 0x3F: // SMALLDATETIME
-                case 0x32: // BIT
-                    // Fixed-length types - no additional metadata
-                    break;
-
-                default:
-                    // Unknown type - try to continue
-                    break;
+            using (var stream = new MemoryStream(data)) using (var reader = new BinaryReader(stream)) {
+                // The caller has already consumed the type byte.
+                stream.Position = pos - 1;
+                var type = TdsValueCodec.ReadType(reader);
+                col.Type = type.Token;
+                col.MaxLength = type.MaxLength != 0 ? type.MaxLength : type.Size;
+                col.Precision = type.Precision; col.Scale = type.Scale;
+                return (int)stream.Position;
             }
-            return pos;
         }
 
         private int ParseRow(byte[] data, int pos, QueryResult result) {
@@ -1015,104 +952,11 @@ namespace SocketJack.Net.Database {
         }
 
         private int ParseColumnValue(byte[] data, int pos, ColumnMetadata col, out object value) {
-            switch (col.Type) {
-                case 0xE7: // NVARCHAR
-                case 0xEF: // NCHAR
-                    ushort nvarcharLen = BitConverter.ToUInt16(data, pos);
-                    pos += 2;
-                    if (nvarcharLen == 0xFFFF) {
-                        value = DBNull.Value;
-                    } else {
-                        value = Encoding.Unicode.GetString(data, pos, nvarcharLen);
-                        pos += nvarcharLen;
-                    }
-                    break;
-
-                case 0xA7: // VARCHAR
-                case 0xAF: // CHAR
-                    ushort varcharLen = BitConverter.ToUInt16(data, pos);
-                    pos += 2;
-                    if (varcharLen == 0xFFFF) {
-                        value = DBNull.Value;
-                    } else {
-                        value = Encoding.UTF8.GetString(data, pos, varcharLen);
-                        pos += varcharLen;
-                    }
-                    break;
-
-                case 0x26: // INTN
-                    byte intLen = data[pos++];
-                    if (intLen == 0) {
-                        value = DBNull.Value;
-                    } else if (intLen == 1) {
-                        value = (int)data[pos++];
-                    } else if (intLen == 2) {
-                        value = (int)BitConverter.ToInt16(data, pos);
-                        pos += 2;
-                    } else if (intLen == 4) {
-                        value = BitConverter.ToInt32(data, pos);
-                        pos += 4;
-                    } else if (intLen == 8) {
-                        value = BitConverter.ToInt64(data, pos);
-                        pos += 8;
-                    } else {
-                        value = DBNull.Value;
-                        pos += intLen;
-                    }
-                    break;
-
-                case 0x38: // INT
-                    value = BitConverter.ToInt32(data, pos);
-                    pos += 4;
-                    break;
-
-                case 0x30: // TINYINT
-                    value = (int)data[pos++];
-                    break;
-
-                case 0x34: // SMALLINT
-                    value = (int)BitConverter.ToInt16(data, pos);
-                    pos += 2;
-                    break;
-
-                case 0x7F: // BIGINT
-                    value = BitConverter.ToInt64(data, pos);
-                    pos += 8;
-                    break;
-
-                case 0x6D: // FLOATN
-                    byte floatLen = data[pos++];
-                    if (floatLen == 0) {
-                        value = DBNull.Value;
-                    } else if (floatLen == 4) {
-                        value = BitConverter.ToSingle(data, pos);
-                        pos += 4;
-                    } else {
-                        value = BitConverter.ToDouble(data, pos);
-                        pos += 8;
-                    }
-                    break;
-
-                case 0x3E: // FLOAT
-                    value = BitConverter.ToDouble(data, pos);
-                    pos += 8;
-                    break;
-
-                case 0x3B: // REAL
-                    value = BitConverter.ToSingle(data, pos);
-                    pos += 4;
-                    break;
-
-                case 0x32: // BIT
-                    value = data[pos++] != 0;
-                    break;
-
-                default:
-                    // Unknown type - return as bytes or null
-                    value = DBNull.Value;
-                    break;
+            using (var stream = new MemoryStream(data)) using (var reader = new BinaryReader(stream)) {
+                stream.Position = pos;
+                value = TdsValueCodec.ReadValue(reader, new TdsValueCodec.ValueType { Token=col.Type, Size=(byte)col.MaxLength, MaxLength=col.MaxLength, Precision=col.Precision, Scale=col.Scale });
+                return (int)stream.Position;
             }
-            return pos;
         }
 
         private int ParseError(byte[] data, int pos) {

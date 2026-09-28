@@ -145,6 +145,18 @@ namespace SocketJack.Net.AgentBuilder {
                             throw new InvalidOperationException("Reflection executor is not configured.");
                         nodeResult.Value = await request.ReflectionExecutor.ExecuteAsync(node, inputs, nodeResults, cancellationToken).ConfigureAwait(false);
                         break;
+                    case "url":
+                    case "urlfetch":
+                    case "webscrape":
+                    case "scrape":
+                    case "crawl":
+                        if (request.UrlFetcher == null)
+                            throw new InvalidOperationException("URL fetcher is not configured.");
+                        string url = ResolveTemplate(FirstNonEmpty(Config(node, "url"), Config(node, "uri")), inputs, nodeResults);
+                        if (string.IsNullOrWhiteSpace(url))
+                            throw new InvalidOperationException("URL Fetch node needs a URL.");
+                        nodeResult.Value = await request.UrlFetcher.FetchAsync(node, inputs, nodeResults, url, cancellationToken).ConfigureAwait(false);
+                        break;
                     case "timer":
                     case "schedule":
                     case "timerschedule":
@@ -250,6 +262,9 @@ namespace SocketJack.Net.AgentBuilder {
                 } else if (type == "logicgate" || type == "gate") {
                     if (string.IsNullOrWhiteSpace(FirstNonEmpty(Config(node, "left"), Config(node, "leftRef"), Config(node, "value"))))
                         AddWarning(result, "gate_left_empty", "Logic gate has no left value.", node.Id);
+                } else if (type == "url" || type == "urlfetch" || type == "webscrape" || type == "scrape" || type == "crawl") {
+                    if (string.IsNullOrWhiteSpace(FirstNonEmpty(Config(node, "url"), Config(node, "uri"))))
+                        AddError(result, "url_required", "URL Fetch node needs a URL.", node.Id);
                 }
             }
 
@@ -308,10 +323,17 @@ namespace SocketJack.Net.AgentBuilder {
             string kind = (schedule.Kind ?? "interval").Trim().ToLowerInvariant();
             if (kind == "daily" || kind == "schedule") {
                 if (TimeSpan.TryParse(schedule.TimeOfDay, CultureInfo.InvariantCulture, out TimeSpan time)) {
-                    DateTimeOffset candidate = new DateTimeOffset(nowUtc.UtcDateTime.Date, TimeSpan.Zero).Add(time);
-                    if (candidate <= nowUtc)
-                        candidate = candidate.AddDays(1);
-                    return candidate;
+                    TimeZoneInfo zone = TimeZoneInfo.Utc;
+                    if (!string.IsNullOrWhiteSpace(schedule.TimeZone)) {
+                        try { zone = TimeZoneInfo.FindSystemTimeZoneById(schedule.TimeZone.Trim()); } catch (TimeZoneNotFoundException) { } catch (InvalidTimeZoneException) { }
+                    }
+                    DateTime localNow = TimeZoneInfo.ConvertTime(nowUtc, zone).DateTime;
+                    DateTime localCandidate = DateTime.SpecifyKind(localNow.Date.Add(time), DateTimeKind.Unspecified);
+                    if (localCandidate <= localNow)
+                        localCandidate = localCandidate.AddDays(1);
+                    while (zone.IsInvalidTime(localCandidate))
+                        localCandidate = localCandidate.AddMinutes(30);
+                    return new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(localCandidate, zone), TimeSpan.Zero);
                 }
             }
 

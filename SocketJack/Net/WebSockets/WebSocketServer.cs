@@ -72,6 +72,7 @@ namespace SocketJack.Net.WebSockets {
         protected internal bool _PeerToPeerInstance = false;
 
         private ConcurrentDictionary<Guid, bool> _handshakeCompleted = new();
+        private readonly ConcurrentDictionary<Guid, SemaphoreSlim> _clientWriteSemaphores = new();
 
         private async Task HandleRawSocketClient(NetworkConnection connection) {
             if (connection._Stream == null) {
@@ -664,6 +665,7 @@ private NetworkConnection NewConnection(ref Socket handler) {
             if(Clients.ContainsKey(e.Connection.ID)) {
                 Clients.Remove(e.Connection.ID);
             }
+            _clientWriteSemaphores.TryRemove(e.Connection.ID, out _);
             if (e.Connection != Connection) {
 #if UNITY
                 MainThread.Run(() => {
@@ -896,7 +898,7 @@ private NetworkConnection NewConnection(ref Socket handler) {
                 byte[] payload = objType == typeof(PeerRedirect) ? Options.Serializer.Serialize(Obj) : Options.Serializer.Serialize(new Wrapper(Obj, this));
 
                 if (payload.Length > 8192) {
-                    await Task.Run(() => SendSegmented(Client, payload, objType, Obj));
+                    await SendSegmentedAsync(Client, payload, objType, Obj);
                 } else {
                     Client.IsSending = true;
                     bool useBinaryFrame = Options.UseCompression;
@@ -905,22 +907,29 @@ private NetworkConnection NewConnection(ref Socket handler) {
                     }
                     if (Client.Stream == null) return;
 
-                    var headerLen = GetWebSocketHeaderLength(payload.Length);
-                    var frameLen = headerLen + payload.Length;
-                    var rented = ArrayPool<byte>.Shared.Rent(frameLen);
+                    var writeSemaphore = _clientWriteSemaphores.GetOrAdd(Client.ID, _ => new SemaphoreSlim(1, 1));
+                    await writeSemaphore.WaitAsync();
                     try {
-                        // Avoid Span locals in async methods for netstandard2.1 compatibility.
-                        var headerBuf = new byte[10];
-                        var headerWritten = WriteWebSocketHeader(headerBuf, useBinaryFrame, payload.Length);
-                        Buffer.BlockCopy(headerBuf, 0, rented, 0, headerWritten);
-                        Buffer.BlockCopy(payload, 0, rented, headerWritten, payload.Length);
+                        var headerLen = GetWebSocketHeaderLength(payload.Length);
+                        var frameLen = headerLen + payload.Length;
+                        var rented = ArrayPool<byte>.Shared.Rent(frameLen);
+                        try {
+                            // Avoid Span locals in async methods for netstandard2.1 compatibility.
+                            var headerBuf = new byte[10];
+                            var headerWritten = WriteWebSocketHeader(headerBuf, useBinaryFrame, payload.Length);
+                            Buffer.BlockCopy(headerBuf, 0, rented, 0, headerWritten);
+                            Buffer.BlockCopy(payload, 0, rented, headerWritten, payload.Length);
 
-                        await Client.Stream.WriteAsync(rented, 0, frameLen);
+                            await Client.Stream.WriteAsync(rented, 0, frameLen);
+                            await Client.Stream.FlushAsync();
+                        }
+                        finally {
+                            ArrayPool<byte>.Shared.Return(rented);
+                        }
                     }
                     finally {
-                        ArrayPool<byte>.Shared.Return(rented);
+                        writeSemaphore.Release();
                     }
-                    await Client.Stream.FlushAsync();
 
                     InvokeInternalSendEvent(Client, objType, Obj, payload.Length);
                     InvokeOnSent(new SentEventArgs(this, Client, objType, payload.Length));
@@ -960,11 +969,9 @@ private NetworkConnection NewConnection(ref Socket handler) {
         public async Task SendSegmentedAsync(NetworkConnection Client, object Obj) {
             byte[] SerializedBytes = Options.Serializer.Serialize(new Wrapper(Obj, this));
             Segment[] SegmentedObject = SerializedBytes.GetSegments();
-            var sendTasks = new List<Task>();
             foreach (var s in SegmentedObject) {
-                sendTasks.Add(SendAsync(Client, s));
+                await SendAsync(Client, s);
             }
-            await Task.WhenAll(sendTasks);
         }
 
         public void SendSegmented(NetworkConnection Client, byte[] SerializedBytes, Type objType, object obj) {
@@ -973,11 +980,9 @@ private NetworkConnection NewConnection(ref Socket handler) {
 
         public async Task SendSegmentedAsync(NetworkConnection Client, byte[] SerializedBytes, Type objType, object obj) {
             Segment[] SegmentedObject = SerializedBytes.GetSegments();
-            var sendTasks = new List<Task>();
             foreach (var s in SegmentedObject) {
-                sendTasks.Add(SendAsync(Client, s));
+                await SendAsync(Client, s);
             }
-            await Task.WhenAll(sendTasks);
             if (objType == typeof(PeerRedirect)) {
                 PeerRedirect redirect = (PeerRedirect)obj;
                 LogFormatAsync("[{0}] Sent {1} - {2}", new[] { Name, string.Format("PeerRedirect<{0}>", (redirect.CleanTypeName)), SerializedBytes.Length.ByteToString() });
@@ -1082,8 +1087,8 @@ private NetworkConnection NewConnection(ref Socket handler) {
                                     }
                                 }
                             }
-                        } catch (Exception) {
-                            InvokeOnError(Connection, new Exception("Failed to deserialize segment."));
+                        } catch (Exception ex) {
+                            InvokeOnError(connection, new Exception("Failed to deserialize segment: " + ex.Message, ex));
                         }
                     }
                 } else {

@@ -126,6 +126,14 @@ namespace SocketJack.Net.AgentBuilder {
         public string TimeOfDay { get; set; } = "";
         public string TimeZone { get; set; } = "UTC";
         public string CriteriaJson { get; set; } = "";
+        public string ProjectId { get; set; } = "";
+        public string SessionId { get; set; } = "";
+        public string Prompt { get; set; } = "";
+        public string InputJson { get; set; } = "";
+        public string LogFilePath { get; set; } = "";
+        public bool RunOnce { get; set; }
+        public string LastStatus { get; set; } = "";
+        public string LastError { get; set; } = "";
         public string LastRunUtc { get; set; } = "";
         public string NextRunUtc { get; set; } = "";
         public string CreatedUtc { get; set; } = "";
@@ -163,6 +171,7 @@ namespace SocketJack.Net.AgentBuilder {
         public string UserName { get; set; } = "";
         public IAgentBuilderAgentRunner AgentRunner { get; set; }
         public IAgentBuilderReflectionExecutor ReflectionExecutor { get; set; }
+        public IAgentBuilderUrlFetcher UrlFetcher { get; set; }
     }
 
     public sealed class AgentBuilderExecutionResult {
@@ -212,6 +221,15 @@ namespace SocketJack.Net.AgentBuilder {
             System.Threading.CancellationToken cancellationToken);
 
         object GetCatalog(int take = 200);
+    }
+
+    public interface IAgentBuilderUrlFetcher {
+        System.Threading.Tasks.Task<object> FetchAsync(
+            AgentBuilderNode node,
+            IReadOnlyDictionary<string, object> inputs,
+            IReadOnlyDictionary<string, AgentBuilderNodeResult> nodeResults,
+            string url,
+            System.Threading.CancellationToken cancellationToken);
     }
 
     public static class AgentBuilderSlug {

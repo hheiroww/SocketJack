@@ -1,8 +1,12 @@
+using System;
 using System.Collections.Generic;
 
 namespace SocketJack.Net.Database {
 
     public class QueryResult {
+        /// <summary>Explicitly marks an extension-handled command, including zero-row writes.</summary>
+        public bool Handled { get; set; }
+        public List<Type> DataTypes { get; set; } = new List<Type>();
         public List<string> Columns { get; set; } = new List<string>();
         /// <summary>
         /// Optional per-column TDS type tokens.  When set, must be the same

@@ -50,7 +50,7 @@
     <Description>High-performance, fully managed .NET networking library for TCP, UDP, and WebSocket communication. Features built-in peer-to-peer with NAT traversal, pluggable System.Text.Json serialization, SslStream TLS encryption, GZip/Deflate compression, and bandwidth throttling. Targets .NET Standard 2.1.</Description>
     <IsPackable>True</IsPackable>
     <Company>JackOfFates</Company>
-    <Version>2026.11</Version>
+    <Version>2026.12</Version>
     <SupportedOSPlatformVersion>1.0</SupportedOSPlatformVersion>
     <BuildPackage>true</BuildPackage>
     <NeutralLanguage>en-001</NeutralLanguage>
@@ -610,6 +610,15 @@
       </EmbeddedResource>
       <EmbeddedResource Include="..\SocketJack-MagicMasterList\html\Builder.html" Link="html\Builder.html">
         <LogicalName>SocketJack.Html.Builder.html</LogicalName>
+      </EmbeddedResource>
+      <EmbeddedResource Include="..\heirowWebUI\wwwroot\index.html" Link="html\heirowWebUI.html">
+        <LogicalName>SocketJack.Html.heirowWebUI.html</LogicalName>
+      </EmbeddedResource>
+      <EmbeddedResource Include="..\heirowWebUI\wwwroot\editor.js" Link="html\heirowWebUI.editor.js">
+        <LogicalName>SocketJack.Html.editor.js</LogicalName>
+      </EmbeddedResource>
+      <EmbeddedResource Include="..\heirowWebUI\wwwroot\assets\*" Link="html\heirowWebUI-assets\%(Filename)%(Extension)">
+        <LogicalName>SocketJack.Html.%(Filename)%(Extension)</LogicalName>
       </EmbeddedResource>
       <EmbeddedResource Include="html\*.png">
         <LogicalName>SocketJack.Html.%(Filename)%(Extension)</LogicalName>
