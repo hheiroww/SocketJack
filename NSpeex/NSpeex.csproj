@@ -11,6 +11,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="SSH.NET" Version="2026.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Resource Include="Audio\male.wav">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Resource>

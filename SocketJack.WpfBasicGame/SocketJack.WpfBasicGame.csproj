@@ -7,6 +7,7 @@
   <ItemGroup>
     <PackageReference Include="ComputeSharp" Version="3.2.0" />
     <PackageReference Include="JackDebug.WPF" Version="1.4.0" />
+    <PackageReference Include="SSH.NET" Version="2026.0.0" />
   </ItemGroup>
 
   <PropertyGroup>

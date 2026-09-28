@@ -283,6 +283,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Mono.Nat" Version="3.0.4" />
+    <PackageReference Include="SSH.NET" Version="2026.0.0" />
     <PackageReference Include="System.Collections.Concurrent" Version="4.3.0" />
     <PackageReference Include="System.Text.Encodings.Web" Version="10.0.7" />
     <PackageReference Include="System.Text.Json" Version="10.0.7" />

@@ -12,19 +12,15 @@
     <heirowLLMBootstrapPublishDir Condition="'$(heirowLLMBootstrapPublishDir)' == ''">$(MSBuildThisFileDirectory)..\artifacts\heirowLLMBridgeInstaller\publish\</heirowLLMBootstrapPublishDir>
   </PropertyGroup>
 
-  <Target Name="BuildheirowLLMInstaller"
-          BeforeTargets="PrepareForBuild"
-          Condition="'$(DesignTimeBuild)' != 'true' and '$(BuildInstallerOnPublisherBuild)' == 'true'">
-    <MSBuild Projects="$(MSBuildThisFileDirectory)..\heirowLLMInstaller\heirowLLMInstaller.wixproj"
-             Targets="Build"
-             Properties="Configuration=$(Configuration);Platform=$(InstallerBuildPlatform);ErrorOnDuplicatePublishOutputFiles=false" />
+  <Target Name="BuildheirowLLMInstaller" BeforeTargets="PrepareForBuild" Condition="'$(DesignTimeBuild)' != 'true' and '$(BuildInstallerOnPublisherBuild)' == 'true'">
+    <MSBuild Projects="$(MSBuildThisFileDirectory)..\heirowLLMInstaller\heirowLLMInstaller.wixproj" Targets="Build" Properties="Configuration=$(Configuration);Platform=$(InstallerBuildPlatform);ErrorOnDuplicatePublishOutputFiles=false" />
   </Target>
 
-  <Target Name="BuildheirowLLMBootstrapInstaller"
-          BeforeTargets="PrepareForBuild"
-          Condition="'$(DesignTimeBuild)' != 'true' and '$(BuildInstallerOnPublisherBuild)' == 'true'">
-    <MSBuild Projects="$(MSBuildThisFileDirectory)..\heirowLLMBridgeInstaller\heirowLLMBridgeInstaller.csproj"
-             Targets="Publish"
-             Properties="Configuration=$(Configuration);RuntimeIdentifier=win-x64;SelfContained=true;PublishSingleFile=true;PublishReadyToRun=false;PublishDir=$(heirowLLMBootstrapPublishDir)" />
+  <Target Name="BuildheirowLLMBootstrapInstaller" BeforeTargets="PrepareForBuild" Condition="'$(DesignTimeBuild)' != 'true' and '$(BuildInstallerOnPublisherBuild)' == 'true'">
+    <MSBuild Projects="$(MSBuildThisFileDirectory)..\heirowLLMBridgeInstaller\heirowLLMBridgeInstaller.csproj" Targets="Publish" Properties="Configuration=$(Configuration);RuntimeIdentifier=win-x64;SelfContained=true;PublishSingleFile=true;PublishReadyToRun=false;PublishDir=$(heirowLLMBootstrapPublishDir)" />
   </Target>
+
+  <ItemGroup>
+    <PackageReference Include="SSH.NET" Version="2026.0.0" />
+  </ItemGroup>
 </Project>

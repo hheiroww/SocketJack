@@ -411,7 +411,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Mono.Nat" Version="3.0.4" />
-    <PackageReference Include="SSH.NET" Version="2025.1.0" />
+    <PackageReference Include="SSH.NET" Version="2026.0.0" />
     <PackageReference Include="System.Drawing.Common" Version="9.0.8" />
   </ItemGroup>
   <ItemGroup>
