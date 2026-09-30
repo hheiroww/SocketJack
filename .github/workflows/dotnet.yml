@@ -50,6 +50,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
     steps:
     - name: "Checkout"
       uses: actions/checkout@v4
@@ -83,10 +84,16 @@ jobs:
 #    - name: "Pack WPF Project"
 #      run: dotnet pack ./SocketJack.Windows/SocketJack.WPF.csproj --configuration Release --no-build --include-symbols -o ./nupkg/SocketJack.WPF
 
+    - name: "Login to NuGet with Trusted Publishing"
+      uses: NuGet/login@v1
+      id: nuget-login
+      with:
+        user: Pathogenix
+
     - name: "Push SocketJack to NuGet"
       shell: pwsh
       env:
-        NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
       run: |
         $packages = @(Get-ChildItem -Path ./nupkg/SocketJack -Filter 'SocketJack*.nupkg' |
           Where-Object { $_.Name -notlike '*.symbols.nupkg' } |
@@ -99,7 +106,7 @@ jobs:
 #    - name: "Push SocketJack.WPF to NuGet"
 #      shell: pwsh
 #      env:
-#        NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+#        NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
 #      run: |
 #        $packages = @(Get-ChildItem -Path ./nupkg/SocketJack.WPF -Filter 'SocketJack.WPF*.nupkg' |
 #          Where-Object { $_.Name -notlike '*.symbols.nupkg' } |
