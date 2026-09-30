@@ -1,6 +1,5 @@
-<div align="center">
 
-<img src="https://raw.githubusercontent.com/hheiroww/SocketJack/master/SocketJack/SocketJackIcon.png" alt="SocketJack" width="128" />
+![SocketJack](https://raw.githubusercontent.com/hheiroww/SocketJack/master/SocketJack/SocketJackIcon.png)
 
 # ⚡ SocketJack 2026
 
@@ -13,7 +12,6 @@
 
 **📦 [Install](#-install) · ✨ [What's new](#-whats-new-in-202613) · 🧭 [Features](#-feature-explorer) · 📚 [Documentation](#-documentation)**
 
-</div>
 
 ---
 
@@ -26,16 +24,15 @@ SocketJack is a .NET networking library for sending typed objects, hosting HTTP 
 ## 📦 Install
 
 ```powershell
-dotnet add package SocketJack --version 2026.13.0
+dotnet add package SocketJack --version 2026.13.1
 ```
 
 | Package | Target | Purpose |
 |---|---|---|
-| **[SocketJack](https://www.nuget.org/packages/SocketJack/2026.13.0)** | .NET Standard 2.1 | Core networking library; this release is **2026.13.0**. |
+| **[SocketJack](https://www.nuget.org/packages/SocketJack/2026.13.1)** | .NET Standard 2.1 | Core networking library; this release is **2026.13.1**. |
 | **[SocketJack.WPF](https://www.nuget.org/packages/SocketJack.WPF)** | Windows / WPF | Companion package for live control capture and remote input; versioned separately. |
 
-<details>
-<summary><strong>🚀 First connection — typed TCP messages</strong></summary>
+### 🚀 First connection — typed TCP messages
 
 Register a callback before connecting. Run the server and client in separate applications, or together while experimenting:
 
@@ -64,11 +61,10 @@ public sealed class ChatMessage
 
 Keep the host application running while connections are in use. Use matching serialization and compression settings on both endpoints.
 
-</details>
 
 ## ✨ What's new in 2026.13
 
-This release refreshes the documentation and publishing checks for the recent networking updates. Expand each feature below for behavior, configuration, and limits.
+This release refreshes the documentation and publishing checks for the recent networking updates. Read each feature below for behavior, configuration, and limits.
 
 | Feature | What changed |
 |---|---|
@@ -81,8 +77,7 @@ This release refreshes the documentation and publishing checks for the recent ne
 
 ## 🧭 Feature explorer
 
-<details open>
-<summary><strong>📡 Reliable UDP — fragments, acknowledgments, retries & ordering</strong></summary>
+### 📡 Reliable UDP — fragments, acknowledgments, retries & ordering
 
 `UDP_Reliable` adds a reliable session layer to SocketJack UDP. Ordinary UDP remains the default, and existing applications opt in explicitly.
 
@@ -115,10 +110,8 @@ Configure a matching reliable server with its own options instance. `SendAsync` 
 
 📖 [API, configuration & limits](https://github.com/hheiroww/SocketJack/blob/master/docs/UDP_Reliable.md) · 📊 [Measured results](https://github.com/hheiroww/SocketJack/blob/master/docs/UDP_Reliable-results.md)
 
-</details>
 
-<details>
-<summary><strong>🧩 Serialization — JSON by default, compact binary when selected</strong></summary>
+### 🧩 Serialization — JSON by default, compact binary when selected
 
 `System.Text.Json` remains the default. Select `SocketJack.Serialization.BinarySerializer` through `NetworkOptions.Serializer` on both peers to use SocketJack's versioned **SB** wire format.
 
@@ -131,10 +124,8 @@ Configure a matching reliable server with its own options instance. `SendAsync` 
 
 This is a custom serializer, not `BinaryFormatter`. Register message callbacks or whitelist message types before sending, including nested types where required. Serializer and compression choices must agree between endpoints.
 
-</details>
 
-<details>
-<summary><strong>📂 Stream & file transfer — bounded chunks and verified completion</strong></summary>
+### 📂 Stream & file transfer — bounded chunks and verified completion
 
 Reliable UDP supports stream/file transfers without materializing an entire file as one message. Transfer frames use bounded chunks, **64-bit byte offsets**, SHA-256 verification, and explicit destination acceptance.
 
@@ -142,10 +133,8 @@ The per-I/O buffer cap is **32 KiB**, not a total-file size limit. Whole-object 
 
 📖 [Transfer APIs and receiver requirements](https://github.com/hheiroww/SocketJack/blob/master/docs/UDP_Reliable.md)
 
-</details>
 
-<details>
-<summary><strong>🔐 SSH.NET 2026.0.0 — SFTP client integration</strong></summary>
+### 🔐 SSH.NET 2026.0.0 — SFTP client integration
 
 SocketJack now references **SSH.NET 2026.0.0**. `SocketJack.Net.SftpClient` wraps SSH.NET for remote file operations:
 
@@ -159,10 +148,8 @@ The convenience async methods wrap synchronous work with `Task.Run`; they are no
 
 📖 [SFTP implementation](https://github.com/hheiroww/SocketJack/blob/master/SocketJack/Net/FtpSftp.cs) · 📦 [SSH.NET package](https://www.nuget.org/packages/SSH.NET/2026.0.0)
 
-</details>
 
-<details>
-<summary><strong>🟦 TypeScript — generate clients from mapped HTTP routes</strong></summary>
+### 🟦 TypeScript — generate clients from mapped HTTP routes
 
 `HttpServer.GenerateTypeScriptClient()` emits a dependency-free TypeScript client from the server's currently mapped routes. Typed request bodies become TypeScript aliases, path variables become required inputs, and resolvable whitelisted message classes can be emitted as interfaces for WebSocket use.
 
@@ -184,19 +171,15 @@ File.WriteAllText("SocketJackClient.ts", server.GenerateTypeScriptClient(
 
 Generate after registering routes. Review generated contracts whenever the server API changes.
 
-</details>
 
-<details>
-<summary><strong>🔌 TCP & ordinary UDP — typed callbacks, replies and broadcasts</strong></summary>
+### 🔌 TCP & ordinary UDP — typed callbacks, replies and broadcasts
 
 `TcpClient` / `TcpServer` provide framed object messaging over TCP. `UdpClient` / `UdpServer` provide the typed callback model for datagrams. Use `RegisterCallback<T>()` to receive a message, reply through its connection, or broadcast through the server.
 
 TCP suits ordered streams and general application traffic. Ordinary UDP suits discovery and lightweight updates where applications tolerate loss. Select reliable UDP explicitly when you need its session delivery semantics.
 
-</details>
 
-<details>
-<summary><strong>🌐 HTTP & WebSockets — APIs, static files and realtime clients</strong></summary>
+### 🌐 HTTP & WebSockets — APIs, static files and realtime clients
 
 `HttpServer` maps methods and paths to handlers, supports typed request bodies, and serves files, directories, redirects, uploads, and streaming responses. WebSocket clients and servers connect browser applications and native peers to typed callbacks and peer metadata.
 
@@ -207,35 +190,27 @@ server.MapDirectory("/static", @"C:\wwwroot");
 server.Listen();
 ```
 
-</details>
 
-<details>
-<summary><strong>🔀 Protocol multiplexing — multiple protocols on one listener</strong></summary>
+### 🔀 Protocol multiplexing — multiple protocols on one listener
 
 `MutableTcpServer` detects and dispatches supported protocol traffic on one listening port. The repository includes HTTP, WebSocket, native SocketJack, RTMP, SQL/TDS, and FTP surfaces, with custom protocol handlers for extensions.
 
 Enable the handlers required by your application. SFTP runs over SSH and needs the separate backend described above; it is not supplied by ordinary TCP protocol detection.
 
-</details>
 
-<details>
-<summary><strong>🤝 Peer routing & metadata — discovery and coordinated delivery</strong></summary>
+### 🤝 Peer routing & metadata — discovery and coordinated delivery
 
 Associate identity and metadata with peers, update that metadata during a connection, and route messages through a coordinating server. This supports room lists, capability registries, service discovery, and peer-directed application traffic. Server-mediated redirects are distinct from a direct peer connection.
 
-</details>
 
-<details>
-<summary><strong>🗄️ Data & streaming — SQL surfaces, management routes and RTMP</strong></summary>
+### 🗄️ Data & streaming — SQL surfaces, management routes and RTMP
 
 The repository includes data-server primitives, SQL/TDS handling, HTTP management routes, and RTMP ingest/relay support. These components can support embedded administration, application records, and media workflows alongside native SocketJack messaging.
 
 See the examples and component source for configuration and supported protocol behavior.
 
-</details>
 
-<details>
-<summary><strong>🖥️ WPF companion — live controls and remote input</strong></summary>
+### 🖥️ WPF companion — live controls and remote input
 
 The separately versioned `SocketJack.WPF` package shares `FrameworkElement` content as a live image stream and forwards mouse, wheel, text, and keyboard input.
 
@@ -248,16 +223,13 @@ IDisposable viewerHandle = client.ViewShare(SharedImage, sharerPeer);
 
 This fragment assumes an existing WPF application, connection, and peer references. Dispose the handles to stop sharing/viewing. The current core publishing workflow does not republish the WPF companion.
 
-</details>
 
-<details>
-<summary><strong>✅ Publishing & dependency checks — short-lived credentials</strong></summary>
+### ✅ Publishing & dependency checks — short-lived credentials
 
 The release workflow builds on Linux and Windows, packs SocketJack, and publishes to NuGet and GitHub Packages. NuGet Trusted Publishing exchanges GitHub's workflow identity for a temporary credential using `NuGet/login`.
 
 Before packaging, restore audits direct and transitive dependencies. Known vulnerability warnings and audit-feed failures block the core release. Package audits report known advisories at the time of the check; they do not prove the absence of all security defects.
 
-</details>
 
 ## 📚 Documentation
 
@@ -270,8 +242,7 @@ Before packaging, restore audits direct and transitive dependencies. Known vulne
 | 🧪 [GitHub Actions](https://github.com/hheiroww/SocketJack/actions) | Build and publishing results. |
 | 📦 [NuGet](https://www.nuget.org/packages/SocketJack) | Published versions and dependencies. |
 
-<details>
-<summary><strong>🗺️ Repository map</strong></summary>
+### 🗺️ Repository map
 
 | Directory | Role |
 |---|---|
@@ -282,7 +253,6 @@ Before packaging, restore audits direct and transitive dependencies. Known vulne
 | `SocketJack.WpfBasicGame/` | WPF example application. |
 | `docs/` | Protocol guides, benchmarks, and release notes. |
 
-</details>
 
 ---
 
