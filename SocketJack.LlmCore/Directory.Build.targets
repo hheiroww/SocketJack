@@ -1,0 +1,20 @@
+<Project>
+  <Import Project="..\Directory.Build.targets" Condition="Exists('..\Directory.Build.targets')" />
+  <ItemGroup>
+    <EmbeddedResource Include="html\*">
+      <LogicalName>heirowLLM.Html.%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+      <EmbeddedResource Include="..\SocketJack-MagicMasterList\html\Builder.html" Link="html\Builder.html">
+        <LogicalName>heirowLLM.Html.Builder.html</LogicalName>
+      </EmbeddedResource>
+      <EmbeddedResource Include="..\heirowWebUI\wwwroot\index.html" Link="html\heirowWebUI.html">
+        <LogicalName>heirowLLM.Html.heirowWebUI.html</LogicalName>
+      </EmbeddedResource>
+      <EmbeddedResource Include="..\heirowWebUI\wwwroot\editor.js" Link="html\heirowWebUI.editor.js">
+        <LogicalName>heirowLLM.Html.editor.js</LogicalName>
+      </EmbeddedResource>
+      <EmbeddedResource Include="..\heirowWebUI\wwwroot\assets\*" Link="html\heirowWebUI-assets\%(Filename)%(Extension)">
+        <LogicalName>heirowLLM.Html.%(Filename)%(Extension)</LogicalName>
+      </EmbeddedResource>
+  </ItemGroup>
+</Project>

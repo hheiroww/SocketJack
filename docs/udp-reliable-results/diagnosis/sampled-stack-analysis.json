@@ -1,0 +1,195 @@
+{
+  "Caution": "Sampled inclusive thread-stack time, not CPU percentages; overlapping frames must not be summed. Includes startup, warm-up, bulk, latency and shutdown.",
+  "Groups": {
+    "AllSampledThreadMilliseconds": 93231.06641436165,
+    "ReceiveLoopMilliseconds": 426.52040589122464,
+    "SendLoopMilliseconds": 727.8935460163099,
+    "DeliveryLoopMilliseconds": 4025.5024913356774,
+    "DeliveryBinarySerializerMilliseconds": 127.89277488365406,
+    "DeliveryTypeResolutionMilliseconds": 647.9393485900832
+  },
+  "TopSocketJackFrames": [
+    {
+      "Name": "Process64 dotnet (66300) Args:  C:\\Users\\Vin\\Documents\\GitHub\\SocketJack\\tools\\UdpReliable.Bench\\bin\\Release\\net8.0\\UdpReliable.Bench.dll server fast-lan-32k 61097 ",
+      "SampledInclusiveMilliseconds": 93231.06641436165
+    },
+    {
+      "Name": "SocketJack!SocketJack.ThreadManager.CounterLoop()",
+      "SampledInclusiveMilliseconds": 6249.72509765625
+    },
+    {
+      "Name": "SocketJack!SocketJack.Net.UdpReliablePeer+<DeliverLoop>d__69.MoveNext()",
+      "SampledInclusiveMilliseconds": 4025.5024913356774
+    },
+    {
+      "Name": "System.Private.CoreLib.il!System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1[System.Threading.Tasks.VoidTaskResult,SocketJack.Net.UdpReliablePeer+<DeliverLoop>d__69].MoveNext(class System.Threading.Thread)",
+      "SampledInclusiveMilliseconds": 4025.5024913356774
+    },
+    {
+      "Name": "SocketJack!SocketJack.Net.UdpServer.DeserializeAndDispatch(unsigned int8[],int32,class System.Net.IPEndPoint)",
+      "SampledInclusiveMilliseconds": 4002.4330968452427
+    },
+    {
+      "Name": "SocketJack!SocketJack.Net.NetworkBase.HandleReceive(class SocketJack.Net.NetworkConnection,class System.Object,class System.Type,int32)",
+      "SampledInclusiveMilliseconds": 3127.819126599124
+    },
+    {
+      "Name": "UdpReliable.Bench!UdpReliable.Bench.Program+Link.<Listen>b__18_1(class SocketJack.Net.ReceivedEventArgs`1<class UdpReliable.Bench.Message>)",
+      "SampledInclusiveMilliseconds": 3082.412129677012
+    },
+    {
+      "Name": "SocketJack!SocketJack.Net.NetworkBase.InvokeAllCallbacks(class SocketJack.Net.IReceivedEventArgs)",
+      "SampledInclusiveMilliseconds": 3082.412129677012
+    },
+    {
+      "Name": "System.Private.CoreLib.il!System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1[System.Threading.Tasks.VoidTaskResult,SocketJack.Net.UdpReliablePeer+<DeliverLoop>d__69].ExecutionContextCallback(class System.Object)",
+      "SampledInclusiveMilliseconds": 2629.6804145906476
+    },
+    {
+      "Name": "System.Private.CoreLib.il!System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1[System.Threading.Tasks.VoidTaskResult,SocketJack.Net.UdpReliablePeer+<DeliverLoop>d__69].MoveNext()",
+      "SampledInclusiveMilliseconds": 2629.6804145906476
+    },
+    {
+      "Name": "SocketJack!SocketJack.Net.UdpServer.ReliableReceive(class SocketJack.Net.UdpReliablePeer,unsigned int8[],unsigned int8)",
+      "SampledInclusiveMilliseconds": 2627.8392145965604
+    },
+    {
+      "Name": "SocketJack!SocketJack.Net.UdpReliableTransport.Dispatch(class SocketJack.Net.UdpReliablePeer,unsigned int8[],unsigned int8)",
+      "SampledInclusiveMilliseconds": 2627.8392145965604
+    },
+    {
+      "Name": "SocketJack!SocketJack.Net.NetworkBase+<>c__DisplayClass205_0`1[System.__Canon].<RegisterCallback>b__1(class SocketJack.Net.IReceivedEventArgs)",
+      "SampledInclusiveMilliseconds": 2035.3660453096415
+    },
+    {
+      "Name": "SocketJack!SocketJack.Net.NetworkBase.Invoke(class System.Action)",
+      "SampledInclusiveMilliseconds": 2032.365845454409
+    },
+    {
+      "Name": "SocketJack!SocketJack.Net.NetworkBase+<>c__DisplayClass91_1.<InvokeAllCallbacks>b__0()",
+      "SampledInclusiveMilliseconds": 2031.2384454137825
+    },
+    {
+      "Name": "System.Private.CoreLib.il!System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1[System.Threading.Tasks.VoidTaskResult,SocketJack.Net.UdpReliableTransport+<SendLoop>d__40].MoveNext(class System.Threading.Thread)",
+      "SampledInclusiveMilliseconds": 726.334646017645
+    },
+    {
+      "Name": "SocketJack!SocketJack.Net.UdpReliableTransport+<SendLoop>d__40.MoveNext()",
+      "SampledInclusiveMilliseconds": 725.397246034239
+    },
+    {
+      "Name": "SocketJack!SocketJack.Serialization.Wrapper.GetValueType(class System.String)",
+      "SampledInclusiveMilliseconds": 643.5860467311809
+    },
+    {
+      "Name": "SocketJack!SocketJack.Net.UdpReliableSocketOperation.Send(class System.Net.Sockets.Socket,class System.Net.IPEndPoint,int32)",
+      "SampledInclusiveMilliseconds": 550.0811799055073
+    },
+    {
+      "Name": "SocketJack!SocketJack.Net.UdpClient..ctor(class SocketJack.Net.NetworkOptions,class System.String)",
+      "SampledInclusiveMilliseconds": 544.4051000099182
+    },
+    {
+      "Name": "SocketJack!SocketJack.Net.NetworkBase..ctor()",
+      "SampledInclusiveMilliseconds": 541.887500566864
+    },
+    {
+      "Name": "SocketJack!SocketJack.Net.NIC.Initialize()",
+      "SampledInclusiveMilliseconds": 529.7358005950927
+    },
+    {
+      "Name": "SocketJack!SocketJack.Net.NIC.DiscoverNAT()",
+      "SampledInclusiveMilliseconds": 528.2368005950927
+    },
+    {
+      "Name": "SocketJack!SocketJack.Net.NIC+<Initialize>d__36.MoveNext()",
+      "SampledInclusiveMilliseconds": 528.2368005950927
+    },
+    {
+      "Name": "SocketJack!SocketJack.Serialization.Wrapper.GetValueType()",
+      "SampledInclusiveMilliseconds": 430.16504837360253
+    }
+  ],
+  "TopLeafFrames": [
+    {
+      "Name": "UNMANAGED_CODE_TIME",
+      "SampledMilliseconds": 90906.19180324914
+    },
+    {
+      "Name": "CPU_TIME",
+      "SampledMilliseconds": 2324.8384341941896
+    },
+    {
+      "Name": "System.Private.CoreLib.il!System.Threading.PortableThreadPool+WorkerThread.WorkerThreadStart()",
+      "SampledMilliseconds": 0.010029035949401077
+    },
+    {
+      "Name": "System.Private.CoreLib.il!System.Threading.PortableThreadPool+GateThread.GateThreadStart()",
+      "SampledMilliseconds": 0.008507586098403408
+    },
+    {
+      "Name": "System.Private.CoreLib.il!System.Threading.TimerQueue.TimerThread()",
+      "SampledMilliseconds": 0.0053664598474369996
+    },
+    {
+      "Name": "SocketJack!SocketJack.ThreadManager.CounterLoop()",
+      "SampledMilliseconds": 0.003895278548270653
+    },
+    {
+      "Name": "System.Private.CoreLib.il!System.Threading.PortableThreadPool+IOCompletionPoller.Poll()",
+      "SampledMilliseconds": 0.0025471374515291245
+    },
+    {
+      "Name": "System.Private.CoreLib.il!System.Threading.LowLevelLifoSemaphore.Wait(int32,bool)",
+      "SampledMilliseconds": 0.0022065139769438247
+    },
+    {
+      "Name": "UdpReliable.Bench!UdpReliable.Bench.Program.<Main>(class System.String[])",
+      "SampledMilliseconds": 0.002080468750136788
+    },
+    {
+      "Name": "System.Private.CoreLib.il!System.Threading.LowLevelLifoSemaphore.WaitForSignal(int32)",
+      "SampledMilliseconds": 0.0008729145013148809
+    },
+    {
+      "Name": "System.Private.CoreLib.il!Interop+Kernel32.GetQueuedCompletionStatus(int,unsigned int32&,unsigned int&,int&,int32)",
+      "SampledMilliseconds": 0.0002949451446738749
+    },
+    {
+      "Name": "Mono.Nat!Mono.Nat.Pmp.PmpSearcher.Create()",
+      "SampledMilliseconds": 6.174221039145777e-05
+    },
+    {
+      "Name": "Mono.Nat!Mono.Nat.Upnp.UpnpSearcher.Create()",
+      "SampledMilliseconds": 5.755100252713419e-05
+    },
+    {
+      "Name": "System.Net.NetworkInformation.il!System.Net.NetworkInformation.SystemNetworkInterface.GetNetworkInterfaces()",
+      "SampledMilliseconds": 5.340576177559342e-05
+    },
+    {
+      "Name": "UdpReliable.Bench!UdpReliable.Bench.Program+<>c__DisplayClass3_0.<Server>b__0(class UdpReliable.Bench.Message)",
+      "SampledMilliseconds": 5.330182807483652e-05
+    },
+    {
+      "Name": "SocketJack!SocketJack.Net.UdpServer.DeserializeAndDispatch(unsigned int8[],int32,class System.Net.IPEndPoint)",
+      "SampledMilliseconds": 3.324165004414681e-05
+    },
+    {
+      "Name": "System.Private.CoreLib.il!System.Buffers.SharedArrayPool`1[System.Byte].Trim()",
+      "SampledMilliseconds": 3.007812483701855e-05
+    },
+    {
+      "Name": "System.Private.CoreLib.il!System.Gen2GcCallback.Finalize()",
+      "SampledMilliseconds": 1.379089371766895e-05
+    },
+    {
+      "Name": "System.Private.CoreLib.il!System.Threading.WaitHandle.WaitOneNoCheck(int32)",
+      "SampledMilliseconds": 1.2692831660388038e-05
+    },
+    {
+      "Name": "System.Private.CoreLib.il!System.Threading.ThreadPoolWorkQueue.Dispatch()",
+      "SampledMilliseconds": 1.2615591685971594e-05
+    }
+  ]
+}

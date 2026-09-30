@@ -1,0 +1,22 @@
+{
+  "Arguments": [
+    "client",
+    "raw-tcp",
+    "127.0.0.1",
+    "24892",
+    "0",
+    "256"
+  ],
+  "ElapsedSeconds": 4.973375,
+  "Exceptions": {
+    "System.Net.Sockets.SocketException": 36,
+    "System.IO.IOException": 2
+  },
+  "FirstStacks": {
+    "System.Net.Sockets.SocketException": "   at System.Net.Sockets.Socket.UpdateStatusAfterSocketErrorAndThrowException(SocketError error, Boolean disconnectOnFailure, String callerName)",
+    "System.IO.IOException": "   at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)"
+  },
+  "Gen0": 277,
+  "Gen1": 265,
+  "Gen2": 264
+}

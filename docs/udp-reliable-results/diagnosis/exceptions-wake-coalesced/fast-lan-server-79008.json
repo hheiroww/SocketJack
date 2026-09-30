@@ -1,0 +1,19 @@
+{
+  "Arguments": [
+    "server",
+    "fast-lan",
+    "26892"
+  ],
+  "ElapsedSeconds": 10.5843998,
+  "Exceptions": {
+    "System.Net.Sockets.SocketException": 19,
+    "System.OperationCanceledException": 14
+  },
+  "FirstStacks": {
+    "System.Net.Sockets.SocketException": "   at System.Net.Sockets.Socket.UpdateStatusAfterSocketErrorAndThrowException(SocketError error, Boolean disconnectOnFailure, String callerName)",
+    "System.OperationCanceledException": "   at System.Threading.CancellationToken.ThrowOperationCanceledException()"
+  },
+  "Gen0": 166,
+  "Gen1": 132,
+  "Gen2": 131
+}

@@ -1,219 +1,243 @@
-# SocketJack 2026
+<div align="center">
 
-![SocketJack Icon](https://raw.githubusercontent.com/JackOfFates/SocketJack/master/SocketJack/SocketJackIcon.png)
+<img src="https://raw.githubusercontent.com/hheiroww/SocketJack/master/SocketJack/SocketJackIcon.png" alt="SocketJack" width="128" />
 
-[![NuGet](https://img.shields.io/nuget/v/SocketJack.svg)](https://www.nuget.org/packages/SocketJack)
-[![NuGet Downloads](https://img.shields.io/nuget/dt/SocketJack.svg)](https://www.nuget.org/packages/SocketJack)
-[![SocketJack.WPF](https://img.shields.io/nuget/v/SocketJack.WPF.svg?label=SocketJack.WPF)](https://www.nuget.org/packages/SocketJack.WPF)
-[![GitHub Packages](https://img.shields.io/badge/GitHub%20Packages-published-24292f?logo=github)](https://github.com/JackOfFates/SocketJack/packages)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+# ⚡ SocketJack 2026
 
-SocketJack 2026 is a batteries-included .NET networking platform for typed object transport, TCP, UDP, WebSockets, HTTP apps, protocol multiplexing, SQL-backed management, peer-to-peer metadata, and remote WPF control.
+**Typed messages · Reliable UDP · HTTP & WebSockets · One-port protocol hosting**
 
-It is built for projects that need real network behavior without rebuilding wire plumbing from scratch. Framing, segmentation, serialization, compression, routing, protocol detection, TLS, static file hosting, streaming routes, typed callbacks, peer identity, and P2P forwarding are already part of the platform.
+[![NuGet](https://img.shields.io/nuget/v/SocketJack.svg?logo=nuget)](https://www.nuget.org/packages/SocketJack)
+[![Downloads](https://img.shields.io/nuget/dt/SocketJack.svg)](https://www.nuget.org/packages/SocketJack)
+[![Build & publish](https://github.com/hheiroww/SocketJack/actions/workflows/dotnet.yml/badge.svg)](https://github.com/hheiroww/SocketJack/actions/workflows/dotnet.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/hheiroww/SocketJack/blob/master/LICENSE)
 
-| Start here | Link |
-|---|---|
-| Install the NuGet packages | [#Install](#install) |
-| See the 2026 package line | [#Versions](#versions) |
-| Explore networking features | [#Networking](#networking) |
-| Share or control WPF windows | [#SocketJack.WPF](#socketjackwpf) |
+**📦 [Install](#-install) · ✨ [What's new](#-whats-new-in-202613) · 🧭 [Features](#-feature-explorer) · 📚 [Documentation](#-documentation)**
 
-<a id="versions"></a>
-## #Versions
+</div>
 
-SocketJack 2026 is the current platform line. The core packages use year-based versions, while compatibility packages retain their existing package numbering.
+---
 
-| Surface | Version | Target / format | Notes |
-|---|---:|---|---|
-| [`SocketJack`](https://www.nuget.org/packages/SocketJack) | `2026.11` | `.NET Standard 2.1` | Core networking, protocol hosting, P2P, SQL/data, streaming, HTTP, and WebSockets. |
-| [`SocketJack.WPF`](https://www.nuget.org/packages/SocketJack.WPF) | `2026.7` | `net8.0-windows7.0`, `net10.0-windows7.0` | WPF capture, remote input, and GUI remoting. |
-| `SocketJack.Unity` | `1.1.0.1` | `.NET Standard 2.1` | Legacy Unity-facing package surface. |
-| `SocketJack.WebSocketServer` | `1.1.0.1` | `.NET Standard 2.1` | Legacy WebSocket server package surface. |
+SocketJack is a .NET networking library for sending typed objects, hosting HTTP APIs, connecting browser clients, and routing peers. It supplies framing, serialization, segmentation, compression, callbacks, and connection metadata so you can build the application on top.
 
-<a id="install"></a>
-<details open>
-<summary><strong>#Install</strong> - package commands and first choice</summary>
+| 🔌 Connect | 🌐 Host | 📡 Exchange | 🛠️ Integrate |
+|---|---|---|---|
+| TCP · UDP · reliable UDP | HTTP · WebSocket · multiple protocols | Typed messages · broadcasts · peer routing | TypeScript generation · SFTP · WPF companion |
 
-Install the core networking package:
+## 📦 Install
 
 ```powershell
-dotnet add package SocketJack
+dotnet add package SocketJack --version 2026.13.0
 ```
 
-Or with Package Manager:
+| Package | Target | Purpose |
+|---|---|---|
+| **[SocketJack](https://www.nuget.org/packages/SocketJack/2026.13.0)** | .NET Standard 2.1 | Core networking library; this release is **2026.13.0**. |
+| **[SocketJack.WPF](https://www.nuget.org/packages/SocketJack.WPF)** | Windows / WPF | Companion package for live control capture and remote input; versioned separately. |
 
-```powershell
-Install-Package SocketJack
-```
-
-Install the WPF companion package when you want live WPF capture, remote input, or peer-controlled desktop windows:
-
-```powershell
-dotnet add package SocketJack.WPF
-```
-
-Use `SocketJack` for servers, clients, protocol hosting, HTTP/WebSocket apps, SQL/data, streaming, and peer routing. Add `SocketJack.WPF` when the network should see or control a WPF interface.
-
-</details>
-
-<a id="networking"></a>
 <details>
-<summary><strong>#Networking</strong> - TCP, UDP, WebSockets, standard protocols, and the SocketJack protocol</summary>
+<summary><strong>🚀 First connection — typed TCP messages</strong></summary>
 
-SocketJack gives one consistent API family for local-network tools, multiplayer games, admin panels, browser apps, agent hosts, stream relays, database management, and peer-routed software.
-
-### #Tcp
-
-`TcpServer` and `TcpClient` provide typed object messaging over TCP. You register callbacks by message type and let SocketJack handle framing, segmentation, connection identity, serialization, compression, and broadcast routing.
+Register a callback before connecting. Run the server and client in separate applications, or together while experimenting:
 
 ```csharp
+using System;
 using SocketJack.Net;
 
 var server = new TcpServer(port: 12345);
-server.RegisterCallback<ChatMessage>(args =>
+server.RegisterCallback<ChatMessage>(e =>
 {
-    Console.WriteLine(args.Object.Text);
-    args.Connection.Send(new ChatMessage("received"));
+    Console.WriteLine(e.Object.Text);
+    e.Connection.Send(new ChatMessage { Text = "Received ✓" });
 });
 server.Listen();
 
 var client = new TcpClient();
-await client.Connect("127.0.0.1", 12345);
-client.Send(new ChatMessage("hello"));
+client.RegisterCallback<ChatMessage>(e => Console.WriteLine(e.Object.Text));
+if (await client.Connect("127.0.0.1", 12345))
+    client.Send(new ChatMessage { Text = "Hello, SocketJack!" });
 
-public sealed record ChatMessage(string Text);
+public sealed class ChatMessage
+{
+    public string Text { get; set; }
+}
 ```
 
-### #Udp
+Keep the host application running while connections are in use. Use matching serialization and compression settings on both endpoints.
 
-`UdpServer` and `UdpClient` use the same typed callback style for datagram workflows. This is useful for discovery, presence, lightweight state, games, telemetry, local-network devices, and low-overhead service coordination.
+</details>
 
-`UDP_Reliable` adds indexed fragmentation, acknowledgments, selective retries, ordered delivery, and verified stream/file transfers. See the [API, limits, and measured results](docs/UDP_Reliable.md).
+## ✨ What's new in 2026.13
 
-### #WebSockets
+This release refreshes the documentation and publishing checks for the recent networking updates. Expand each feature below for behavior, configuration, and limits.
 
-SocketJack includes browser-compatible WebSocket clients and servers. WebSocket connections can use the same serialization, compression, callbacks, peer metadata, and P2P routing as native SocketJack connections.
+| Feature | What changed |
+|---|---|
+| 📡 **Reliable UDP** | Opt-in reliable sessions, indexed fragments, selective retransmission, and independent or ordered delivery. |
+| 🧩 **Binary serialization** | Custom `SB` format, compact integers, direct byte arrays, and type whitelist validation. |
+| 📂 **Verified transfers** | Chunked stream/file delivery with 64-bit offsets and SHA-256 verification. |
+| 🔐 **SSH.NET 2026.0.0** | Updated dependency powering SocketJack's SFTP client integration. |
+| 🟦 **TypeScript generation** | Generate a client from mapped HTTP routes and emit whitelisted WebSocket message types. |
+| ✅ **Trusted Publishing** | GitHub identity obtains a short-lived NuGet credential; no stored publish API key is required. |
+
+## 🧭 Feature explorer
+
+<details open>
+<summary><strong>📡 Reliable UDP — fragments, acknowledgments, retries & ordering</strong></summary>
+
+`UDP_Reliable` adds a reliable session layer to SocketJack UDP. Ordinary UDP remains the default, and existing applications opt in explicitly.
+
+- **✓ Indexed reassembly:** fragments are placed at their indexed positions; duplicate packets are suppressed.
+- **↻ Selective retries:** missing data is retransmitted, with bounded queues and receiver backpressure.
+- **⇄ Independent delivery:** the default allows complete messages to proceed independently; callbacks must be thread-safe.
+- **≡ Ordered delivery:** set `Ordering = true` when callbacks must follow admission order.
+- **📊 Statistics:** inspect wire bytes, retries, queued payload, and smoothed RTT through `ReliableStatistics`.
 
 ```csharp
 using SocketJack.Net;
+using SocketJack.Serialization;
 
-var server = new WebSocketServer(port: 9000);
-server.RegisterCallback<ChatMessage>(args =>
+var options = new NetworkOptions
 {
-    server.SendBroadcast(new ChatMessage(args.Object.Text));
-});
-server.Listen();
+    Serializer = new BinarySerializer(),
+    UdpReliable = new UdpReliableOptions
+    {
+        Ordering = false,
+        DatagramSize = 1200,
+        BufferSize = 32768
+    }
+};
+var client = UDP_Reliable.CreateClient(options);
 ```
 
-### #Standard Protocols Built In
+Configure a matching reliable server with its own options instance. `SendAsync` waits for remote transport acceptance, not successful application processing or durable storage; use an explicit application reply for that guarantee.
 
-SocketJack can host normal internet and application protocols directly:
+**Limits:** reliability does not provide encryption. The recorded loopback benchmarks did **not** meet the goal of outperforming TCP on both throughput and latency. Choose this transport for its delivery behavior and measure your own workload.
 
-| Protocol / surface | What it is used for |
-|---|---|
-| HTTP | Routes, APIs, typed request bodies, static files, directories, redirects, uploads, and stream responses. |
-| WebSockets | Browser clients, dashboards, chat, realtime admin, and app clients. |
-| RTMP streaming | Live media ingest and relay workflows. |
-| TDS / SQL | SQL-style clients and database management surfaces. |
-| FTP / SFTP helpers | File transport, session artifacts, and remote file movement. |
-| TLS / auth helpers | `SslStream`, certificates, Basic auth, bearer tokens, local-host checks, and allow/deny rules. |
-
-`MutableTcpServer` can detect and route multiple protocols on one listening port, so a single server can host HTTP, WebSocket, SocketJack protocol traffic, RTMP, SQL/TDS, and custom handlers.
-
-### #SocketJack Protocol Built In
-
-The native SocketJack protocol is the object-transport layer:
-
-- Send CLR objects directly with `client.Send(new MyMessage(...))`.
-- Register type-safe callbacks with `RegisterCallback<T>()`.
-- Broadcast to connected clients or route to a specific peer.
-- Use peer redirects for P2P-style delivery through a coordinating server.
-- Carry identity and metadata with each connection.
-- Let SocketJack handle wrappers, type information, chunking, compression, and reassembly.
+📖 [API, configuration & limits](https://github.com/hheiroww/SocketJack/blob/master/docs/UDP_Reliable.md) · 📊 [Measured results](https://github.com/hheiroww/SocketJack/blob/master/docs/UDP_Reliable-results.md)
 
 </details>
 
-<a id="serialization"></a>
 <details>
-<summary><strong>#Serialization</strong> - built-in System.Text.Json with type-safe callbacks</summary>
+<summary><strong>🧩 Serialization — JSON by default, compact binary when selected</strong></summary>
 
-SocketJack uses `System.Text.Json` by default and keeps application code strongly typed.
+`System.Text.Json` remains the default. Select `SocketJack.Serialization.BinarySerializer` through `NetworkOptions.Serializer` on both peers to use SocketJack's versioned **SB** wire format.
 
-| Feature | Benefit |
+| Encoding feature | Behavior |
 |---|---|
-| Built-in JSON serializer | No serializer setup required for normal object messaging. |
-| Type-safe callbacks | Receive `T` directly instead of manually decoding bytes. |
-| Wrapper metadata | Type information and peer-routing metadata travel with each message. |
-| Pluggable surface | Advanced users can replace the serializer through `NetworkOptions.Serializer`. |
+| Compact integers | Variable-length integer encoding reduces metadata size. |
+| Byte arrays | Encoded directly instead of converting payload bytes into JSON text. |
+| Uncommon types | JSON fallback retains support beyond the specialized binary cases. |
+| Type validation | Decoded wrappers continue through SocketJack's type whitelist checks. |
 
-```csharp
-server.RegisterCallback<OrderSubmitted>(args =>
-{
-    OrderSubmitted order = args.Object;
-    Console.WriteLine(order.OrderId);
-});
-
-client.Send(new OrderSubmitted("SO-1001", total: 42.50m));
-
-public sealed record OrderSubmitted(string OrderId, decimal Total);
-```
+This is a custom serializer, not `BinaryFormatter`. Register message callbacks or whitelist message types before sending, including nested types where required. Serializer and compression choices must agree between endpoints.
 
 </details>
 
-<a id="database--mvc"></a>
 <details>
-<summary><strong>#Database / MVC</strong> - SQL, web admin, HTTP routing, and peer metadata</summary>
+<summary><strong>📂 Stream & file transfer — bounded chunks and verified completion</strong></summary>
 
-SocketJack includes enough web, data, and routing infrastructure to build admin panels, dashboards, internal tools, workstation state, and agent-facing management surfaces without adding a separate web stack first.
+Reliable UDP supports stream/file transfers without materializing an entire file as one message. Transfer frames use bounded chunks, **64-bit byte offsets**, SHA-256 verification, and explicit destination acceptance.
 
-### #SQL Database
+The per-I/O buffer cap is **32 KiB**, not a total-file size limit. Whole-object messages still have separate memory budgets. Configure delivery timeouts and destination handling for your workload; transport acceptance alone does not establish successful storage.
 
-- Built-in data-server primitives for application records, snapshots, generated context, and cached query paths.
-- SQL/TDS protocol handling for SQL-style access paths.
-- Good fit for local-first tools, embedded admin systems, workstation state, sessions, permissions, and hosted metadata.
+📖 [Transfer APIs and receiver requirements](https://github.com/hheiroww/SocketJack/blob/master/docs/UDP_Reliable.md)
 
-### #Web SQL Admin / Management
+</details>
 
-- HTTP-hosted SQL admin and management surfaces can run directly on a SocketJack server.
-- Route mapping supports JSON APIs, typed request bodies, static pages, uploads, and stream responses.
-- The same host can serve an admin UI, a browser app, a database API, and native SocketJack peers.
+<details>
+<summary><strong>🔐 SSH.NET 2026.0.0 — SFTP client integration</strong></summary>
+
+SocketJack now references **SSH.NET 2026.0.0**. `SocketJack.Net.SftpClient` wraps SSH.NET for remote file operations:
+
+- **🔑 Authentication:** password and private-key options, including encrypted-key passphrases.
+- **📁 Directory operations:** list, create, change, rename, and delete.
+- **⇅ File operations:** upload/download with progress callbacks; open read/write streams.
+- **⚙️ Metadata:** inspect and update SFTP file attributes.
+- **⏱️ Configuration:** host, port, username, and connection timeout through `SftpClientOptions`.
+
+The convenience async methods wrap synchronous work with `Task.Run`; they are not a separate native asynchronous transport. SFTP **server** hosting requires an `ISftpServerBackend` implementation; SocketJack does not bundle an SSH server.
+
+📖 [SFTP implementation](https://github.com/hheiroww/SocketJack/blob/master/SocketJack/Net/FtpSftp.cs) · 📦 [SSH.NET package](https://www.nuget.org/packages/SSH.NET/2026.0.0)
+
+</details>
+
+<details>
+<summary><strong>🟦 TypeScript — generate clients from mapped HTTP routes</strong></summary>
+
+`HttpServer.GenerateTypeScriptClient()` emits a dependency-free TypeScript client from the server's currently mapped routes. Typed request bodies become TypeScript aliases, path variables become required inputs, and resolvable whitelisted message classes can be emitted as interfaces for WebSocket use.
 
 ```csharp
+using System.IO;
 using SocketJack.Net;
 
 var server = new HttpServer(port: 8080);
-
 server.Map("GET", "/health", (connection, request, ct) => new { status = "ok" });
-server.MapDirectory("/static", @"C:\wwwroot");
 
-server.Listen();
+File.WriteAllText("SocketJackClient.ts", server.GenerateTypeScriptClient(
+    new TypeScriptClientOptions
+    {
+        ClassName = "ApiClient",
+        BaseUrl = "http://localhost:8080",
+        IncludeWebSocketTypes = true
+    }));
 ```
 
-### #P2P Metadata Sharing
-
-SocketJack peers can share metadata with the network. It works like network cookies for clients and servers:
-
-- Announce model, hardware, role, room, user, app, price, uptime, or service state.
-- Update peer metadata while connections are alive.
-- Route messages based on peer identity and metadata.
-- Build server browsers, room lists, workstation directories, or capability registries.
+Generate after registering routes. Review generated contracts whenever the server API changes.
 
 </details>
 
-<a id="socketjackwpf"></a>
 <details>
-<summary><strong>#SocketJack.WPF</strong> - share, control, and manipulate remote WPF windows</summary>
+<summary><strong>🔌 TCP & ordinary UDP — typed callbacks, replies and broadcasts</strong></summary>
 
-`SocketJack.WPF` makes WPF windows and controls remotely shareable over SocketJack.
+`TcpClient` / `TcpServer` provide framed object messaging over TCP. `UdpClient` / `UdpServer` provide the typed callback model for datagrams. Use `RegisterCallback<T>()` to receive a message, reply through its connection, or broadcast through the server.
 
-| Capability | What it means |
-|---|---|
-| Live control sharing | Share any WPF `FrameworkElement` as a live image stream. |
-| Remote viewing | View remote WPF content from another WPF client or a browser-backed admin surface. |
-| Remote input | Send mouse, wheel, text, and keyboard input back to the shared control. |
-| P2P discovery | Use peer identity and metadata so remote windows can be found, shared, controlled, and manipulated through peer flows. |
-| Browser administration | Supports browser-backed viewing and remote administration for WPF applications. |
+TCP suits ordered streams and general application traffic. Ordinary UDP suits discovery and lightweight updates where applications tolerate loss. Select reliable UDP explicitly when you need its session delivery semantics.
+
+</details>
+
+<details>
+<summary><strong>🌐 HTTP & WebSockets — APIs, static files and realtime clients</strong></summary>
+
+`HttpServer` maps methods and paths to handlers, supports typed request bodies, and serves files, directories, redirects, uploads, and streaming responses. WebSocket clients and servers connect browser applications and native peers to typed callbacks and peer metadata.
+
+```csharp
+var server = new SocketJack.Net.HttpServer(port: 8080);
+server.Map("GET", "/health", (connection, request, ct) => new { status = "ok" });
+server.MapDirectory("/static", @"C:\wwwroot");
+server.Listen();
+```
+
+</details>
+
+<details>
+<summary><strong>🔀 Protocol multiplexing — multiple protocols on one listener</strong></summary>
+
+`MutableTcpServer` detects and dispatches supported protocol traffic on one listening port. The repository includes HTTP, WebSocket, native SocketJack, RTMP, SQL/TDS, and FTP surfaces, with custom protocol handlers for extensions.
+
+Enable the handlers required by your application. SFTP runs over SSH and needs the separate backend described above; it is not supplied by ordinary TCP protocol detection.
+
+</details>
+
+<details>
+<summary><strong>🤝 Peer routing & metadata — discovery and coordinated delivery</strong></summary>
+
+Associate identity and metadata with peers, update that metadata during a connection, and route messages through a coordinating server. This supports room lists, capability registries, service discovery, and peer-directed application traffic. Server-mediated redirects are distinct from a direct peer connection.
+
+</details>
+
+<details>
+<summary><strong>🗄️ Data & streaming — SQL surfaces, management routes and RTMP</strong></summary>
+
+The repository includes data-server primitives, SQL/TDS handling, HTTP management routes, and RTMP ingest/relay support. These components can support embedded administration, application records, and media workflows alongside native SocketJack messaging.
+
+See the examples and component source for configuration and supported protocol behavior.
+
+</details>
+
+<details>
+<summary><strong>🖥️ WPF companion — live controls and remote input</strong></summary>
+
+The separately versioned `SocketJack.WPF` package shares `FrameworkElement` content as a live image stream and forwards mouse, wheel, text, and keyboard input.
 
 ```csharp
 using SocketJack.WPF;
@@ -222,36 +246,44 @@ IDisposable shareHandle = GameCanvas.Share(client, remotePeer, fps: 10);
 IDisposable viewerHandle = client.ViewShare(SharedImage, sharerPeer);
 ```
 
+This fragment assumes an existing WPF application, connection, and peer references. Dispose the handles to stop sharing/viewing. The current core publishing workflow does not republish the WPF companion.
+
 </details>
 
-<a id="repository-guide"></a>
 <details>
-<summary><strong>#Repository Guide</strong> - where the major pieces live</summary>
+<summary><strong>✅ Publishing & dependency checks — short-lived credentials</strong></summary>
 
-| Path | Purpose |
+The release workflow builds on Linux and Windows, packs SocketJack, and publishes to NuGet and GitHub Packages. NuGet Trusted Publishing exchanges GitHub's workflow identity for a temporary credential using `NuGet/login`.
+
+Before packaging, restore audits direct and transitive dependencies. Known vulnerability warnings and audit-feed failures block the core release. Package audits report known advisories at the time of the check; they do not prove the absence of all security defects.
+
+</details>
+
+## 📚 Documentation
+
+| Resource | What you'll find |
 |---|---|
-| `SocketJack/` | Core `SocketJack` package, transports, HTTP/WebSocket stack, mutable protocol server, SQL/data, streaming, FTP/SFTP, and resources. |
-| `SocketJack.Windows/` | `SocketJack.WPF` package and WPF capture/input integration. |
-| `SocketJack.Tests/` | Core networking and protocol tests. |
-| `SocketJack.WpfBasicGame/` | Minimal WPF sample built against `SocketJack.WPF`. |
-| `SocketJack.WebSocketServer/` | WebSocket server package/project surface. |
-| `SocketJack.Unity/` | Unity-compatible package surface. |
-| `SocketJack-MagicMasterList/` | Public server-list and SocketJack.com-facing host project. |
-| `examples.md` | Longer runnable examples across SocketJack transports and utilities. |
+| 📘 [Examples](https://github.com/hheiroww/SocketJack/blob/master/examples.md) | Longer transport and utility examples. |
+| 📡 [Reliable UDP guide](https://github.com/hheiroww/SocketJack/blob/master/docs/UDP_Reliable.md) | Options, transfer APIs, limits, and acceptance semantics. |
+| 📊 [Reliable UDP results](https://github.com/hheiroww/SocketJack/blob/master/docs/UDP_Reliable-results.md) | Recorded correctness and performance evidence. |
+| 🔎 [Release audit](https://github.com/hheiroww/SocketJack/blob/master/docs/RELEASE-2026.13.md) | Dependency audit scope and release validation. |
+| 🧪 [GitHub Actions](https://github.com/hheiroww/SocketJack/actions) | Build and publishing results. |
+| 📦 [NuGet](https://www.nuget.org/packages/SocketJack) | Published versions and dependencies. |
 
-</details>
-
-<a id="documentation"></a>
 <details>
-<summary><strong>#Documentation</strong> - examples, packages, and companion docs</summary>
+<summary><strong>🗺️ Repository map</strong></summary>
 
-- [Examples](examples.md)
-- [SocketJack package](https://www.nuget.org/packages/SocketJack)
-- [SocketJack.WPF package](https://www.nuget.org/packages/SocketJack.WPF)
-- [GitHub repository](https://github.com/JackOfFates/SocketJack)
+| Directory | Role |
+|---|---|
+| `SocketJack/` | Core networking and package README. |
+| `SocketJack.Tests/` | Protocol and HTTP integration tests. |
+| `SocketJack.UdpReliable.Tests/` | Reliable UDP correctness and impairment tests. |
+| `SocketJack.Windows/` | WPF companion. |
+| `SocketJack.WpfBasicGame/` | WPF example application. |
+| `docs/` | Protocol guides, benchmarks, and release notes. |
 
 </details>
 
-## License
+---
 
-SocketJack is open source and licensed under the [MIT License](LICENSE).
+**⚖️ License:** [MIT](https://github.com/hheiroww/SocketJack/blob/master/LICENSE)

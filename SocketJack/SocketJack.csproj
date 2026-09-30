@@ -20,9 +20,9 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- Keep Net\Services opt-in until the legacy search service pair is refactored; only latency-safe chat services are source-included for SocketJack. -->
-    <Compile Remove="heirowLLM.Android\**" />
+
     <Compile Remove="Net\Services\**\*.cs" />
-    <EmbeddedResource Remove="heirowLLM.Android\**" />
+
     <Compile Include="Net\Services\PromptIntellisense.cs" />
     <Compile Include="Net\Services\ReflectionService.cs" />
     <Compile Include="Net\Services\GitService.cs" />
@@ -50,18 +50,21 @@
     <Description>High-performance, fully managed .NET networking library for TCP, UDP, and WebSocket communication. Features built-in peer-to-peer with NAT traversal, pluggable System.Text.Json serialization, SslStream TLS encryption, GZip/Deflate compression, and bandwidth throttling. Targets .NET Standard 2.1.</Description>
     <IsPackable>True</IsPackable>
     <Company>JackOfFates</Company>
-    <Version>2026.12</Version>
+    <Version>2026.13</Version>
+    <NuGetAudit>true</NuGetAudit>
+    <NuGetAuditMode>all</NuGetAuditMode>
+    <WarningsAsErrors>$(WarningsAsErrors);NU1900;NU1901;NU1902;NU1903;NU1904;NU1905</WarningsAsErrors>
     <SupportedOSPlatformVersion>1.0</SupportedOSPlatformVersion>
     <BuildPackage>true</BuildPackage>
     <NeutralLanguage>en-001</NeutralLanguage>
     <IncludeSymbols>False</IncludeSymbols>
     <ImportedNamespaces>System.Text.Json=False,System.Text.Json.Serialization=False,Microsoft.VisualBasic=True,System=True,System.Collections=True,System.Collections.Generic=True,System.Diagnostics=True,System.Linq=True,System.Xml.Linq=True,System.Threading.Tasks=True,SocketJack=True</ImportedNamespaces>
-    <PackageReleaseNotes>2026.12 adds UDP Reliable</PackageReleaseNotes>
+    <PackageReleaseNotes>2026.13 refreshes feature documentation for reliable UDP, custom binary serialization, verified transfers, TypeScript client generation, and SSH.NET 2026.0.0 SFTP integration. Adds direct/transitive dependency audit gates and uses NuGet Trusted Publishing.</PackageReleaseNotes>
     <PackageProjectUrl>https://www.nuget.org/packages/SocketJack/</PackageProjectUrl>
     <PackageIcon>SocketJackIcon.png</PackageIcon>
     <PackageReadmeFile>Readme.md</PackageReadmeFile>
-    <RepositoryUrl>https://github.com/JackOfFates/SocketJack</RepositoryUrl>
-    <PackageTags>TCP; UDP; WebSocket; Socket; Sockets; Networking; Client; Server; TcpClient; TcpServer; UdpClient; UdpServer; Peer-to-Peer; P2P; NAT-Traversal; Serialization; JSON; System.Text.Json; GZip; Compression; SSL; TLS; Encryption; Async; Real-Time; Multiplayer; Game-Networking; Remote-Control; IoT; HTTP; Managed; Cross-Platform; High-Performance; Bandwidth-Throttling; WPF; LM Studio; Github; Link; Tools; AI; LLM; Copilot</PackageTags>
+    <RepositoryUrl>https://github.com/hheiroww/SocketJack</RepositoryUrl>
+    <PackageTags>TCP; UDP; WebSocket; Socket; Sockets; Networking; Client; Server; TcpClient; TcpServer; UdpClient; UdpServer; Peer-to-Peer; P2P; NAT-Traversal; Serialization; JSON; System.Text.Json; GZip; Compression; SSL; TLS; Encryption; Async; Real-Time; Multiplayer; Game-Networking; Remote-Control; IoT; HTTP; Managed; Cross-Platform; High-Performance; Bandwidth-Throttling; WPF</PackageTags>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|netstandard2.1|AnyCPU'">
     <WarningLevel>0</WarningLevel>
@@ -604,20 +607,8 @@
       <None Remove="html\*.png" />
       <None Remove="html\*.ico" />
       <None Remove="html\*.webmanifest" />
-      <None Remove="heirowLLM.Android\**" />
+
       <EmbeddedResource Include="html\*.html">
-        <LogicalName>SocketJack.Html.%(Filename)%(Extension)</LogicalName>
-      </EmbeddedResource>
-      <EmbeddedResource Include="..\SocketJack-MagicMasterList\html\Builder.html" Link="html\Builder.html">
-        <LogicalName>SocketJack.Html.Builder.html</LogicalName>
-      </EmbeddedResource>
-      <EmbeddedResource Include="..\heirowWebUI\wwwroot\index.html" Link="html\heirowWebUI.html">
-        <LogicalName>SocketJack.Html.heirowWebUI.html</LogicalName>
-      </EmbeddedResource>
-      <EmbeddedResource Include="..\heirowWebUI\wwwroot\editor.js" Link="html\heirowWebUI.editor.js">
-        <LogicalName>SocketJack.Html.editor.js</LogicalName>
-      </EmbeddedResource>
-      <EmbeddedResource Include="..\heirowWebUI\wwwroot\assets\*" Link="html\heirowWebUI-assets\%(Filename)%(Extension)">
         <LogicalName>SocketJack.Html.%(Filename)%(Extension)</LogicalName>
       </EmbeddedResource>
       <EmbeddedResource Include="html\*.png">
