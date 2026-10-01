@@ -1,0 +1,96 @@
+{
+  "Summary": [
+    {
+      "Mode": "binary-before",
+      "Operation": "encode",
+      "Nanoseconds": 285911.55,
+      "AllocatedBytes": 1051000.0752,
+      "Gen0": 645.6,
+      "Gen1": 645.5,
+      "Gen2": 645.5
+    },
+    {
+      "Mode": "binary-before",
+      "Operation": "decode",
+      "Nanoseconds": 72143.775,
+      "AllocatedBytes": 265416.8656,
+      "Gen0": 161.2,
+      "Gen1": 161.1,
+      "Gen2": 161.1
+    },
+    {
+      "Mode": "binary",
+      "Operation": "encode",
+      "Nanoseconds": 72141.68,
+      "AllocatedBytes": 262675.512,
+      "Gen0": 161.3,
+      "Gen1": 161.3,
+      "Gen2": 161.3
+    },
+    {
+      "Mode": "binary",
+      "Operation": "decode",
+      "Nanoseconds": 73101.85,
+      "AllocatedBytes": 264270.27,
+      "Gen0": 161.2,
+      "Gen1": 161.1,
+      "Gen2": 161.1
+    },
+    {
+      "Mode": "json",
+      "Operation": "encode",
+      "Nanoseconds": 284775.805,
+      "AllocatedBytes": 1052984.2544,
+      "Gen0": 469.1,
+      "Gen1": 468.1,
+      "Gen2": 468.1
+    },
+    {
+      "Mode": "json",
+      "Operation": "decode",
+      "Nanoseconds": 451098.575,
+      "AllocatedBytes": 1183599.868,
+      "Gen0": 283.3,
+      "Gen1": 282.3,
+      "Gen2": 282.3
+    }
+  ],
+  "Comparisons": [
+    {
+      "Operation": "encode",
+      "Baseline": "binary-before",
+      "Speedup": 3.963195062826372,
+      "Speedup95CI": [
+        3.6352679243264596,
+        4.2217519875039535
+      ]
+    },
+    {
+      "Operation": "encode",
+      "Baseline": "json",
+      "Speedup": 3.947451805946299,
+      "Speedup95CI": [
+        3.460228865746422,
+        4.537979038152837
+      ]
+    },
+    {
+      "Operation": "decode",
+      "Baseline": "binary-before",
+      "Speedup": 0.9868939705356292,
+      "Speedup95CI": [
+        0.9147870343875995,
+        1.0417963542790316
+      ]
+    },
+    {
+      "Operation": "decode",
+      "Baseline": "json",
+      "Speedup": 6.170822968228574,
+      "Speedup95CI": [
+        5.616584437240215,
+        6.953100437288542
+      ]
+    }
+  ]
+}

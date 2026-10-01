@@ -1,0 +1,18 @@
+[
+  {
+    "Path": "C:\\Users\\Vin\\Documents\\GitHub\\SocketJack\\SocketJack\\Net\\UdpReliableTransport.cs",
+    "Hash": "6A05C710904652F433418BEA0807F162EBD17C62C0301F63F62707358FD93AF3"
+  },
+  {
+    "Path": "C:\\Users\\Vin\\Documents\\GitHub\\SocketJack\\SocketJack\\Serialization\\BinarySerializer.cs",
+    "Hash": "CCD3D91BA3F78FD7B25F2703C20137F02624BDBF961AF256EE8CC6782797760B"
+  },
+  {
+    "Path": "C:\\Users\\Vin\\Documents\\GitHub\\SocketJack\\SocketJack\\Net\\InboundMessageDecoder.cs",
+    "Hash": "4430824AB06D34419DA113042C82E498B70B429980DC69AD58B02EBCE0892D29"
+  },
+  {
+    "Path": "C:\\Users\\Vin\\Documents\\GitHub\\SocketJack\\SocketJack\\Net\\NetworkAuthorization.cs",
+    "Hash": "FBD78C339137CC739E7221F7CB996433844EAF1A8C2ED06744522698AF1EA8BE"
+  }
+]

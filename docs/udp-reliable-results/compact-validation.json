@@ -1,0 +1,62 @@
+{
+  "Tests": {
+    "total": "30",
+    "executed": "30",
+    "passed": "30",
+    "failed": "0",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "LargeFile": {
+    "Bytes": 4295032833,
+    "TransferAndHashSeconds": 219.7,
+    "PeakSampledManagedBytes": 23941408,
+    "Sha256": "7771ca9460665383d6c6f5cf418cdec3f61e62173edb315fadc5016b17b647b2",
+    "Outcome": "Passed"
+  },
+  "CoreRelease": "PASS netstandard2.1",
+  "WpfRelease": "PASS net8.0-windows7.0 and net10.0-windows7.0; 0 errors, 4 existing SSH.NET advisory warnings",
+  "BinaryProvenance": [
+    {
+      "Path": "../tools/UdpReliable.Bench/bin/Release/net8.0/SocketJack.dll",
+      "Sha256": "b3f428253e90635ae2cdd5f57b1273d16cb9c02f16f77e4ee4df6f1dc4fff24d",
+      "Bytes": 22532096
+    },
+    {
+      "Path": "../tools/UdpReliable.Bench/bin/Release/net8.0/UdpReliable.Bench.dll",
+      "Sha256": "13d98c3cbea23836bd45cf5b211a1a026b63d7a8df062288c3767ab2cad913b0",
+      "Bytes": 43520
+    },
+    {
+      "Path": "../SocketJack.UdpReliable.Tests/bin/Release/net8.0/SocketJack.dll",
+      "Sha256": "b3f428253e90635ae2cdd5f57b1273d16cb9c02f16f77e4ee4df6f1dc4fff24d",
+      "Bytes": 22532096
+    },
+    {
+      "Path": "../SocketJack.Windows/bin/Release/net8.0-windows7.0/SocketJack.WPF.dll",
+      "Sha256": "a76899da8636815762cde6546f887c262d7500733587467b974c04a0bdc76ab6",
+      "Bytes": 4495360
+    },
+    {
+      "Path": "../SocketJack.Windows/bin/Release/net10.0-windows7.0/SocketJack.WPF.dll",
+      "Sha256": "57b56790a17a1eec571f9ec55069aac8e5ce156034ca0b9554e5d5a5908bf7d5",
+      "Bytes": 4496384
+    }
+  ],
+  "Notes": [
+    "Benchmark and correctness tests used identical core library bytes.",
+    "WPF build overlapped early correctness testing; no builds or correctness tests overlapped speed measurements.",
+    "No second-machine or fair cross-protocol impaired-network speed measurements.",
+    "Buffers are limited per transport I/O operation; reassembly and total process memory are separately budgeted."
+  ]
+}

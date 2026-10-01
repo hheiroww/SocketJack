@@ -1,0 +1,15 @@
+{
+  "Date": "2026-09-30T20:03:50.6381702-05:00",
+  "Machine": "DESKTOP-KSSU21A",
+  "Cpu": {
+    "Name": "Intel(R) Xeon(R) W-2140B CPU @ 3.20GHz",
+    "NumberOfCores": 8,
+    "NumberOfLogicalProcessors": 16
+  },
+  "Os": {
+    "Caption": "Microsoft Windows 11 Pro",
+    "Version": "10.0.22631",
+    "TotalVisibleMemorySize": 16441544
+  },
+  "NetworkTimed": false
+}

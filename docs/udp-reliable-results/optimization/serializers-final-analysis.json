@@ -1,0 +1,296 @@
+{
+  "Source": "serializers-final.json",
+  "Method": "Ratio of mean operation times; paired bootstrap 20,000 draws, seed 7301, percentile 95% CI. DecodeAndUnwrap includes current type/assembly checks.",
+  "Summary": [
+    {
+      "PayloadBytes": 256,
+      "Mode": "binary",
+      "Runs": 10,
+      "EncodedBytes": 398,
+      "EncodeNanoseconds": 915.35,
+      "DecodeNanoseconds": 1147.95,
+      "DecodeAndUnwrapNanoseconds": 1290013.05,
+      "EncodeAllocatedBytes": 592.2,
+      "DecodeOnlyAllocatedBytes": 2360,
+      "DecodeAllocatedBytes": 135584.2
+    },
+    {
+      "PayloadBytes": 256,
+      "Mode": "binary-before",
+      "Runs": 10,
+      "EncodedBytes": 398,
+      "EncodeNanoseconds": 4142.2,
+      "DecodeNanoseconds": 2346.7,
+      "DecodeAndUnwrapNanoseconds": 1288532.95,
+      "EncodeAllocatedBytes": 2672.6,
+      "DecodeOnlyAllocatedBytes": 3504,
+      "DecodeAllocatedBytes": 136756
+    },
+    {
+      "PayloadBytes": 256,
+      "Mode": "json",
+      "Runs": 10,
+      "EncodedBytes": 510,
+      "EncodeNanoseconds": 2441.05,
+      "DecodeNanoseconds": 4700.95,
+      "DecodeAndUnwrapNanoseconds": 1337203.9,
+      "EncodeAllocatedBytes": 1560,
+      "DecodeOnlyAllocatedBytes": 3032,
+      "DecodeAllocatedBytes": 136948.9
+    },
+    {
+      "PayloadBytes": 32768,
+      "Mode": "binary",
+      "Runs": 10,
+      "EncodedBytes": 32912,
+      "EncodeNanoseconds": 7512.7,
+      "DecodeNanoseconds": 5911.1,
+      "DecodeAndUnwrapNanoseconds": 1236899.8,
+      "EncodeAllocatedBytes": 33228,
+      "DecodeOnlyAllocatedBytes": 34872,
+      "DecodeAllocatedBytes": 168191.1
+    },
+    {
+      "PayloadBytes": 32768,
+      "Mode": "binary-before",
+      "Runs": 10,
+      "EncodedBytes": 32912,
+      "EncodeNanoseconds": 19231.9,
+      "DecodeNanoseconds": 6373.3,
+      "DecodeAndUnwrapNanoseconds": 1251986,
+      "EncodeAllocatedBytes": 133226.4,
+      "DecodeOnlyAllocatedBytes": 36016,
+      "DecodeAllocatedBytes": 169346.4
+    },
+    {
+      "PayloadBytes": 32768,
+      "Mode": "json",
+      "Runs": 10,
+      "EncodedBytes": 43860,
+      "EncodeNanoseconds": 43325,
+      "DecodeNanoseconds": 37894.8,
+      "DecodeAndUnwrapNanoseconds": 1357148.2,
+      "EncodeAllocatedBytes": 133837,
+      "DecodeOnlyAllocatedBytes": 140324.3,
+      "DecodeAllocatedBytes": 304174.6
+    },
+    {
+      "PayloadBytes": 262144,
+      "Mode": "binary",
+      "Runs": 10,
+      "EncodedBytes": 262288,
+      "EncodeNanoseconds": 167101.2,
+      "DecodeNanoseconds": 127559.2,
+      "DecodeAndUnwrapNanoseconds": 1435111.6,
+      "EncodeAllocatedBytes": 262652.7,
+      "DecodeOnlyAllocatedBytes": 264264.3,
+      "DecodeAllocatedBytes": 398461
+    },
+    {
+      "PayloadBytes": 262144,
+      "Mode": "binary-before",
+      "Runs": 10,
+      "EncodedBytes": 262288,
+      "EncodeNanoseconds": 165818.8,
+      "DecodeNanoseconds": 44774.8,
+      "DecodeAndUnwrapNanoseconds": 1425019.8,
+      "EncodeAllocatedBytes": 1051640.6,
+      "DecodeOnlyAllocatedBytes": 265560.6,
+      "DecodeAllocatedBytes": 399658.9
+    },
+    {
+      "PayloadBytes": 262144,
+      "Mode": "json",
+      "Runs": 10,
+      "EncodedBytes": 349784,
+      "EncodeNanoseconds": 287596,
+      "DecodeNanoseconds": 542178.8,
+      "DecodeAndUnwrapNanoseconds": 3001119.6,
+      "EncodeAllocatedBytes": 1072073.7,
+      "DecodeOnlyAllocatedBytes": 1192098,
+      "DecodeAllocatedBytes": 3842047.3
+    }
+  ],
+  "Comparisons": [
+    {
+      "PayloadBytes": 256,
+      "Baseline": "binary-before",
+      "Metric": "EncodeNanoseconds",
+      "Speedup": 4.525263560386737,
+      "Speedup95CI": [
+        3.8764845605700713,
+        4.85740101196691
+      ]
+    },
+    {
+      "PayloadBytes": 256,
+      "Baseline": "binary-before",
+      "Metric": "DecodeNanoseconds",
+      "Speedup": 2.044252798466832,
+      "Speedup95CI": [
+        1.6608163097537918,
+        2.4959325973271356
+      ]
+    },
+    {
+      "PayloadBytes": 256,
+      "Baseline": "binary-before",
+      "Metric": "DecodeAndUnwrapNanoseconds",
+      "Speedup": 0.9988526472658551,
+      "Speedup95CI": [
+        0.9791929412262251,
+        1.01644443082627
+      ]
+    },
+    {
+      "PayloadBytes": 256,
+      "Baseline": "json",
+      "Metric": "EncodeNanoseconds",
+      "Speedup": 2.666794122466816,
+      "Speedup95CI": [
+        1.9686716060906597,
+        3.6048534306882853
+      ]
+    },
+    {
+      "PayloadBytes": 256,
+      "Baseline": "json",
+      "Metric": "DecodeNanoseconds",
+      "Speedup": 4.095082538438085,
+      "Speedup95CI": [
+        2.5571957566052843,
+        5.532216402382148
+      ]
+    },
+    {
+      "PayloadBytes": 256,
+      "Baseline": "json",
+      "Metric": "DecodeAndUnwrapNanoseconds",
+      "Speedup": 1.0365816841930395,
+      "Speedup95CI": [
+        1.020060756819921,
+        1.0506596174513876
+      ]
+    },
+    {
+      "PayloadBytes": 32768,
+      "Baseline": "binary-before",
+      "Metric": "EncodeNanoseconds",
+      "Speedup": 2.559918537942418,
+      "Speedup95CI": [
+        2.085854150895786,
+        3.1303534235876076
+      ]
+    },
+    {
+      "PayloadBytes": 32768,
+      "Baseline": "binary-before",
+      "Metric": "DecodeNanoseconds",
+      "Speedup": 1.0781918763005194,
+      "Speedup95CI": [
+        0.956366214938544,
+        1.2079913818431103
+      ]
+    },
+    {
+      "PayloadBytes": 32768,
+      "Baseline": "binary-before",
+      "Metric": "DecodeAndUnwrapNanoseconds",
+      "Speedup": 1.01219678425043,
+      "Speedup95CI": [
+        0.998761798438665,
+        1.029414889896268
+      ]
+    },
+    {
+      "PayloadBytes": 32768,
+      "Baseline": "json",
+      "Metric": "EncodeNanoseconds",
+      "Speedup": 5.766901380329309,
+      "Speedup95CI": [
+        4.863278959143335,
+        7.0015685901701685
+      ]
+    },
+    {
+      "PayloadBytes": 32768,
+      "Baseline": "json",
+      "Metric": "DecodeNanoseconds",
+      "Speedup": 6.410786486440764,
+      "Speedup95CI": [
+        5.5228534309672845,
+        7.541491826892967
+      ]
+    },
+    {
+      "PayloadBytes": 32768,
+      "Baseline": "json",
+      "Metric": "DecodeAndUnwrapNanoseconds",
+      "Speedup": 1.097217575748658,
+      "Speedup95CI": [
+        1.078302544290895,
+        1.1182392741300895
+      ]
+    },
+    {
+      "PayloadBytes": 262144,
+      "Baseline": "binary-before",
+      "Metric": "EncodeNanoseconds",
+      "Speedup": 0.9923256086730674,
+      "Speedup95CI": [
+        0.8627691239622697,
+        1.2284542838006625
+      ]
+    },
+    {
+      "PayloadBytes": 262144,
+      "Baseline": "binary-before",
+      "Metric": "DecodeNanoseconds",
+      "Speedup": 0.3510119223074463,
+      "Speedup95CI": [
+        0.2825822923026811,
+        0.4603186135171903
+      ]
+    },
+    {
+      "PayloadBytes": 262144,
+      "Baseline": "binary-before",
+      "Metric": "DecodeAndUnwrapNanoseconds",
+      "Speedup": 0.9929679336436275,
+      "Speedup95CI": [
+        0.9724752334214927,
+        1.0113807585990184
+      ]
+    },
+    {
+      "PayloadBytes": 262144,
+      "Baseline": "json",
+      "Metric": "EncodeNanoseconds",
+      "Speedup": 1.7210887773397197,
+      "Speedup95CI": [
+        1.4477930677046422,
+        2.2231983237538686
+      ]
+    },
+    {
+      "PayloadBytes": 262144,
+      "Baseline": "json",
+      "Metric": "DecodeNanoseconds",
+      "Speedup": 4.250409221757428,
+      "Speedup95CI": [
+        3.5006203845528523,
+        5.175740011541464
+      ]
+    },
+    {
+      "PayloadBytes": 262144,
+      "Baseline": "json",
+      "Metric": "DecodeAndUnwrapNanoseconds",
+      "Speedup": 2.091209910086435,
+      "Speedup95CI": [
+        2.0018043576610123,
+        2.1890939968956036
+      ]
+    }
+  ]
+}

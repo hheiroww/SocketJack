@@ -1,0 +1,50 @@
+[
+  {
+    "Path": "C:\\Users\\Vin\\Documents\\GitHub\\SocketJack\\SocketJack\\Extensions\\ByteExtensions.cs",
+    "CompiledHash": "DA5E457E7FE7B765C2C75E25423472E34FCCC3E0A3F05772CE50EEDDE5824C2F",
+    "CurrentHash": "DA5E457E7FE7B765C2C75E25423472E34FCCC3E0A3F05772CE50EEDDE5824C2F",
+    "Matches": true
+  },
+  {
+    "Path": "C:\\Users\\Vin\\Documents\\GitHub\\SocketJack\\SocketJack\\Net\\InboundMessageDecoder.cs",
+    "CompiledHash": "3E5C218889FF1441B596839D4C39E751FBDF636B949F7F6B01156D2C8FCFD02B",
+    "CurrentHash": "3E5C218889FF1441B596839D4C39E751FBDF636B949F7F6B01156D2C8FCFD02B",
+    "Matches": true
+  },
+  {
+    "Path": "C:\\Users\\Vin\\Documents\\GitHub\\SocketJack\\SocketJack\\Net\\NetworkBase.cs",
+    "CompiledHash": "6A84122D9C9534532A336B303F0C35BE7EC4DF8D607161B2BC6DA20F626535AF",
+    "CurrentHash": "6A84122D9C9534532A336B303F0C35BE7EC4DF8D607161B2BC6DA20F626535AF",
+    "Matches": true
+  },
+  {
+    "Path": "C:\\Users\\Vin\\Documents\\GitHub\\SocketJack\\SocketJack\\Net\\Segment.cs",
+    "CompiledHash": "BAF0D615F44B91E0B8D3C69A8C882E7CE51946386E87C80904A03ACDB896ADBD",
+    "CurrentHash": "BAF0D615F44B91E0B8D3C69A8C882E7CE51946386E87C80904A03ACDB896ADBD",
+    "Matches": true
+  },
+  {
+    "Path": "C:\\Users\\Vin\\Documents\\GitHub\\SocketJack\\SocketJack\\Serialization\\BinarySerializer.cs",
+    "CompiledHash": "4D7721FB98972DA669FF96B978C732667083CD68F2E2CBE3329D772BFB52B20E",
+    "CurrentHash": "4D7721FB98972DA669FF96B978C732667083CD68F2E2CBE3329D772BFB52B20E",
+    "Matches": true
+  },
+  {
+    "Path": "C:\\Users\\Vin\\Documents\\GitHub\\SocketJack\\SocketJack\\Serialization\\TypeList.cs",
+    "CompiledHash": "3A343852E7B21065885725212ABA517D6DEA42347F176869BB12CCD5906A359E",
+    "CurrentHash": "3A343852E7B21065885725212ABA517D6DEA42347F176869BB12CCD5906A359E",
+    "Matches": true
+  },
+  {
+    "Path": "C:\\Users\\Vin\\Documents\\GitHub\\SocketJack\\SocketJack\\Serialization\\VerifiedAssemblyRegistry.cs",
+    "CompiledHash": "9EC3B22B8343356C0DF764EC2C600010DBF7BE72751D6081E8B5D29D78B2D520",
+    "CurrentHash": "9EC3B22B8343356C0DF764EC2C600010DBF7BE72751D6081E8B5D29D78B2D520",
+    "Matches": true
+  },
+  {
+    "Path": "C:\\Users\\Vin\\Documents\\GitHub\\SocketJack\\SocketJack\\Serialization\\Wrapper.cs",
+    "CompiledHash": "47C8C739EE16F48F0864E17570043F176605F283352BF97D3ADAE11557D32FD8",
+    "CurrentHash": "47C8C739EE16F48F0864E17570043F176605F283352BF97D3ADAE11557D32FD8",
+    "Matches": true
+  }
+]

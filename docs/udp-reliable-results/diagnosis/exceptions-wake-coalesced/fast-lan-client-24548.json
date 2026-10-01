@@ -1,0 +1,24 @@
+{
+  "Arguments": [
+    "client",
+    "fast-lan",
+    "127.0.0.1",
+    "26892",
+    "-1",
+    "256"
+  ],
+  "ElapsedSeconds": 9.9568771,
+  "Exceptions": {
+    "System.Net.Sockets.SocketException": 19,
+    "System.Threading.Tasks.TaskCanceledException": 1,
+    "System.OperationCanceledException": 14
+  },
+  "FirstStacks": {
+    "System.Net.Sockets.SocketException": "   at System.Net.Sockets.Socket.UpdateStatusAfterSocketErrorAndThrowException(SocketError error, Boolean disconnectOnFailure, String callerName)",
+    "System.Threading.Tasks.TaskCanceledException": "   at System.Runtime.CompilerServices.TaskAwaiter.ThrowForNonSuccess(Task task)",
+    "System.OperationCanceledException": "   at System.Threading.CancellationToken.ThrowOperationCanceledException()"
+  },
+  "Gen0": 220,
+  "Gen1": 204,
+  "Gen2": 195
+}

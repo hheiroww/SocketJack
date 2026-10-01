@@ -1,0 +1,288 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="d1368ebd-033d-4259-911c-ddf283a52109" name="Vin@DESKTOP-KSSU21A 2026-09-30 18:23:21" runUser="DESKTOP-KSSU21A\Vin" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-09-30T18:23:21.6488483-05:00" queuing="2026-09-30T18:23:21.6488488-05:00" start="2026-09-30T18:23:19.6195469-05:00" finish="2026-09-30T18:23:31.0838705-05:00" />
+  <TestSettings name="default" id="ce088ba1-afac-4faf-bc3d-cb28fa7560c7">
+    <Deployment runDeploymentRoot="Vin_DESKTOP-KSSU21A_2026-09-30_18_23_21" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="a092b00b-08bc-4bdc-b5da-416f59956df2" testId="2dbaa97c-eaf3-c437-58fc-606afd38f6d4" testName="SegmentIdsAreIsolatedAndDuplicatesOrInvalidIndicesFailClosed" computerName="DESKTOP-KSSU21A" duration="00:00:00.0028864" startTime="2026-09-30T18:23:24.3504795-05:00" endTime="2026-09-30T18:23:24.3537298-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a092b00b-08bc-4bdc-b5da-416f59956df2" />
+    <UnitTestResult executionId="5bb84320-93be-4545-a0f1-b83603a11334" testId="0930cfd6-c9d9-ce87-000d-7d47d64fb3fc" testName="InvalidOrdinaryUdpHandshakeNeverCreatesClient" computerName="DESKTOP-KSSU21A" duration="00:00:00.1985292" startTime="2026-09-30T18:23:29.5983174-05:00" endTime="2026-09-30T18:23:29.7970700-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5bb84320-93be-4545-a0f1-b83603a11334" />
+    <UnitTestResult executionId="a2ccc223-e978-4c88-b674-c2212297c77b" testId="fc0ccd22-58b5-b7cf-4225-d272ce9a87c5" testName="InvalidReliableUdpManifestClosesBeforeClientEvent" computerName="DESKTOP-KSSU21A" duration="00:00:00.3221716" startTime="2026-09-30T18:23:30.2637868-05:00" endTime="2026-09-30T18:23:30.5861562-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a2ccc223-e978-4c88-b674-c2212297c77b" />
+    <UnitTestResult executionId="7fd279a6-5227-4518-9029-9a4c3895b067" testId="240ec41a-8d77-e052-c335-72b1b65d6d0a" testName="ChangingAllowlistRequiresNewHandshake" computerName="DESKTOP-KSSU21A" duration="00:00:00.0611814" startTime="2026-09-30T18:23:30.2022783-05:00" endTime="2026-09-30T18:23:30.2637156-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="7fd279a6-5227-4518-9029-9a4c3895b067" />
+    <UnitTestResult executionId="11f39cd4-4cfe-4500-996f-25976154dc0e" testId="6ee4bf56-ef5e-d50d-3028-f2216ec997ca" testName="RedirectCannotActivateAdminPayloadEvenWithMatchingDll (False)" computerName="DESKTOP-KSSU21A" duration="00:00:00.3542232" startTime="2026-09-30T18:23:23.2550945-05:00" endTime="2026-09-30T18:23:23.6097377-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="11f39cd4-4cfe-4500-996f-25976154dc0e" />
+    <UnitTestResult executionId="4444b926-5ad7-4fc3-b5eb-65aa4208e240" testId="e594780e-6e12-a24a-3c12-19de7b8f03db" testName="InvalidTcpHandshakeClosesBeforeCallbacksAndRevealsNoHash (md5)" computerName="DESKTOP-KSSU21A" duration="00:00:00.3220787" startTime="2026-09-30T18:23:25.8213505-05:00" endTime="2026-09-30T18:23:26.1446764-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="4444b926-5ad7-4fc3-b5eb-65aa4208e240" />
+    <UnitTestResult executionId="10342ee3-2a98-4baa-8ce6-92da3bae192d" testId="872d1240-db3c-787f-7dbd-7f8bd72fa923" testName="MatchingDllDoesNotAuthorizePayloadOrInvokeSetter (False,False)" computerName="DESKTOP-KSSU21A" duration="00:00:00.0752023" startTime="2026-09-30T18:23:21.6563865-05:00" endTime="2026-09-30T18:23:21.7320756-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="10342ee3-2a98-4baa-8ce6-92da3bae192d">
+      <Output>
+        <StdOut>Debug Trace:&#xD;
+testhost Warning: 0 : SocketJack: SafeMode=false disables DLL verification. This is unsafe for untrusted clients.</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="5a2a0c11-e52a-493b-b74f-452825d3e57e" testId="06025617-5063-3dd2-7f22-6e5e743bf321" testName="ForgedLoginAdminFlagDoesNotGrantAdministrativeRole (False)" computerName="DESKTOP-KSSU21A" duration="00:00:00.5846976" startTime="2026-09-30T18:23:21.7331260-05:00" endTime="2026-09-30T18:23:22.3181712-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5a2a0c11-e52a-493b-b74f-452825d3e57e" />
+    <UnitTestResult executionId="4bd759e8-340e-4446-862b-a70d859bef86" testId="22284879-c70f-6ba3-f74b-249afe157e6b" testName="ExplicitAdminApprovalWorksAndRevocationClosesNextMessage" computerName="DESKTOP-KSSU21A" duration="00:00:00.4752782" startTime="2026-09-30T18:23:22.7782677-05:00" endTime="2026-09-30T18:23:23.2549849-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="4bd759e8-340e-4446-862b-a70d859bef86" />
+    <UnitTestResult executionId="342f45eb-4c56-423c-9dfd-c9b5401b3a76" testId="83c0132e-9a67-6314-90be-636c428031b6" testName="DangerousTypesCannotHideBehindReadOnlyProperties" computerName="DESKTOP-KSSU21A" duration="00:00:00.0580955" startTime="2026-09-30T18:23:24.3538088-05:00" endTime="2026-09-30T18:23:24.4121109-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="342f45eb-4c56-423c-9dfd-c9b5401b3a76" />
+    <UnitTestResult executionId="7497b8bb-4d7f-47d3-95c9-c17fd9c06311" testId="c37adc09-6611-f7a6-bd3e-8ca58afdd2bf" testName="MatchingWebSocketUpgradeAllowsMessages" computerName="DESKTOP-KSSU21A" duration="00:00:00.3399067" startTime="2026-09-30T18:23:29.1977654-05:00" endTime="2026-09-30T18:23:29.5379173-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="7497b8bb-4d7f-47d3-95c9-c17fd9c06311" />
+    <UnitTestResult executionId="179c8068-f946-49e4-b328-d4f547d322b8" testId="7e1236b7-a305-347d-0c3f-8890e857590d" testName="InvalidTcpHandshakeClosesBeforeCallbacksAndRevealsNoHash (missing)" computerName="DESKTOP-KSSU21A" duration="00:00:00.3214518" startTime="2026-09-30T18:23:26.4678916-05:00" endTime="2026-09-30T18:23:26.7896019-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="179c8068-f946-49e4-b328-d4f547d322b8" />
+    <UnitTestResult executionId="f52351ce-5128-4a68-88bf-ed6af44fd9f6" testId="f0b87422-32f9-bad2-6556-596786aa6298" testName="InvalidWebSocketUpgradeNeverAnnouncesClient" computerName="DESKTOP-KSSU21A" duration="00:00:00.0599396" startTime="2026-09-30T18:23:29.5380286-05:00" endTime="2026-09-30T18:23:29.5982153-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f52351ce-5128-4a68-88bf-ed6af44fd9f6" />
+    <UnitTestResult executionId="22806e11-ff10-4ecf-8280-3f3169f8e1d0" testId="4675f123-3a44-a221-58d6-2398396341ed" testName="InvalidTcpHandshakeClosesBeforeCallbacksAndRevealsNoHash (sha256)" computerName="DESKTOP-KSSU21A" duration="00:00:00.3226421" startTime="2026-09-30T18:23:26.1447924-05:00" endTime="2026-09-30T18:23:26.4677766-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="22806e11-ff10-4ecf-8280-3f3169f8e1d0" />
+    <UnitTestResult executionId="bcd083b1-7f1b-4e4c-bc89-81c8f4d8a7b6" testId="37b47dce-989b-324d-e007-3a0a905aa8d8" testName="MatchingTcpHandshakeAllowsTypedMessages (False)" computerName="DESKTOP-KSSU21A" duration="00:00:00.4669908" startTime="2026-09-30T18:23:24.9058786-05:00" endTime="2026-09-30T18:23:25.3731960-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="bcd083b1-7f1b-4e4c-bc89-81c8f4d8a7b6" />
+    <UnitTestResult executionId="472a93d1-79ef-47b9-8f6d-a1659948d24e" testId="20109e56-01f1-a033-4726-2b7594611050" testName="MatchingMutableTcpHandshakeAllowsMessages" computerName="DESKTOP-KSSU21A" duration="00:00:00.4310452" startTime="2026-09-30T18:23:28.7663519-05:00" endTime="2026-09-30T18:23:29.1976535-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="472a93d1-79ef-47b9-8f6d-a1659948d24e" />
+    <UnitTestResult executionId="270e5d21-d56b-4c49-972a-939cf47cfde7" testId="f6c7aeaa-3ea5-e0a1-541e-16d0e18251c2" testName="JsonRedirectCannotConstructUnapprovedOrBlacklistedType" computerName="DESKTOP-KSSU21A" duration="00:00:00.0606322" startTime="2026-09-30T18:23:27.8414418-05:00" endTime="2026-09-30T18:23:27.9024189-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="270e5d21-d56b-4c49-972a-939cf47cfde7" />
+    <UnitTestResult executionId="c04f92aa-4800-4ada-98f3-0fda674f3365" testId="1ed61214-3f77-06c0-d053-82a2b4b46973" testName="ArbitraryHttpBodyCannotInvokeCallbackBeforeRequestGate" computerName="DESKTOP-KSSU21A" duration="00:00:00.2870844" startTime="2026-09-30T18:23:24.4122006-05:00" endTime="2026-09-30T18:23:24.6997697-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c04f92aa-4800-4ada-98f3-0fda674f3365">
+      <Output>
+        <ErrorInfo>
+          <Message>Test method SocketJack.Tests.AuthorizationTests.ArbitraryHttpBodyCannotInvokeCallbackBeforeRequestGate threw exception: &#xD;
+System.Net.Http.HttpRequestException: An error occurred while sending the request. ---&gt; System.IO.IOException: Unable to read data from the transport connection: An existing connection was forcibly closed by the remote host.. ---&gt; System.Net.Sockets.SocketException: An existing connection was forcibly closed by the remote host.</Message>
+          <StackTrace>    at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)&#xD;
+   at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource&lt;System.Int32&gt;.GetResult(Int16 token)&#xD;
+   at System.Net.Http.HttpConnection.InitialFillAsync(Boolean async)&#xD;
+   at System.Net.Http.HttpConnection.SendAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)&#xD;
+--- End of inner exception stack trace ---&#xD;
+    at System.Net.Http.HttpConnection.SendAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)&#xD;
+   at System.Net.Http.HttpConnectionPool.SendWithVersionDetectionAndRetryAsync(HttpRequestMessage request, Boolean async, Boolean doRequestAuth, CancellationToken cancellationToken)&#xD;
+   at System.Net.Http.RedirectHandler.SendAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)&#xD;
+   at System.Net.Http.HttpClient.&lt;SendAsync&gt;g__Core|83_0(HttpRequestMessage request, HttpCompletionOption completionOption, CancellationTokenSource cts, Boolean disposeCts, CancellationTokenSource pendingRequestsCts, CancellationToken originalCancellationToken)&#xD;
+   at SocketJack.Tests.AuthorizationTests.ArbitraryHttpBodyCannotInvokeCallbackBeforeRequestGate() in C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\AuthorizationTests.cs:line 163&#xD;
+</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="61806fb4-3b5e-4b3a-9515-76e6fc53ef0d" testId="96bbb0f9-19ea-709e-affe-a089c8bccf8b" testName="ValidRawClientReceivesOnlyFixedAcceptanceMarker" computerName="DESKTOP-KSSU21A" duration="00:00:00.3102108" startTime="2026-09-30T18:23:27.5307365-05:00" endTime="2026-09-30T18:23:27.8413231-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="61806fb4-3b5e-4b3a-9515-76e6fc53ef0d" />
+    <UnitTestResult executionId="07726b29-85f9-4ac1-8c11-647b3e553d7f" testId="3cee9b8b-72a1-4265-2c20-f6e896daf80f" testName="ReflectedAdminEndpointCannotExecuteClrMethod" computerName="DESKTOP-KSSU21A" duration="00:00:00.0696255" startTime="2026-09-30T18:23:24.6998920-05:00" endTime="2026-09-30T18:23:24.7698831-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="07726b29-85f9-4ac1-8c11-647b3e553d7f">
+      <Output>
+        <ErrorInfo>
+          <Message>Test method SocketJack.Tests.AuthorizationTests.ReflectedAdminEndpointCannotExecuteClrMethod threw exception: &#xD;
+System.NullReferenceException: Object reference not set to an instance of an object.</Message>
+          <StackTrace>    at SocketJack.Tests.AuthorizationTests.ReflectedAdminEndpointCannotExecuteClrMethod() in C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\AuthorizationTests.cs:line 170&#xD;
+   at System.RuntimeMethodHandle.InvokeMethod(Object target, Void** arguments, Signature sig, Boolean isConstructor)&#xD;
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)&#xD;
+</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="bc78ebe6-45d3-4612-b015-f9af427f5fdc" testId="f7dc6600-530d-c266-71bc-1284841f5e64" testName="InvalidTcpHandshakeClosesBeforeCallbacksAndRevealsNoHash (duplicate)" computerName="DESKTOP-KSSU21A" duration="00:00:00.3239193" startTime="2026-09-30T18:23:26.7897244-05:00" endTime="2026-09-30T18:23:27.1140050-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="bc78ebe6-45d3-4612-b015-f9af427f5fdc" />
+    <UnitTestResult executionId="f7bf4df8-e1ce-4ee3-b860-0c2f2ec46fb8" testId="7e416bc9-9129-e309-fbdc-e985f06624f6" testName="MatchingTcpHandshakeAllowsTypedMessages (True)" computerName="DESKTOP-KSSU21A" duration="00:00:00.4474008" startTime="2026-09-30T18:23:25.3733807-05:00" endTime="2026-09-30T18:23:25.8211747-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f7bf4df8-e1ce-4ee3-b860-0c2f2ec46fb8" />
+    <UnitTestResult executionId="799f508c-70ac-4f2f-a5fc-fa147fe90c7e" testId="961fa60f-7d34-c952-0651-6761b65d2410" testName="MatchingUdpHandshakeAllowsMessages (True)" computerName="DESKTOP-KSSU21A" duration="00:00:00.3688170" startTime="2026-09-30T18:23:28.3199145-05:00" endTime="2026-09-30T18:23:28.6889944-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="799f508c-70ac-4f2f-a5fc-fa147fe90c7e" />
+    <UnitTestResult executionId="3dee5720-efa6-4dbb-ad78-eec54582697d" testId="f311f9fb-baa3-9736-79d3-37c4d9bef60e" testName="BoundedDecompressionRejectsExpansionAboveLimit" computerName="DESKTOP-KSSU21A" duration="00:00:00.0032543" startTime="2026-09-30T18:23:29.7971606-05:00" endTime="2026-09-30T18:23:29.8005831-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="3dee5720-efa6-4dbb-ad78-eec54582697d" />
+    <UnitTestResult executionId="c4cf1803-2f31-4500-ae48-188b368dad60" testId="4d82cfa5-1d81-b009-d736-171d6d76ad5b" testName="RedirectCannotActivateAdminPayloadEvenWithMatchingDll (True)" computerName="DESKTOP-KSSU21A" duration="00:00:00.3547978" startTime="2026-09-30T18:23:23.6100156-05:00" endTime="2026-09-30T18:23:23.9651376-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c4cf1803-2f31-4500-ae48-188b368dad60" />
+    <UnitTestResult executionId="51781d26-2d23-483f-96fb-622cca06d085" testId="188c73bd-54ff-3c1e-3829-8bd97f0f21ce" testName="SafeModeDefaultsOnAndRequiresTrustedLocalDllPin" computerName="DESKTOP-KSSU21A" duration="00:00:00.1354166" startTime="2026-09-30T18:23:24.7699750-05:00" endTime="2026-09-30T18:23:24.9057855-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="51781d26-2d23-483f-96fb-622cca06d085" />
+    <UnitTestResult executionId="c13d775c-3f04-4fcb-b3b6-ce2d87d70124" testId="0e2dd143-35ee-cb4d-a850-d11a40bf6b89" testName="TypedHttpRequiresValidManifestBeforeHandler (False)" computerName="DESKTOP-KSSU21A" duration="00:00:00.0428672" startTime="2026-09-30T18:23:29.8006489-05:00" endTime="2026-09-30T18:23:29.8437311-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c13d775c-3f04-4fcb-b3b6-ce2d87d70124" />
+    <UnitTestResult executionId="d48b59df-a24f-482d-b07a-5ad68e3f8a58" testId="c7eebd80-a759-86b2-4dd5-9c12f0ff557a" testName="ExplicitUnsafeModeRetainsLegacyTcp" computerName="DESKTOP-KSSU21A" duration="00:00:00.0768065" startTime="2026-09-30T18:23:28.6890838-05:00" endTime="2026-09-30T18:23:28.7661300-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d48b59df-a24f-482d-b07a-5ad68e3f8a58">
+      <Output>
+        <StdOut>Debug Trace:&#xD;
+testhost Warning: 0 : SocketJack: SafeMode=false disables DLL verification. This is unsafe for untrusted clients.&#xD;
+testhost Warning: 0 : SocketJack: SafeMode=false disables DLL verification. This is unsafe for untrusted clients.</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="2c67af21-a751-45cd-893c-74741548b97f" testId="bf287c09-14da-e48d-3edf-e22016e8f760" testName="MatchingDllDoesNotAuthorizePayloadOrInvokeSetter (False,True)" computerName="DESKTOP-KSSU21A" duration="00:00:01.0523633" startTime="2026-09-30T18:23:20.2238669-05:00" endTime="2026-09-30T18:23:21.2904138-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2c67af21-a751-45cd-893c-74741548b97f" />
+    <UnitTestResult executionId="e74cc9d7-7766-405c-a304-c22cfccd1304" testId="5a0c3f1f-73da-0a66-a6f7-a37fb99955c1" testName="InvalidTcpHandshakeClosesBeforeCallbacksAndRevealsNoHash (oversize)" computerName="DESKTOP-KSSU21A" duration="00:00:00.2001600" startTime="2026-09-30T18:23:27.3301300-05:00" endTime="2026-09-30T18:23:27.5306290-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e74cc9d7-7766-405c-a304-c22cfccd1304" />
+    <UnitTestResult executionId="c44c991e-513c-4fd6-a241-ddb9e3e6e60a" testId="b9f3bb1b-cad2-6e00-3e1c-dd81c4cecc62" testName="MatchingUdpHandshakeAllowsMessages (False)" computerName="DESKTOP-KSSU21A" duration="00:00:00.3547181" startTime="2026-09-30T18:23:27.9647716-05:00" endTime="2026-09-30T18:23:28.3198051-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c44c991e-513c-4fd6-a241-ddb9e3e6e60a" />
+    <UnitTestResult executionId="c598bbe0-0932-4c7b-b3d8-3aa6defe3072" testId="edec8a88-5bc6-d765-a5fc-ece9f5e98b45" testName="LargeWebSocketFrameHonorsNetworkByteOrder" computerName="DESKTOP-KSSU21A" duration="00:00:00.3676888" startTime="2026-09-30T18:23:30.5874606-05:00" endTime="2026-09-30T18:23:30.9561547-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c598bbe0-0932-4c7b-b3d8-3aa6defe3072" />
+    <UnitTestResult executionId="aba00e12-7623-4d8d-8d24-488491be89d9" testId="0a233454-34d8-c3d5-aa23-e132981aa718" testName="ForgedLoginAdminFlagDoesNotGrantAdministrativeRole (True)" computerName="DESKTOP-KSSU21A" duration="00:00:00.4595782" startTime="2026-09-30T18:23:22.3182741-05:00" endTime="2026-09-30T18:23:22.7781761-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="aba00e12-7623-4d8d-8d24-488491be89d9" />
+    <UnitTestResult executionId="21209af6-b734-442d-8336-7543150aa1c6" testId="6fd7430d-9ef1-7049-88d4-6584079cecec" testName="InvalidTcpHandshakeClosesBeforeCallbacksAndRevealsNoHash (legacy)" computerName="DESKTOP-KSSU21A" duration="00:00:00.2154858" startTime="2026-09-30T18:23:27.1141522-05:00" endTime="2026-09-30T18:23:27.3300091-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="21209af6-b734-442d-8336-7543150aa1c6" />
+    <UnitTestResult executionId="37677c8b-65a2-49be-ad0f-bb000529dc3c" testId="6ec14987-dd6b-720d-1663-33b88a3977f2" testName="TypedHttpRequiresValidManifestBeforeHandler (True)" computerName="DESKTOP-KSSU21A" duration="00:00:00.3581059" startTime="2026-09-30T18:23:29.8438226-05:00" endTime="2026-09-30T18:23:30.2021668-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="37677c8b-65a2-49be-ad0f-bb000529dc3c" />
+    <UnitTestResult executionId="5001f551-ad2e-4814-be79-fab217b5b543" testId="e4c0e64c-5f1f-3f7a-c03e-c46ecfdbfa57" testName="AnonymousEnvelopeCannotHideNestedAdmin" computerName="DESKTOP-KSSU21A" duration="00:00:00.3848104" startTime="2026-09-30T18:23:23.9652452-05:00" endTime="2026-09-30T18:23:24.3503808-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5001f551-ad2e-4814-be79-fab217b5b543" />
+    <UnitTestResult executionId="8407a2c0-0fc7-4b01-818e-45c9bd5518ca" testId="5ba96f1c-159e-90c6-2d50-eed758e5dd75" testName="NestedUnapprovedTypeAndMalformedPropertyAreRejected" computerName="DESKTOP-KSSU21A" duration="00:00:00.0619170" startTime="2026-09-30T18:23:27.9025250-05:00" endTime="2026-09-30T18:23:27.9646574-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8407a2c0-0fc7-4b01-818e-45c9bd5518ca" />
+    <UnitTestResult executionId="2c3e6bbc-11d7-4149-901c-367b1fad0971" testId="5caffa12-3afc-5e52-c2fc-84324471682a" testName="MatchingDllDoesNotAuthorizePayloadOrInvokeSetter (True,True)" computerName="DESKTOP-KSSU21A" duration="00:00:00.3598012" startTime="2026-09-30T18:23:21.2949700-05:00" endTime="2026-09-30T18:23:21.6552742-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2c3e6bbc-11d7-4149-901c-367b1fad0971" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="RedirectCannotActivateAdminPayloadEvenWithMatchingDll (True)" storage="c:\users\vin\documents\github\socketjack\socketjack.tests\bin\release\net8.0\socketjack.tests.dll" id="4d82cfa5-1d81-b009-d736-171d6d76ad5b">
+      <Execution id="c4cf1803-2f31-4500-ae48-188b368dad60" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\bin\Release\net8.0\SocketJack.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.Tests.AuthorizationTests" name="RedirectCannotActivateAdminPayloadEvenWithMatchingDll" />
+    </UnitTest>
+    <UnitTest name="SafeModeDefaultsOnAndRequiresTrustedLocalDllPin" storage="c:\users\vin\documents\github\socketjack\socketjack.tests\bin\release\net8.0\socketjack.tests.dll" id="188c73bd-54ff-3c1e-3829-8bd97f0f21ce">
+      <Execution id="51781d26-2d23-483f-96fb-622cca06d085" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\bin\Release\net8.0\SocketJack.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.Tests.SafeModeTests" name="SafeModeDefaultsOnAndRequiresTrustedLocalDllPin" />
+    </UnitTest>
+    <UnitTest name="MatchingDllDoesNotAuthorizePayloadOrInvokeSetter (False,True)" storage="c:\users\vin\documents\github\socketjack\socketjack.tests\bin\release\net8.0\socketjack.tests.dll" id="bf287c09-14da-e48d-3edf-e22016e8f760">
+      <Execution id="2c67af21-a751-45cd-893c-74741548b97f" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\bin\Release\net8.0\SocketJack.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.Tests.AuthorizationTests" name="MatchingDllDoesNotAuthorizePayloadOrInvokeSetter" />
+    </UnitTest>
+    <UnitTest name="InvalidTcpHandshakeClosesBeforeCallbacksAndRevealsNoHash (legacy)" storage="c:\users\vin\documents\github\socketjack\socketjack.tests\bin\release\net8.0\socketjack.tests.dll" id="6fd7430d-9ef1-7049-88d4-6584079cecec">
+      <Execution id="21209af6-b734-442d-8336-7543150aa1c6" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\bin\Release\net8.0\SocketJack.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.Tests.SafeModeTests" name="InvalidTcpHandshakeClosesBeforeCallbacksAndRevealsNoHash" />
+    </UnitTest>
+    <UnitTest name="ValidRawClientReceivesOnlyFixedAcceptanceMarker" storage="c:\users\vin\documents\github\socketjack\socketjack.tests\bin\release\net8.0\socketjack.tests.dll" id="96bbb0f9-19ea-709e-affe-a089c8bccf8b">
+      <Execution id="61806fb4-3b5e-4b3a-9515-76e6fc53ef0d" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\bin\Release\net8.0\SocketJack.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.Tests.SafeModeTests" name="ValidRawClientReceivesOnlyFixedAcceptanceMarker" />
+    </UnitTest>
+    <UnitTest name="ReflectedAdminEndpointCannotExecuteClrMethod" storage="c:\users\vin\documents\github\socketjack\socketjack.tests\bin\release\net8.0\socketjack.tests.dll" id="3cee9b8b-72a1-4265-2c20-f6e896daf80f">
+      <Execution id="07726b29-85f9-4ac1-8c11-647b3e553d7f" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\bin\Release\net8.0\SocketJack.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.Tests.AuthorizationTests" name="ReflectedAdminEndpointCannotExecuteClrMethod" />
+    </UnitTest>
+    <UnitTest name="MatchingWebSocketUpgradeAllowsMessages" storage="c:\users\vin\documents\github\socketjack\socketjack.tests\bin\release\net8.0\socketjack.tests.dll" id="c37adc09-6611-f7a6-bd3e-8ca58afdd2bf">
+      <Execution id="7497b8bb-4d7f-47d3-95c9-c17fd9c06311" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\bin\Release\net8.0\SocketJack.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.Tests.SafeModeTests" name="MatchingWebSocketUpgradeAllowsMessages" />
+    </UnitTest>
+    <UnitTest name="SegmentIdsAreIsolatedAndDuplicatesOrInvalidIndicesFailClosed" storage="c:\users\vin\documents\github\socketjack\socketjack.tests\bin\release\net8.0\socketjack.tests.dll" id="2dbaa97c-eaf3-c437-58fc-606afd38f6d4">
+      <Execution id="a092b00b-08bc-4bdc-b5da-416f59956df2" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\bin\Release\net8.0\SocketJack.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.Tests.AuthorizationTests" name="SegmentIdsAreIsolatedAndDuplicatesOrInvalidIndicesFailClosed" />
+    </UnitTest>
+    <UnitTest name="InvalidTcpHandshakeClosesBeforeCallbacksAndRevealsNoHash (missing)" storage="c:\users\vin\documents\github\socketjack\socketjack.tests\bin\release\net8.0\socketjack.tests.dll" id="7e1236b7-a305-347d-0c3f-8890e857590d">
+      <Execution id="179c8068-f946-49e4-b328-d4f547d322b8" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\bin\Release\net8.0\SocketJack.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.Tests.SafeModeTests" name="InvalidTcpHandshakeClosesBeforeCallbacksAndRevealsNoHash" />
+    </UnitTest>
+    <UnitTest name="MatchingDllDoesNotAuthorizePayloadOrInvokeSetter (False,False)" storage="c:\users\vin\documents\github\socketjack\socketjack.tests\bin\release\net8.0\socketjack.tests.dll" id="872d1240-db3c-787f-7dbd-7f8bd72fa923">
+      <Execution id="10342ee3-2a98-4baa-8ce6-92da3bae192d" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\bin\Release\net8.0\SocketJack.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.Tests.AuthorizationTests" name="MatchingDllDoesNotAuthorizePayloadOrInvokeSetter" />
+    </UnitTest>
+    <UnitTest name="ArbitraryHttpBodyCannotInvokeCallbackBeforeRequestGate" storage="c:\users\vin\documents\github\socketjack\socketjack.tests\bin\release\net8.0\socketjack.tests.dll" id="1ed61214-3f77-06c0-d053-82a2b4b46973">
+      <Execution id="c04f92aa-4800-4ada-98f3-0fda674f3365" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\bin\Release\net8.0\SocketJack.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.Tests.AuthorizationTests" name="ArbitraryHttpBodyCannotInvokeCallbackBeforeRequestGate" />
+    </UnitTest>
+    <UnitTest name="MatchingUdpHandshakeAllowsMessages (False)" storage="c:\users\vin\documents\github\socketjack\socketjack.tests\bin\release\net8.0\socketjack.tests.dll" id="b9f3bb1b-cad2-6e00-3e1c-dd81c4cecc62">
+      <Execution id="c44c991e-513c-4fd6-a241-ddb9e3e6e60a" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\bin\Release\net8.0\SocketJack.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.Tests.SafeModeTests" name="MatchingUdpHandshakeAllowsMessages" />
+    </UnitTest>
+    <UnitTest name="TypedHttpRequiresValidManifestBeforeHandler (True)" storage="c:\users\vin\documents\github\socketjack\socketjack.tests\bin\release\net8.0\socketjack.tests.dll" id="6ec14987-dd6b-720d-1663-33b88a3977f2">
+      <Execution id="37677c8b-65a2-49be-ad0f-bb000529dc3c" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\bin\Release\net8.0\SocketJack.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.Tests.SafeModeTests" name="TypedHttpRequiresValidManifestBeforeHandler" />
+    </UnitTest>
+    <UnitTest name="InvalidTcpHandshakeClosesBeforeCallbacksAndRevealsNoHash (sha256)" storage="c:\users\vin\documents\github\socketjack\socketjack.tests\bin\release\net8.0\socketjack.tests.dll" id="4675f123-3a44-a221-58d6-2398396341ed">
+      <Execution id="22806e11-ff10-4ecf-8280-3f3169f8e1d0" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\bin\Release\net8.0\SocketJack.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.Tests.SafeModeTests" name="InvalidTcpHandshakeClosesBeforeCallbacksAndRevealsNoHash" />
+    </UnitTest>
+    <UnitTest name="LargeWebSocketFrameHonorsNetworkByteOrder" storage="c:\users\vin\documents\github\socketjack\socketjack.tests\bin\release\net8.0\socketjack.tests.dll" id="edec8a88-5bc6-d765-a5fc-ece9f5e98b45">
+      <Execution id="c598bbe0-0932-4c7b-b3d8-3aa6defe3072" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\bin\Release\net8.0\SocketJack.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.Tests.SafeModeTests" name="LargeWebSocketFrameHonorsNetworkByteOrder" />
+    </UnitTest>
+    <UnitTest name="DangerousTypesCannotHideBehindReadOnlyProperties" storage="c:\users\vin\documents\github\socketjack\socketjack.tests\bin\release\net8.0\socketjack.tests.dll" id="83c0132e-9a67-6314-90be-636c428031b6">
+      <Execution id="342f45eb-4c56-423c-9dfd-c9b5401b3a76" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\bin\Release\net8.0\SocketJack.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.Tests.AuthorizationTests" name="DangerousTypesCannotHideBehindReadOnlyProperties" />
+    </UnitTest>
+    <UnitTest name="MatchingMutableTcpHandshakeAllowsMessages" storage="c:\users\vin\documents\github\socketjack\socketjack.tests\bin\release\net8.0\socketjack.tests.dll" id="20109e56-01f1-a033-4726-2b7594611050">
+      <Execution id="472a93d1-79ef-47b9-8f6d-a1659948d24e" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\bin\Release\net8.0\SocketJack.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.Tests.SafeModeTests" name="MatchingMutableTcpHandshakeAllowsMessages" />
+    </UnitTest>
+    <UnitTest name="MatchingTcpHandshakeAllowsTypedMessages (True)" storage="c:\users\vin\documents\github\socketjack\socketjack.tests\bin\release\net8.0\socketjack.tests.dll" id="7e416bc9-9129-e309-fbdc-e985f06624f6">
+      <Execution id="f7bf4df8-e1ce-4ee3-b860-0c2f2ec46fb8" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\bin\Release\net8.0\SocketJack.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.Tests.SafeModeTests" name="MatchingTcpHandshakeAllowsTypedMessages" />
+    </UnitTest>
+    <UnitTest name="ExplicitAdminApprovalWorksAndRevocationClosesNextMessage" storage="c:\users\vin\documents\github\socketjack\socketjack.tests\bin\release\net8.0\socketjack.tests.dll" id="22284879-c70f-6ba3-f74b-249afe157e6b">
+      <Execution id="4bd759e8-340e-4446-862b-a70d859bef86" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\bin\Release\net8.0\SocketJack.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.Tests.AuthorizationTests" name="ExplicitAdminApprovalWorksAndRevocationClosesNextMessage" />
+    </UnitTest>
+    <UnitTest name="InvalidReliableUdpManifestClosesBeforeClientEvent" storage="c:\users\vin\documents\github\socketjack\socketjack.tests\bin\release\net8.0\socketjack.tests.dll" id="fc0ccd22-58b5-b7cf-4225-d272ce9a87c5">
+      <Execution id="a2ccc223-e978-4c88-b674-c2212297c77b" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\bin\Release\net8.0\SocketJack.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.Tests.SafeModeTests" name="InvalidReliableUdpManifestClosesBeforeClientEvent" />
+    </UnitTest>
+    <UnitTest name="InvalidTcpHandshakeClosesBeforeCallbacksAndRevealsNoHash (duplicate)" storage="c:\users\vin\documents\github\socketjack\socketjack.tests\bin\release\net8.0\socketjack.tests.dll" id="f7dc6600-530d-c266-71bc-1284841f5e64">
+      <Execution id="bc78ebe6-45d3-4612-b015-f9af427f5fdc" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\bin\Release\net8.0\SocketJack.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.Tests.SafeModeTests" name="InvalidTcpHandshakeClosesBeforeCallbacksAndRevealsNoHash" />
+    </UnitTest>
+    <UnitTest name="TypedHttpRequiresValidManifestBeforeHandler (False)" storage="c:\users\vin\documents\github\socketjack\socketjack.tests\bin\release\net8.0\socketjack.tests.dll" id="0e2dd143-35ee-cb4d-a850-d11a40bf6b89">
+      <Execution id="c13d775c-3f04-4fcb-b3b6-ce2d87d70124" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\bin\Release\net8.0\SocketJack.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.Tests.SafeModeTests" name="TypedHttpRequiresValidManifestBeforeHandler" />
+    </UnitTest>
+    <UnitTest name="ExplicitUnsafeModeRetainsLegacyTcp" storage="c:\users\vin\documents\github\socketjack\socketjack.tests\bin\release\net8.0\socketjack.tests.dll" id="c7eebd80-a759-86b2-4dd5-9c12f0ff557a">
+      <Execution id="d48b59df-a24f-482d-b07a-5ad68e3f8a58" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\bin\Release\net8.0\SocketJack.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.Tests.SafeModeTests" name="ExplicitUnsafeModeRetainsLegacyTcp" />
+    </UnitTest>
+    <UnitTest name="MatchingTcpHandshakeAllowsTypedMessages (False)" storage="c:\users\vin\documents\github\socketjack\socketjack.tests\bin\release\net8.0\socketjack.tests.dll" id="37b47dce-989b-324d-e007-3a0a905aa8d8">
+      <Execution id="bcd083b1-7f1b-4e4c-bc89-81c8f4d8a7b6" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\bin\Release\net8.0\SocketJack.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.Tests.SafeModeTests" name="MatchingTcpHandshakeAllowsTypedMessages" />
+    </UnitTest>
+    <UnitTest name="ChangingAllowlistRequiresNewHandshake" storage="c:\users\vin\documents\github\socketjack\socketjack.tests\bin\release\net8.0\socketjack.tests.dll" id="240ec41a-8d77-e052-c335-72b1b65d6d0a">
+      <Execution id="7fd279a6-5227-4518-9029-9a4c3895b067" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\bin\Release\net8.0\SocketJack.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.Tests.SafeModeTests" name="ChangingAllowlistRequiresNewHandshake" />
+    </UnitTest>
+    <UnitTest name="InvalidTcpHandshakeClosesBeforeCallbacksAndRevealsNoHash (md5)" storage="c:\users\vin\documents\github\socketjack\socketjack.tests\bin\release\net8.0\socketjack.tests.dll" id="e594780e-6e12-a24a-3c12-19de7b8f03db">
+      <Execution id="4444b926-5ad7-4fc3-b5eb-65aa4208e240" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\bin\Release\net8.0\SocketJack.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.Tests.SafeModeTests" name="InvalidTcpHandshakeClosesBeforeCallbacksAndRevealsNoHash" />
+    </UnitTest>
+    <UnitTest name="InvalidOrdinaryUdpHandshakeNeverCreatesClient" storage="c:\users\vin\documents\github\socketjack\socketjack.tests\bin\release\net8.0\socketjack.tests.dll" id="0930cfd6-c9d9-ce87-000d-7d47d64fb3fc">
+      <Execution id="5bb84320-93be-4545-a0f1-b83603a11334" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\bin\Release\net8.0\SocketJack.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.Tests.SafeModeTests" name="InvalidOrdinaryUdpHandshakeNeverCreatesClient" />
+    </UnitTest>
+    <UnitTest name="InvalidTcpHandshakeClosesBeforeCallbacksAndRevealsNoHash (oversize)" storage="c:\users\vin\documents\github\socketjack\socketjack.tests\bin\release\net8.0\socketjack.tests.dll" id="5a0c3f1f-73da-0a66-a6f7-a37fb99955c1">
+      <Execution id="e74cc9d7-7766-405c-a304-c22cfccd1304" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\bin\Release\net8.0\SocketJack.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.Tests.SafeModeTests" name="InvalidTcpHandshakeClosesBeforeCallbacksAndRevealsNoHash" />
+    </UnitTest>
+    <UnitTest name="InvalidWebSocketUpgradeNeverAnnouncesClient" storage="c:\users\vin\documents\github\socketjack\socketjack.tests\bin\release\net8.0\socketjack.tests.dll" id="f0b87422-32f9-bad2-6556-596786aa6298">
+      <Execution id="f52351ce-5128-4a68-88bf-ed6af44fd9f6" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\bin\Release\net8.0\SocketJack.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.Tests.SafeModeTests" name="InvalidWebSocketUpgradeNeverAnnouncesClient" />
+    </UnitTest>
+    <UnitTest name="ForgedLoginAdminFlagDoesNotGrantAdministrativeRole (False)" storage="c:\users\vin\documents\github\socketjack\socketjack.tests\bin\release\net8.0\socketjack.tests.dll" id="06025617-5063-3dd2-7f22-6e5e743bf321">
+      <Execution id="5a2a0c11-e52a-493b-b74f-452825d3e57e" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\bin\Release\net8.0\SocketJack.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.Tests.AuthorizationTests" name="ForgedLoginAdminFlagDoesNotGrantAdministrativeRole" />
+    </UnitTest>
+    <UnitTest name="JsonRedirectCannotConstructUnapprovedOrBlacklistedType" storage="c:\users\vin\documents\github\socketjack\socketjack.tests\bin\release\net8.0\socketjack.tests.dll" id="f6c7aeaa-3ea5-e0a1-541e-16d0e18251c2">
+      <Execution id="270e5d21-d56b-4c49-972a-939cf47cfde7" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\bin\Release\net8.0\SocketJack.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.Tests.SafeModeTests" name="JsonRedirectCannotConstructUnapprovedOrBlacklistedType" />
+    </UnitTest>
+    <UnitTest name="MatchingDllDoesNotAuthorizePayloadOrInvokeSetter (True,True)" storage="c:\users\vin\documents\github\socketjack\socketjack.tests\bin\release\net8.0\socketjack.tests.dll" id="5caffa12-3afc-5e52-c2fc-84324471682a">
+      <Execution id="2c3e6bbc-11d7-4149-901c-367b1fad0971" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\bin\Release\net8.0\SocketJack.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.Tests.AuthorizationTests" name="MatchingDllDoesNotAuthorizePayloadOrInvokeSetter" />
+    </UnitTest>
+    <UnitTest name="NestedUnapprovedTypeAndMalformedPropertyAreRejected" storage="c:\users\vin\documents\github\socketjack\socketjack.tests\bin\release\net8.0\socketjack.tests.dll" id="5ba96f1c-159e-90c6-2d50-eed758e5dd75">
+      <Execution id="8407a2c0-0fc7-4b01-818e-45c9bd5518ca" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\bin\Release\net8.0\SocketJack.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.Tests.SafeModeTests" name="NestedUnapprovedTypeAndMalformedPropertyAreRejected" />
+    </UnitTest>
+    <UnitTest name="BoundedDecompressionRejectsExpansionAboveLimit" storage="c:\users\vin\documents\github\socketjack\socketjack.tests\bin\release\net8.0\socketjack.tests.dll" id="f311f9fb-baa3-9736-79d3-37c4d9bef60e">
+      <Execution id="3dee5720-efa6-4dbb-ad78-eec54582697d" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\bin\Release\net8.0\SocketJack.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.Tests.SafeModeTests" name="BoundedDecompressionRejectsExpansionAboveLimit" />
+    </UnitTest>
+    <UnitTest name="RedirectCannotActivateAdminPayloadEvenWithMatchingDll (False)" storage="c:\users\vin\documents\github\socketjack\socketjack.tests\bin\release\net8.0\socketjack.tests.dll" id="6ee4bf56-ef5e-d50d-3028-f2216ec997ca">
+      <Execution id="11f39cd4-4cfe-4500-996f-25976154dc0e" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\bin\Release\net8.0\SocketJack.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.Tests.AuthorizationTests" name="RedirectCannotActivateAdminPayloadEvenWithMatchingDll" />
+    </UnitTest>
+    <UnitTest name="AnonymousEnvelopeCannotHideNestedAdmin" storage="c:\users\vin\documents\github\socketjack\socketjack.tests\bin\release\net8.0\socketjack.tests.dll" id="e4c0e64c-5f1f-3f7a-c03e-c46ecfdbfa57">
+      <Execution id="5001f551-ad2e-4814-be79-fab217b5b543" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\bin\Release\net8.0\SocketJack.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.Tests.AuthorizationTests" name="AnonymousEnvelopeCannotHideNestedAdmin" />
+    </UnitTest>
+    <UnitTest name="ForgedLoginAdminFlagDoesNotGrantAdministrativeRole (True)" storage="c:\users\vin\documents\github\socketjack\socketjack.tests\bin\release\net8.0\socketjack.tests.dll" id="0a233454-34d8-c3d5-aa23-e132981aa718">
+      <Execution id="aba00e12-7623-4d8d-8d24-488491be89d9" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\bin\Release\net8.0\SocketJack.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.Tests.AuthorizationTests" name="ForgedLoginAdminFlagDoesNotGrantAdministrativeRole" />
+    </UnitTest>
+    <UnitTest name="MatchingUdpHandshakeAllowsMessages (True)" storage="c:\users\vin\documents\github\socketjack\socketjack.tests\bin\release\net8.0\socketjack.tests.dll" id="961fa60f-7d34-c952-0651-6761b65d2410">
+      <Execution id="799f508c-70ac-4f2f-a5fc-fa147fe90c7e" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.Tests\bin\Release\net8.0\SocketJack.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.Tests.SafeModeTests" name="MatchingUdpHandshakeAllowsMessages" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="2dbaa97c-eaf3-c437-58fc-606afd38f6d4" executionId="a092b00b-08bc-4bdc-b5da-416f59956df2" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="0930cfd6-c9d9-ce87-000d-7d47d64fb3fc" executionId="5bb84320-93be-4545-a0f1-b83603a11334" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="fc0ccd22-58b5-b7cf-4225-d272ce9a87c5" executionId="a2ccc223-e978-4c88-b674-c2212297c77b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="240ec41a-8d77-e052-c335-72b1b65d6d0a" executionId="7fd279a6-5227-4518-9029-9a4c3895b067" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6ee4bf56-ef5e-d50d-3028-f2216ec997ca" executionId="11f39cd4-4cfe-4500-996f-25976154dc0e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e594780e-6e12-a24a-3c12-19de7b8f03db" executionId="4444b926-5ad7-4fc3-b5eb-65aa4208e240" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="872d1240-db3c-787f-7dbd-7f8bd72fa923" executionId="10342ee3-2a98-4baa-8ce6-92da3bae192d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="06025617-5063-3dd2-7f22-6e5e743bf321" executionId="5a2a0c11-e52a-493b-b74f-452825d3e57e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="22284879-c70f-6ba3-f74b-249afe157e6b" executionId="4bd759e8-340e-4446-862b-a70d859bef86" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="83c0132e-9a67-6314-90be-636c428031b6" executionId="342f45eb-4c56-423c-9dfd-c9b5401b3a76" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="c37adc09-6611-f7a6-bd3e-8ca58afdd2bf" executionId="7497b8bb-4d7f-47d3-95c9-c17fd9c06311" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7e1236b7-a305-347d-0c3f-8890e857590d" executionId="179c8068-f946-49e4-b328-d4f547d322b8" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f0b87422-32f9-bad2-6556-596786aa6298" executionId="f52351ce-5128-4a68-88bf-ed6af44fd9f6" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="4675f123-3a44-a221-58d6-2398396341ed" executionId="22806e11-ff10-4ecf-8280-3f3169f8e1d0" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="37b47dce-989b-324d-e007-3a0a905aa8d8" executionId="bcd083b1-7f1b-4e4c-bc89-81c8f4d8a7b6" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="20109e56-01f1-a033-4726-2b7594611050" executionId="472a93d1-79ef-47b9-8f6d-a1659948d24e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f6c7aeaa-3ea5-e0a1-541e-16d0e18251c2" executionId="270e5d21-d56b-4c49-972a-939cf47cfde7" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1ed61214-3f77-06c0-d053-82a2b4b46973" executionId="c04f92aa-4800-4ada-98f3-0fda674f3365" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="96bbb0f9-19ea-709e-affe-a089c8bccf8b" executionId="61806fb4-3b5e-4b3a-9515-76e6fc53ef0d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="3cee9b8b-72a1-4265-2c20-f6e896daf80f" executionId="07726b29-85f9-4ac1-8c11-647b3e553d7f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f7dc6600-530d-c266-71bc-1284841f5e64" executionId="bc78ebe6-45d3-4612-b015-f9af427f5fdc" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7e416bc9-9129-e309-fbdc-e985f06624f6" executionId="f7bf4df8-e1ce-4ee3-b860-0c2f2ec46fb8" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="961fa60f-7d34-c952-0651-6761b65d2410" executionId="799f508c-70ac-4f2f-a5fc-fa147fe90c7e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f311f9fb-baa3-9736-79d3-37c4d9bef60e" executionId="3dee5720-efa6-4dbb-ad78-eec54582697d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="4d82cfa5-1d81-b009-d736-171d6d76ad5b" executionId="c4cf1803-2f31-4500-ae48-188b368dad60" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="188c73bd-54ff-3c1e-3829-8bd97f0f21ce" executionId="51781d26-2d23-483f-96fb-622cca06d085" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="0e2dd143-35ee-cb4d-a850-d11a40bf6b89" executionId="c13d775c-3f04-4fcb-b3b6-ce2d87d70124" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="c7eebd80-a759-86b2-4dd5-9c12f0ff557a" executionId="d48b59df-a24f-482d-b07a-5ad68e3f8a58" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="bf287c09-14da-e48d-3edf-e22016e8f760" executionId="2c67af21-a751-45cd-893c-74741548b97f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="5a0c3f1f-73da-0a66-a6f7-a37fb99955c1" executionId="e74cc9d7-7766-405c-a304-c22cfccd1304" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b9f3bb1b-cad2-6e00-3e1c-dd81c4cecc62" executionId="c44c991e-513c-4fd6-a241-ddb9e3e6e60a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="edec8a88-5bc6-d765-a5fc-ece9f5e98b45" executionId="c598bbe0-0932-4c7b-b3d8-3aa6defe3072" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="0a233454-34d8-c3d5-aa23-e132981aa718" executionId="aba00e12-7623-4d8d-8d24-488491be89d9" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6fd7430d-9ef1-7049-88d4-6584079cecec" executionId="21209af6-b734-442d-8336-7543150aa1c6" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6ec14987-dd6b-720d-1663-33b88a3977f2" executionId="37677c8b-65a2-49be-ad0f-bb000529dc3c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e4c0e64c-5f1f-3f7a-c03e-c46ecfdbfa57" executionId="5001f551-ad2e-4814-be79-fab217b5b543" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="5ba96f1c-159e-90c6-2d50-eed758e5dd75" executionId="8407a2c0-0fc7-4b01-818e-45c9bd5518ca" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="5caffa12-3afc-5e52-c2fc-84324471682a" executionId="2c3e6bbc-11d7-4149-901c-367b1fad0971" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Failed">
+    <Counters total="38" executed="38" passed="36" failed="2" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+  </ResultSummary>
+</TestRun>

@@ -1,0 +1,626 @@
+{
+  "Method": "Ratios of paired round means; 20000 paired bootstrap samples; seed 7301; percentile 95% intervals. Larger speedup is better.",
+  "Runs": 10,
+  "Hashes": {
+    "baseline": {
+      "CoreSha256": "3FA84278B92335272661F3E74C8F01897F0F302AE5AA648EB30B0D1AD9AA49D2",
+      "HarnessSha256": "BF40933E40E7A2151C34FF8C8EC6396077D0346110A5DC6C725E94D9EE589BE3"
+    },
+    "optimized": {
+      "CoreSha256": "B137C0CBC9B5B2E23541DF7A1BC41B5A9C6509B7028A767988D5E5F2A77F36B5",
+      "HarnessSha256": "BF40933E40E7A2151C34FF8C8EC6396077D0346110A5DC6C725E94D9EE589BE3"
+    }
+  },
+  "Comparisons": [
+    {
+      "Mode": "binary",
+      "Payload": 256,
+      "Operation": "decode",
+      "Runs": 10,
+      "BeforeMicroseconds": 2.3095859946322483,
+      "AfterMicroseconds": 1.53825481702413,
+      "Speedup": 1.5014326424150695,
+      "Speedup95": [
+        1.2092893483082474,
+        1.9818408489978954
+      ],
+      "BeforeAllocated": 2400.0006156729346,
+      "AfterAllocated": 968.0004099448248,
+      "AllocationReductionPercent": 59.666659932359735
+    },
+    {
+      "Mode": "binary",
+      "Payload": 256,
+      "Operation": "decode-unwrap",
+      "Runs": 10,
+      "BeforeMicroseconds": 1762.477734375,
+      "AfterMicroseconds": 1195.0936927083333,
+      "Speedup": 1.4747611380835384,
+      "Speedup95": [
+        1.3120686658522922,
+        1.6526264595947529
+      ],
+      "BeforeAllocated": 135676.0416666667,
+      "AfterAllocated": 3892.1825,
+      "AllocationReductionPercent": 97.1312676488879
+    },
+    {
+      "Mode": "binary",
+      "Payload": 256,
+      "Operation": "encode",
+      "Runs": 10,
+      "BeforeMicroseconds": 1.6167216242518325,
+      "AfterMicroseconds": 0.8085294785429771,
+      "Speedup": 1.9995827822694485,
+      "Speedup95": [
+        1.8547657844614367,
+        2.263031191977457
+      ],
+      "BeforeAllocated": 600.0534811965282,
+      "AfterAllocated": 432.00021558821857,
+      "AllocationReductionPercent": 28.006381243419398
+    },
+    {
+      "Mode": "binary",
+      "Payload": 256,
+      "Operation": "wrap-encode",
+      "Runs": 10,
+      "BeforeMicroseconds": 569.9959113343253,
+      "AfterMicroseconds": 589.1249595508658,
+      "Speedup": 0.9675297270868918,
+      "Speedup95": [
+        0.7400724366897009,
+        1.190727585613817
+      ],
+      "BeforeAllocated": 15233.521676587301,
+      "AfterAllocated": 1832.8556349206349,
+      "AllocationReductionPercent": 87.96827369381313
+    },
+    {
+      "Mode": "binary",
+      "Payload": 32768,
+      "Operation": "decode",
+      "Runs": 10,
+      "BeforeMicroseconds": 5.6694576168621005,
+      "AfterMicroseconds": 4.2694649648652225,
+      "Speedup": 1.3279082188325377,
+      "Speedup95": [
+        1.1704957922820387,
+        1.5047548360404275
+      ],
+      "BeforeAllocated": 34912.00151062136,
+      "AfterAllocated": 33480.00113765033,
+      "AllocationReductionPercent": 4.1017424123774955
+    },
+    {
+      "Mode": "binary",
+      "Payload": 32768,
+      "Operation": "decode-unwrap",
+      "Runs": 10,
+      "BeforeMicroseconds": 2002.7477864583332,
+      "AfterMicroseconds": 1007.5610104166666,
+      "Speedup": 1.9877186252275851,
+      "Speedup95": [
+        1.5620365353959924,
+        2.6434028101870113
+      ],
+      "BeforeAllocated": 168185.25,
+      "AfterAllocated": 36410.543333333335,
+      "AllocationReductionPercent": 78.35092950580783
+    },
+    {
+      "Mode": "binary",
+      "Payload": 32768,
+      "Operation": "encode",
+      "Runs": 10,
+      "BeforeMicroseconds": 5.639689595414409,
+      "AfterMicroseconds": 4.508519591705211,
+      "Speedup": 1.2508961047414164,
+      "Speedup95": [
+        1.123856668656943,
+        1.3937209171145861
+      ],
+      "BeforeAllocated": 33234.773510469815,
+      "AfterAllocated": 33064.005768372976,
+      "AllocationReductionPercent": 0.51382249391001
+    },
+    {
+      "Mode": "binary",
+      "Payload": 32768,
+      "Operation": "wrap-encode",
+      "Runs": 10,
+      "BeforeMicroseconds": 592.2933048115079,
+      "AfterMicroseconds": 491.0783519570707,
+      "Speedup": 1.2061075436354916,
+      "Speedup95": [
+        1.108853013320268,
+        1.3179161843335674
+      ],
+      "BeforeAllocated": 47915.99159722222,
+      "AfterAllocated": 34464.22565656566,
+      "AllocationReductionPercent": 28.073646171681
+    },
+    {
+      "Mode": "binary",
+      "Payload": 262144,
+      "Operation": "decode",
+      "Runs": 10,
+      "BeforeMicroseconds": 73.83491213923467,
+      "AfterMicroseconds": 72.14876316828487,
+      "Speedup": 1.02337044873544,
+      "Speedup95": [
+        0.7322776132242467,
+        1.3975350766281451
+      ],
+      "BeforeAllocated": 264382.0464857639,
+      "AfterAllocated": 262931.3929756139,
+      "AllocationReductionPercent": 0.5486959229768051
+    },
+    {
+      "Mode": "binary",
+      "Payload": 262144,
+      "Operation": "decode-unwrap",
+      "Runs": 10,
+      "BeforeMicroseconds": 2330.2382291666663,
+      "AfterMicroseconds": 1139.31365625,
+      "Speedup": 2.0453000070556002,
+      "Speedup95": [
+        1.724275087242093,
+        2.384833179919138
+      ],
+      "BeforeAllocated": 398636.9125,
+      "AfterAllocated": 266347.32875,
+      "AllocationReductionPercent": 33.185482729224184
+    },
+    {
+      "Mode": "binary",
+      "Payload": 262144,
+      "Operation": "encode",
+      "Runs": 10,
+      "BeforeMicroseconds": 85.19349062440628,
+      "AfterMicroseconds": 73.83785349101207,
+      "Speedup": 1.153791539115861,
+      "Speedup95": [
+        0.7764495843611536,
+        1.7792913166730102
+      ],
+      "BeforeAllocated": 262770.8513861068,
+      "AfterAllocated": 262581.2947907619,
+      "AllocationReductionPercent": 0.07213760367446032
+    },
+    {
+      "Mode": "binary",
+      "Payload": 262144,
+      "Operation": "wrap-encode",
+      "Runs": 10,
+      "BeforeMicroseconds": 796.2984507688492,
+      "AfterMicroseconds": 641.2252630208334,
+      "Speedup": 1.2418388617713858,
+      "Speedup95": [
+        1.0555532110734358,
+        1.5034470172790537
+      ],
+      "BeforeAllocated": 278702.68696428573,
+      "AfterAllocated": 264256.91277777776,
+      "AllocationReductionPercent": 5.183220278159395
+    },
+    {
+      "Mode": "json",
+      "Payload": 256,
+      "Operation": "decode",
+      "Runs": 10,
+      "BeforeMicroseconds": 18.50632447261059,
+      "AfterMicroseconds": 8.548054942383034,
+      "Speedup": 2.1649749091869293,
+      "Speedup95": [
+        0.9731267727004765,
+        5.281968436429647
+      ],
+      "BeforeAllocated": 3040.3296831097587,
+      "AfterAllocated": 2032.1514412623524,
+      "AllocationReductionPercent": 33.16016178930323
+    },
+    {
+      "Mode": "json",
+      "Payload": 256,
+      "Operation": "decode-unwrap",
+      "Runs": 10,
+      "BeforeMicroseconds": 4534.272473958333,
+      "AfterMicroseconds": 1132.73678125,
+      "Speedup": 4.002935676684449,
+      "Speedup95": [
+        1.6852505277052037,
+        8.598065514015797
+      ],
+      "BeforeAllocated": 137092.4125,
+      "AfterAllocated": 6350.7925,
+      "AllocationReductionPercent": 95.36750985398263
+    },
+    {
+      "Mode": "json",
+      "Payload": 256,
+      "Operation": "encode",
+      "Runs": 10,
+      "BeforeMicroseconds": 7.501313538805708,
+      "AfterMicroseconds": 5.65093364015113,
+      "Speedup": 1.3274467577370261,
+      "Speedup95": [
+        0.9550001353838302,
+        2.0027919298288186
+      ],
+      "BeforeAllocated": 1620.4045022165935,
+      "AfterAllocated": 1607.4757142843707,
+      "AllocationReductionPercent": 0.7978741057888428
+    },
+    {
+      "Mode": "json",
+      "Payload": 256,
+      "Operation": "wrap-encode",
+      "Runs": 10,
+      "BeforeMicroseconds": 611.4854346478176,
+      "AfterMicroseconds": 529.3504131944445,
+      "Speedup": 1.1551619105343036,
+      "Speedup95": [
+        1.0963523695303063,
+        1.216203776064401
+      ],
+      "BeforeAllocated": 20294.208581349205,
+      "AfterAllocated": 6499.155277777778,
+      "AllocationReductionPercent": 67.97532038893779
+    },
+    {
+      "Mode": "json",
+      "Payload": 32768,
+      "Operation": "decode",
+      "Runs": 10,
+      "BeforeMicroseconds": 111.35500227979391,
+      "AfterMicroseconds": 100.2686170251038,
+      "Speedup": 1.1105668511605626,
+      "Speedup95": [
+        0.9455126877660364,
+        1.2864147567340565
+      ],
+      "BeforeAllocated": 135346.41812669905,
+      "AfterAllocated": 134508.3728487498,
+      "AllocationReductionPercent": 0.6191854129192764
+    },
+    {
+      "Mode": "json",
+      "Payload": 32768,
+      "Operation": "decode-unwrap",
+      "Runs": 10,
+      "BeforeMicroseconds": 1866.1308333333332,
+      "AfterMicroseconds": 1210.4071875,
+      "Speedup": 1.5417380635252822,
+      "Speedup95": [
+        1.4177383194648445,
+        1.6683394492208872
+      ],
+      "BeforeAllocated": 304760.325,
+      "AfterAllocated": 174622.19833333333,
+      "AllocationReductionPercent": 42.701794161253325
+    },
+    {
+      "Mode": "json",
+      "Payload": 32768,
+      "Operation": "encode",
+      "Runs": 10,
+      "BeforeMicroseconds": 47.10627493731834,
+      "AfterMicroseconds": 47.28080961797986,
+      "Speedup": 0.9963085513536734,
+      "Speedup95": [
+        0.9467097198310984,
+        1.0914853682010315
+      ],
+      "BeforeAllocated": 132696.81912434346,
+      "AfterAllocated": 132784.21898656586,
+      "AllocationReductionPercent": -0.06586432350010885
+    },
+    {
+      "Mode": "json",
+      "Payload": 32768,
+      "Operation": "wrap-encode",
+      "Runs": 10,
+      "BeforeMicroseconds": 709.9499976438492,
+      "AfterMicroseconds": 617.4645213293651,
+      "Speedup": 1.1497826565247318,
+      "Speedup95": [
+        0.9969075826543996,
+        1.361774138827399
+      ],
+      "BeforeAllocated": 184170.49371031747,
+      "AfterAllocated": 171568.70912698412,
+      "AllocationReductionPercent": 6.842455775328893
+    },
+    {
+      "Mode": "json",
+      "Payload": 262144,
+      "Operation": "decode",
+      "Runs": 10,
+      "BeforeMicroseconds": 576.4334687274531,
+      "AfterMicroseconds": 534.3420066964285,
+      "Speedup": 1.0787725118061655,
+      "Speedup95": [
+        0.8364396996027957,
+        1.3912961402425577
+      ],
+      "BeforeAllocated": 1227914.2779491341,
+      "AfterAllocated": 1185114.6228472223,
+      "AllocationReductionPercent": 3.48555724699251
+    },
+    {
+      "Mode": "json",
+      "Payload": 262144,
+      "Operation": "decode-unwrap",
+      "Runs": 10,
+      "BeforeMicroseconds": 3940.56390625,
+      "AfterMicroseconds": 2893.898125,
+      "Speedup": 1.3616802444453706,
+      "Speedup95": [
+        1.2305832454616277,
+        1.511895510406052
+      ],
+      "BeforeAllocated": 3823027.5875,
+      "AfterAllocated": 3672823.6875,
+      "AllocationReductionPercent": 3.928925349404111
+    },
+    {
+      "Mode": "json",
+      "Payload": 262144,
+      "Operation": "encode",
+      "Runs": 10,
+      "BeforeMicroseconds": 338.31071217791094,
+      "AfterMicroseconds": 287.09873774509805,
+      "Speedup": 1.178377567365976,
+      "Speedup95": [
+        1.0578385764547924,
+        1.3251248912763025
+      ],
+      "BeforeAllocated": 1054914.858839661,
+      "AfterAllocated": 1056263.4161968953,
+      "AllocationReductionPercent": -0.1278356585779461
+    },
+    {
+      "Mode": "json",
+      "Payload": 262144,
+      "Operation": "wrap-encode",
+      "Runs": 10,
+      "BeforeMicroseconds": 1035.729921875,
+      "AfterMicroseconds": 897.6115885416666,
+      "Speedup": 1.1538731619516318,
+      "Speedup95": [
+        1.0188248934797728,
+        1.3060685628637791
+      ],
+      "BeforeAllocated": 1259179.3625,
+      "AfterAllocated": 1230285.0779166666,
+      "AllocationReductionPercent": 2.2946917209607176
+    },
+    {
+      "Mode": "segment",
+      "Payload": 4194304,
+      "Operation": "segment-build",
+      "Runs": 10,
+      "BeforeMicroseconds": 18758.179705988456,
+      "AfterMicroseconds": 14675.32689177489,
+      "Speedup": 1.278212052400815,
+      "Speedup95": [
+        1.0736317963226762,
+        1.5417994038268565
+      ],
+      "BeforeAllocated": 15529055.385858586,
+      "AfterAllocated": 11275326.569350649,
+      "AllocationReductionPercent": 27.392064171408403
+    },
+    {
+      "Mode": "segment",
+      "Payload": 4194304,
+      "Operation": "segment-rebuild",
+      "Runs": 10,
+      "BeforeMicroseconds": 955886.95,
+      "AfterMicroseconds": 8824.375089338766,
+      "Speedup": 108.32347223712893,
+      "Speedup95": [
+        98.30323070628496,
+        119.80754604932126
+      ],
+      "BeforeAllocated": 2207559171.2,
+      "AfterAllocated": 4215517.958460232,
+      "AllocationReductionPercent": 99.80904167763853
+    }
+  ],
+  "BinaryVersusJson": [
+    {
+      "Payload": 256,
+      "Operation": "encode",
+      "JsonEncodedBytes": 514,
+      "BinaryEncodedBytes": 405,
+      "BeforeMicroseconds": 5.65093364015113,
+      "AfterMicroseconds": 0.8085294785429771,
+      "Speedup": 6.989149796163872,
+      "Speedup95": [
+        4.5801902675601465,
+        11.269121398601083
+      ],
+      "BeforeAllocated": 1607.4757142843707,
+      "AfterAllocated": 432.00021558821857,
+      "AllocationReductionPercent": 73.12555258226467
+    },
+    {
+      "Payload": 256,
+      "Operation": "decode",
+      "JsonEncodedBytes": 514,
+      "BinaryEncodedBytes": 405,
+      "BeforeMicroseconds": 8.548054942383034,
+      "AfterMicroseconds": 1.53825481702413,
+      "Speedup": 5.55698239835185,
+      "Speedup95": [
+        3.663208148113151,
+        8.319029655756276
+      ],
+      "BeforeAllocated": 2032.1514412623524,
+      "AfterAllocated": 968.0004099448248,
+      "AllocationReductionPercent": 52.36573464507583
+    },
+    {
+      "Payload": 256,
+      "Operation": "wrap-encode",
+      "JsonEncodedBytes": 514,
+      "BinaryEncodedBytes": 405,
+      "BeforeMicroseconds": 529.3504131944445,
+      "AfterMicroseconds": 589.1249595508658,
+      "Speedup": 0.8985367274168932,
+      "Speedup95": [
+        0.6982302603312806,
+        1.0942565436675025
+      ],
+      "BeforeAllocated": 6499.155277777778,
+      "AfterAllocated": 1832.8556349206349,
+      "AllocationReductionPercent": 71.79855601869333
+    },
+    {
+      "Payload": 256,
+      "Operation": "decode-unwrap",
+      "JsonEncodedBytes": 514,
+      "BinaryEncodedBytes": 405,
+      "BeforeMicroseconds": 1132.73678125,
+      "AfterMicroseconds": 1195.0936927083333,
+      "Speedup": 0.9478225750509824,
+      "Speedup95": [
+        0.8334801179991401,
+        1.0569417212711354
+      ],
+      "BeforeAllocated": 6350.7925,
+      "AfterAllocated": 3892.1825,
+      "AllocationReductionPercent": 38.71343615777085
+    },
+    {
+      "Payload": 32768,
+      "Operation": "encode",
+      "JsonEncodedBytes": 43864,
+      "BinaryEncodedBytes": 32919,
+      "BeforeMicroseconds": 47.28080961797986,
+      "AfterMicroseconds": 4.508519591705211,
+      "Speedup": 10.486992161455227,
+      "Speedup95": [
+        7.178221327113733,
+        15.512660993410018
+      ],
+      "BeforeAllocated": 132784.21898656586,
+      "AfterAllocated": 33064.005768372976,
+      "AllocationReductionPercent": 75.09944628908187
+    },
+    {
+      "Payload": 32768,
+      "Operation": "decode",
+      "JsonEncodedBytes": 43864,
+      "BinaryEncodedBytes": 32919,
+      "BeforeMicroseconds": 100.2686170251038,
+      "AfterMicroseconds": 4.2694649648652225,
+      "Speedup": 23.48505441554058,
+      "Speedup95": [
+        21.79281991581428,
+        25.2669796633143
+      ],
+      "BeforeAllocated": 134508.3728487498,
+      "AfterAllocated": 33480.00113765033,
+      "AllocationReductionPercent": 75.10935532965112
+    },
+    {
+      "Payload": 32768,
+      "Operation": "wrap-encode",
+      "JsonEncodedBytes": 43864,
+      "BinaryEncodedBytes": 32919,
+      "BeforeMicroseconds": 617.4645213293651,
+      "AfterMicroseconds": 491.0783519570707,
+      "Speedup": 1.2573645709867147,
+      "Speedup95": [
+        1.2124601411583078,
+        1.3028857978321575
+      ],
+      "BeforeAllocated": 171568.70912698412,
+      "AfterAllocated": 34464.22565656566,
+      "AllocationReductionPercent": 79.91228946587373
+    },
+    {
+      "Payload": 32768,
+      "Operation": "decode-unwrap",
+      "JsonEncodedBytes": 43864,
+      "BinaryEncodedBytes": 32919,
+      "BeforeMicroseconds": 1210.4071875,
+      "AfterMicroseconds": 1007.5610104166666,
+      "Speedup": 1.2013239644906946,
+      "Speedup95": [
+        1.0861681392331315,
+        1.3196861198397305
+      ],
+      "BeforeAllocated": 174622.19833333333,
+      "AfterAllocated": 36410.543333333335,
+      "AllocationReductionPercent": 79.14896062422152
+    },
+    {
+      "Payload": 262144,
+      "Operation": "encode",
+      "JsonEncodedBytes": 349788,
+      "BinaryEncodedBytes": 262295,
+      "BeforeMicroseconds": 287.09873774509805,
+      "AfterMicroseconds": 73.83785349101207,
+      "Speedup": 3.888232446790253,
+      "Speedup95": [
+        3.105409514924241,
+        5.035755641906757
+      ],
+      "BeforeAllocated": 1056263.4161968953,
+      "AfterAllocated": 262581.2947907619,
+      "AllocationReductionPercent": 75.1405482037622
+    },
+    {
+      "Payload": 262144,
+      "Operation": "decode",
+      "JsonEncodedBytes": 349788,
+      "BinaryEncodedBytes": 262295,
+      "BeforeMicroseconds": 534.3420066964285,
+      "AfterMicroseconds": 72.14876316828487,
+      "Speedup": 7.406114578154188,
+      "Speedup95": [
+        5.7849591592197145,
+        9.822763899698916
+      ],
+      "BeforeAllocated": 1185114.6228472223,
+      "AfterAllocated": 262931.3929756139,
+      "AllocationReductionPercent": 77.81384282104928
+    },
+    {
+      "Payload": 262144,
+      "Operation": "wrap-encode",
+      "JsonEncodedBytes": 349788,
+      "BinaryEncodedBytes": 262295,
+      "BeforeMicroseconds": 897.6115885416666,
+      "AfterMicroseconds": 641.2252630208334,
+      "Speedup": 1.3998381540879858,
+      "Speedup95": [
+        1.3482088556740317,
+        1.458565866502558
+      ],
+      "BeforeAllocated": 1230285.0779166666,
+      "AfterAllocated": 264256.91277777776,
+      "AllocationReductionPercent": 78.52067642523441
+    },
+    {
+      "Payload": 262144,
+      "Operation": "decode-unwrap",
+      "JsonEncodedBytes": 349788,
+      "BinaryEncodedBytes": 262295,
+      "BeforeMicroseconds": 2893.898125,
+      "AfterMicroseconds": 1139.31365625,
+      "Speedup": 2.54003637112991,
+      "Speedup95": [
+        2.4028238228252032,
+        2.6921440216099684
+      ],
+      "BeforeAllocated": 3672823.6875,
+      "AfterAllocated": 266347.32875,
+      "AllocationReductionPercent": 92.74815914369971
+    }
+  ]
+}

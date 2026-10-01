@@ -26,12 +26,12 @@ SocketJack is a .NET networking library for sending typed objects, hosting HTTP 
 ## 📦 Install
 
 ```powershell
-dotnet add package SocketJack --version 2026.14.0
+dotnet add package SocketJack --version 2026.14.1
 ```
 
 | Package | Target | Purpose |
 |---|---|---|
-| **[SocketJack](https://www.nuget.org/packages/SocketJack/2026.14.0)** | .NET Standard 2.1 | Core networking library; this release is **2026.14.0**. |
+| **[SocketJack](https://www.nuget.org/packages/SocketJack/2026.14.1)** | .NET Standard 2.1 | Core networking library; this release is **2026.14.1**. |
 | **[SocketJack.WPF](https://www.nuget.org/packages/SocketJack.WPF)** | Windows / WPF | Companion package for live control capture and remote input; versioned separately. |
 
 <details>
@@ -275,6 +275,8 @@ Before packaging, restore audits direct and transitive dependencies. Known vulne
 |---|---|
 | 📘 [Examples](https://github.com/hheiroww/SocketJack/blob/master/examples.md) | Longer transport and utility examples. |
 | 📡 [Reliable UDP guide](https://github.com/hheiroww/SocketJack/blob/master/docs/UDP_Reliable.md) | Options, transfer APIs, limits, and acceptance semantics. |
+| 📊 [Reliable UDP benchmark results](https://github.com/hheiroww/SocketJack/blob/master/docs/UDP_Reliable-results.md) | TCP comparison, confidence intervals, acceptance limits, and raw measurements. |
+| 🧩 [Binary serializer benchmark results](https://github.com/hheiroww/SocketJack/blob/master/docs/encoder-testing/README.md) | Custom SB encoding/decoding, JSON comparison, allocations, wrapping, and reproduction commands. |
 | 🧪 [GitHub Actions](https://github.com/hheiroww/SocketJack/actions) | Build and publishing results. |
 | 📦 [NuGet](https://www.nuget.org/packages/SocketJack) | Published versions and dependencies. |
 

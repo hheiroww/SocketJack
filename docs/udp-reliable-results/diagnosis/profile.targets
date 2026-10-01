@@ -1,0 +1,9 @@
+<Project>
+  <PropertyGroup><IntermediateOutputPath>$(DiagnosticBuildRoot)\obj\$(MSBuildProjectName)\$(TargetFramework)\</IntermediateOutputPath></PropertyGroup>
+  <Target Name="SelectDiagnosticTransport" BeforeTargets="AssignTargetPaths" Condition="'$(MSBuildProjectName)' == 'SocketJack' and '$(DiagnosticTransport)' != ''">
+    <ItemGroup>
+      <Compile Remove="@(Compile)" Condition="'%(Compile.Filename)' == 'UdpReliableTransport'" />
+      <Compile Include="$(DiagnosticTransport)" />
+    </ItemGroup>
+  </Target>
+</Project>

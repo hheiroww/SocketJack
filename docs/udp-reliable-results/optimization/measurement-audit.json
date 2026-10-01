@@ -1,0 +1,18 @@
+{
+  "Network": [
+    {
+      "Serializer": "binary",
+      "Measurements": 50,
+      "AllByteCountsAndHashesMatch": true,
+      "Acceptance": "FAIL"
+    },
+    {
+      "Serializer": "json",
+      "Measurements": 50,
+      "AllByteCountsAndHashesMatch": true,
+      "Acceptance": "FAIL"
+    }
+  ],
+  "SerializerMeasurements": 90,
+  "DiagnosticMeasurements": 60
+}

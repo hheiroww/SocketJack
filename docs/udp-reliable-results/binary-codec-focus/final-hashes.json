@@ -1,0 +1,18 @@
+[
+  {
+    "Path": "C:\\Users\\Vin\\Documents\\GitHub\\SocketJack\\artifacts\\binary-codec-focus\\baseline-bin\\SocketJack.dll",
+    "Hash": "3FA84278B92335272661F3E74C8F01897F0F302AE5AA648EB30B0D1AD9AA49D2"
+  },
+  {
+    "Path": "C:\\Users\\Vin\\Documents\\GitHub\\SocketJack\\artifacts\\binary-codec-focus\\optimized-bin\\SocketJack.dll",
+    "Hash": "B137C0CBC9B5B2E23541DF7A1BC41B5A9C6509B7028A767988D5E5F2A77F36B5"
+  },
+  {
+    "Path": "C:\\Users\\Vin\\Documents\\GitHub\\SocketJack\\artifacts\\binary-codec-focus\\baseline-bin\\UdpReliable.Bench.dll",
+    "Hash": "BF40933E40E7A2151C34FF8C8EC6396077D0346110A5DC6C725E94D9EE589BE3"
+  },
+  {
+    "Path": "C:\\Users\\Vin\\Documents\\GitHub\\SocketJack\\artifacts\\binary-codec-focus\\optimized-bin\\UdpReliable.Bench.dll",
+    "Hash": "BF40933E40E7A2151C34FF8C8EC6396077D0346110A5DC6C725E94D9EE589BE3"
+  }
+]

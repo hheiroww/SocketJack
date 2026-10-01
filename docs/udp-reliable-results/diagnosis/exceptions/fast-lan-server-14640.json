@@ -1,0 +1,21 @@
+{
+  "Arguments": [
+    "server",
+    "fast-lan",
+    "24950"
+  ],
+  "ElapsedSeconds": 10.9019573,
+  "Exceptions": {
+    "System.Net.Sockets.SocketException": 43,
+    "System.OperationCanceledException": 14,
+    "System.Threading.SemaphoreFullException": 60018
+  },
+  "FirstStacks": {
+    "System.Net.Sockets.SocketException": "   at System.Net.Sockets.Socket.UpdateStatusAfterSocketErrorAndThrowException(SocketError error, Boolean disconnectOnFailure, String callerName)",
+    "System.OperationCanceledException": "   at System.Threading.CancellationToken.ThrowOperationCanceledException()",
+    "System.Threading.SemaphoreFullException": "   at System.Threading.SemaphoreSlim.Release(Int32 releaseCount)"
+  },
+  "Gen0": 165,
+  "Gen1": 141,
+  "Gen2": 130
+}

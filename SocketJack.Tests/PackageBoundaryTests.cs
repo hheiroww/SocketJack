@@ -18,4 +18,16 @@ public class PackageBoundaryTests
         Assert.IsTrue(SocketJack.HtmlPageResources.GetHtml("SocketJackHttpServerDefaultIndex.html").Length > 0);
         Assert.AreEqual("", SocketJack.HtmlPageResources.GetHtml("heirowLLMWebChat.html"));
     }
+
+    [TestMethod]
+    public void AdminPageEventBindingsReferToExistingElements()
+    {
+        var html = SocketJack.HtmlPageResources.GetHtml("Admin.html");
+        var ids = System.Text.RegularExpressions.Regex.Matches(html, "id=[\"']([^\"']+)[\"']")
+            .Cast<System.Text.RegularExpressions.Match>().Select(m => m.Groups[1].Value).ToHashSet();
+        var bindings = System.Text.RegularExpressions.Regex.Matches(html, @"\$\('([^']+)'\)\.on\w+\s*=");
+        Assert.IsTrue(bindings.Count > 0);
+        foreach (System.Text.RegularExpressions.Match binding in bindings)
+            Assert.IsTrue(ids.Contains(binding.Groups[1].Value), "Missing element for event handler: " + binding.Groups[1].Value);
+    }
 }

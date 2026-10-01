@@ -1,0 +1,289 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="eadfe81a-45aa-48f0-8a12-648732f30aba" name="Vin@DESKTOP-KSSU21A 2026-09-30 18:27:03" runUser="DESKTOP-KSSU21A\Vin" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-09-30T18:27:03.7981778-05:00" queuing="2026-09-30T18:27:03.7981782-05:00" start="2026-09-30T18:27:01.8223487-05:00" finish="2026-09-30T18:30:54.3868023-05:00" />
+  <TestSettings name="default" id="f8f9703b-014a-4478-81b3-2a47b95d8332">
+    <Deployment runDeploymentRoot="Vin_DESKTOP-KSSU21A_2026-09-30_18_27_03" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="247b77c4-95e0-444b-8325-2d275f3f5d77" testId="fbd224dc-21d1-1d6f-16a4-d7b27b06de90" testName="AdmissionBackpressureCancellationAndSynchronousExhaustionAreExplicit" computerName="DESKTOP-KSSU21A" duration="00:00:00.8129761" startTime="2026-09-30T18:27:32.7792576-05:00" endTime="2026-09-30T18:27:33.5924578-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="247b77c4-95e0-444b-8325-2d275f3f5d77" />
+    <UnitTestResult executionId="5b0dce3d-6577-430e-a7f1-f22293a813d8" testId="a4bdfc68-4d1d-ec78-c4c9-dcd7f8a79435" testName="OrderingControlsWhetherSlowCallbackBlocksNextObject (True)" computerName="DESKTOP-KSSU21A" duration="00:00:00.4996078" startTime="2026-09-30T18:27:03.3232648-05:00" endTime="2026-09-30T18:27:03.8233246-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5b0dce3d-6577-430e-a7f1-f22293a813d8" />
+    <UnitTestResult executionId="22fb2709-529c-4f67-8357-01bd758443c1" testId="0ca74729-c40d-d985-7fa9-08b139230f33" testName="BinaryIndependentObjectsReassembleAcrossPacketIdReuse (0.01,32768)" computerName="DESKTOP-KSSU21A" duration="00:00:01.5833014" startTime="2026-09-30T18:27:10.1426721-05:00" endTime="2026-09-30T18:27:11.7263362-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="22fb2709-529c-4f67-8357-01bd758443c1" />
+    <UnitTestResult executionId="b92fd695-2e85-4664-935a-01b8be167e1b" testId="8610b7d8-0277-ea97-6da4-7649d5017b5e" testName="BinaryIndependentObjectsReassembleAcrossPacketIdReuse (0.05,32768)" computerName="DESKTOP-KSSU21A" duration="00:00:01.8143693" startTime="2026-09-30T18:27:11.7270722-05:00" endTime="2026-09-30T18:27:13.5418968-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b92fd695-2e85-4664-935a-01b8be167e1b" />
+    <UnitTestResult executionId="6ce9088b-cac7-4229-a1eb-ea19e1a58ca3" testId="75fd360d-26e6-1257-dd07-b632da7c5e05" testName="FileBeyondFourGiBUsesBoundedMemoryAndMatchesDiskHash" computerName="DESKTOP-KSSU21A" duration="00:03:00.0989914" startTime="2026-09-30T18:27:33.9645949-05:00" endTime="2026-09-30T18:30:34.0640193-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6ce9088b-cac7-4229-a1eb-ea19e1a58ca3">
+      <Output>
+        <StdOut>Large file: 4295032833 bytes, 176.16s, peak sampled managed bytes=21559224, SHA256=7771ca9460665383d6c6f5cf418cdec3f61e62173edb315fadc5016b17b647b2</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="9a2a923c-7e07-47e4-8289-2f532dd614be" testId="b4608390-f07f-805f-1053-3026a10d8926" testName="BlackholeTimesOutAndReconnectStartsFreshSession" computerName="DESKTOP-KSSU21A" duration="00:00:01.5529777" startTime="2026-09-30T18:27:30.7024054-05:00" endTime="2026-09-30T18:27:32.2556052-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9a2a923c-7e07-47e4-8289-2f532dd614be" />
+    <UnitTestResult executionId="f99ab4da-8617-4ee0-8011-619ea6e33f10" testId="3c61304a-5c1a-0df5-ea9d-ac9098ff12a8" testName="InterfaceReplyWorksWithoutPeerRouting (False)" computerName="DESKTOP-KSSU21A" duration="00:00:00.3986502" startTime="2026-09-30T18:27:13.8053659-05:00" endTime="2026-09-30T18:27:14.2043865-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f99ab4da-8617-4ee0-8011-619ea6e33f10" />
+    <UnitTestResult executionId="d98460b3-5590-4a7a-bf55-8f33713ca994" testId="b2912d1f-fd9b-dc28-808c-9aa5ba68acc2" testName="BinaryIndependentObjectsReassembleAcrossPacketIdReuse (0.01,1200)" computerName="DESKTOP-KSSU21A" duration="00:00:03.6182711" startTime="2026-09-30T18:27:03.8238492-05:00" endTime="2026-09-30T18:27:07.4512281-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d98460b3-5590-4a7a-bf55-8f33713ca994" />
+    <UnitTestResult executionId="9478f674-ee28-4062-92dd-598b83805cca" testId="d8bb7f86-3e52-91d9-0635-d9cc14535d2e" testName="PlainUdpStillExchangesTypedMessages (True)" computerName="DESKTOP-KSSU21A" duration="00:00:00.3536485" startTime="2026-09-30T18:30:53.8911221-05:00" endTime="2026-09-30T18:30:54.2464226-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9478f674-ee28-4062-92dd-598b83805cca" />
+    <UnitTestResult executionId="6fe4c5f4-4dbb-47f5-93bd-55da7ed3d806" testId="5c57efca-156a-a896-560f-8973d730bdfc" testName="OrderingControlsWhetherSlowCallbackBlocksNextObject (False)" computerName="DESKTOP-KSSU21A" duration="00:00:00.9754980" startTime="2026-09-30T18:27:02.3310409-05:00" endTime="2026-09-30T18:27:03.3190376-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6fe4c5f4-4dbb-47f5-93bd-55da7ed3d806" />
+    <UnitTestResult executionId="1175c9b1-7487-4cea-b26e-43444996e61e" testId="be6c00c0-48ab-198a-22b2-ea9422cf0caf" testName="IndependentMessageCanPassMissingLargeMessage" computerName="DESKTOP-KSSU21A" duration="00:00:00.5232091" startTime="2026-09-30T18:27:32.2557071-05:00" endTime="2026-09-30T18:27:32.7791604-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1175c9b1-7487-4cea-b26e-43444996e61e" />
+    <UnitTestResult executionId="f2d4c142-9f5c-42fb-a845-4a634349ddf5" testId="0c286db2-fdc3-6f50-ca06-c81453638444" testName="SpanCodecPreservesV1BytesAcrossBlockBoundariesAndReadsOldMessages" computerName="DESKTOP-KSSU21A" duration="00:00:00.1697274" startTime="2026-09-30T18:27:13.6191780-05:00" endTime="2026-09-30T18:27:13.7894715-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f2d4c142-9f5c-42fb-a845-4a634349ddf5" />
+    <UnitTestResult executionId="1daf9ee8-4b5c-4261-8063-c563d12fda25" testId="6a608d41-25a4-6884-ae46-d11b177948bb" testName="NegotiatedWindowRespectsBothEndpoints (32768,1200,4,64)" computerName="DESKTOP-KSSU21A" duration="00:00:00.3858218" startTime="2026-09-30T18:27:14.5588716-05:00" endTime="2026-09-30T18:27:14.9450165-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1daf9ee8-4b5c-4261-8063-c563d12fda25" />
+    <UnitTestResult executionId="48c8a83c-0d07-46b7-a694-bf5447d4ae33" testId="7fdfb8d2-365b-f19d-7fd1-10c07ec78e2a" testName="CompactHeadersUseSmallRecycledPacketIndexesAndRejectMalformedNumbers" computerName="DESKTOP-KSSU21A" duration="00:00:00.0014219" startTime="2026-09-30T18:27:13.5426208-05:00" endTime="2026-09-30T18:27:13.5465932-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="48c8a83c-0d07-46b7-a694-bf5447d4ae33" />
+    <UnitTestResult executionId="99183957-9d48-4c57-89af-81dccfcacbd4" testId="95a9036f-d903-0a04-6254-28bd6c68b813" testName="CachePromotionCannotAdvancePastAnUnsendableStoreFrame" computerName="DESKTOP-KSSU21A" duration="00:00:00.3558528" startTime="2026-09-30T18:30:53.2117116-05:00" endTime="2026-09-30T18:30:53.5677422-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="99183957-9d48-4c57-89af-81dccfcacbd4" />
+    <UnitTestResult executionId="8a6df93b-e8f1-4d54-bdf5-40ecc6432d5a" testId="488b7d88-97bc-098a-020f-4fab6df45ce3" testName="OrderedLargeObjectsSurviveLossDuplicationReordering (0.05)" computerName="DESKTOP-KSSU21A" duration="00:00:02.4425957" startTime="2026-09-30T18:27:20.3452056-05:00" endTime="2026-09-30T18:27:22.7881114-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8a6df93b-e8f1-4d54-bdf5-40ecc6432d5a" />
+    <UnitTestResult executionId="b30da61d-177b-4816-a060-024d6ecd708e" testId="40e120d3-392c-933a-3be8-39f68a8ea305" testName="LostCompletionAcknowledgmentRetriesWithoutDuplicateDispatch" computerName="DESKTOP-KSSU21A" duration="00:00:00.5419382" startTime="2026-09-30T18:30:52.0183515-05:00" endTime="2026-09-30T18:30:52.5605789-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b30da61d-177b-4816-a060-024d6ecd708e" />
+    <UnitTestResult executionId="069e0d0f-83fb-4e9c-adbf-665fe09eba62" testId="6f76da30-e892-cf87-2644-3f9f86e8e79f" testName="InvalidConfigurationDoesNotLeaveListenerBound" computerName="DESKTOP-KSSU21A" duration="00:00:00.0611493" startTime="2026-09-30T18:30:53.1502607-05:00" endTime="2026-09-30T18:30:53.2116223-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="069e0d0f-83fb-4e9c-adbf-665fe09eba62" />
+    <UnitTestResult executionId="56690f0a-6e08-42bf-92f0-e89a30d72b02" testId="452c7a63-eba9-b8fc-7fea-b2869bea8cce" testName="UnknownVersionTruncationAndStaleSessionAreIgnored" computerName="DESKTOP-KSSU21A" duration="00:00:00.4363527" startTime="2026-09-30T18:27:30.2657437-05:00" endTime="2026-09-30T18:27:30.7023271-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="56690f0a-6e08-42bf-92f0-e89a30d72b02" />
+    <UnitTestResult executionId="3e108e4c-ef54-405d-8a3a-2535bbe6dd50" testId="beeaa310-d170-8d78-87f0-56942aa5ad4a" testName="NegotiatedWindowRespectsBothEndpoints (32768,32768,64,64)" computerName="DESKTOP-KSSU21A" duration="00:00:00.4026845" startTime="2026-09-30T18:27:15.3470477-05:00" endTime="2026-09-30T18:27:15.7501522-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="3e108e4c-ef54-405d-8a3a-2535bbe6dd50" />
+    <UnitTestResult executionId="c0022aee-776b-40a8-b9ba-8a4d46b8f133" testId="67fe5b8f-08ec-59e6-8655-23ce4da2b39d" testName="OrderedLargeObjectsSurviveLossDuplicationReordering (0)" computerName="DESKTOP-KSSU21A" duration="00:00:01.7961081" startTime="2026-09-30T18:27:15.7502805-05:00" endTime="2026-09-30T18:27:17.5468537-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c0022aee-776b-40a8-b9ba-8a4d46b8f133" />
+    <UnitTestResult executionId="06e8e8c4-fc59-436b-98c2-c14bed3099e2" testId="17dad28b-8990-433a-9d7a-7f926a606d27" testName="CompressionCachingAndBroadcastUseReliablePath (True)" computerName="DESKTOP-KSSU21A" duration="00:00:00.5877606" startTime="2026-09-30T18:27:23.4207483-05:00" endTime="2026-09-30T18:27:24.0087798-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="06e8e8c4-fc59-436b-98c2-c14bed3099e2" />
+    <UnitTestResult executionId="f4b86e7b-36dd-49d4-a2a0-36e17f53b959" testId="e4dfea16-8323-7ae1-2a85-566bb2f38a11" testName="PeerRedirectAndInterfaceReplyRemainReliable (True)" computerName="DESKTOP-KSSU21A" duration="00:00:08.7062085" startTime="2026-09-30T18:30:42.7399286-05:00" endTime="2026-09-30T18:30:51.4464596-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f4b86e7b-36dd-49d4-a2a0-36e17f53b959">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.Fail failed. System.Security.SecurityException: SocketJack SafeMode handshake rejected.
+System.IO.IOException: Remote UDP_Reliable session closed.
+System.IO.IOException: UDP_Reliable is not connected.&#xD;
+   at SocketJack.Net.UdpServer.ObserveReliable(Task task) in C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack\Net\UdpReliableIntegration.cs:line 84
+System.Security.SecurityException: Remote message authorization denied.&#xD;
+   at SocketJack.Net.InboundMessageSecurity.Authenticated(NetworkConnection connection) in C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack\Net\NetworkAuthorization.cs:line 97&#xD;
+   at SocketJack.Net.InboundMessageSecurity.RequireType(ISocket socket, NetworkConnection connection, Type type) in C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack\Net\NetworkAuthorization.cs:line 107&#xD;
+   at SocketJack.Net.InboundMessageDecoder.Read(ISocket socket, NetworkConnection connection, Byte[] bytes, Boolean allowSegments, Type expectedType) in C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack\Net\InboundMessageDecoder.cs:line 32&#xD;
+   at SocketJack.Net.UdpServer.DeserializeAndDispatch(Byte[] bytes, Int32 byteLength, IPEndPoint senderEP) in C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack\Net\UdpServer.cs:line 719</Message>
+          <StackTrace>   at SocketJack.UdpReliable.Tests.ReliableTests.PeerRedirectAndInterfaceReplyRemainReliable(Boolean binary) in C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\ReliableTests.cs:line 231&#xD;
+</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="971a83c3-15ef-4ab1-b7e1-41cfe1e392ac" testId="50b9edeb-14e1-dafc-9f9d-a30830993190" testName="NegotiatedWindowRespectsBothEndpoints (1200,32768,64,4)" computerName="DESKTOP-KSSU21A" duration="00:00:00.4013535" startTime="2026-09-30T18:27:14.9451633-05:00" endTime="2026-09-30T18:27:15.3469207-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="971a83c3-15ef-4ab1-b7e1-41cfe1e392ac" />
+    <UnitTestResult executionId="5c3a50c1-addc-4ba9-ac57-3ec4f9d0f9ff" testId="445c701b-e9ce-9928-12c5-f1b6075f8440" testName="BinaryEncodingPreservesPayloadAndWhitelistAndRejectsTruncation" computerName="DESKTOP-KSSU21A" duration="00:00:00.0718740" startTime="2026-09-30T18:27:13.5466824-05:00" endTime="2026-09-30T18:27:13.6190033-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5c3a50c1-addc-4ba9-ac57-3ec4f9d0f9ff" />
+    <UnitTestResult executionId="02027ab5-963e-415b-bb96-35086ea3454c" testId="59f80a37-8c10-87d2-afd3-e1c9f52f9765" testName="OrderedLargeObjectsSurviveLossDuplicationReordering (0.01)" computerName="DESKTOP-KSSU21A" duration="00:00:02.7971628" startTime="2026-09-30T18:27:17.5469668-05:00" endTime="2026-09-30T18:27:20.3444705-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="02027ab5-963e-415b-bb96-35086ea3454c" />
+    <UnitTestResult executionId="ab7a46c5-d45f-4321-9ed4-bf9632a5cec0" testId="4a59bde2-55db-a4ce-2909-2a45a81c1ce2" testName="RefusedStreamAndCanceledAdmissionDoNotBreakSession" computerName="DESKTOP-KSSU21A" duration="00:00:00.3373214" startTime="2026-09-30T18:27:29.9280392-05:00" endTime="2026-09-30T18:27:30.2656384-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ab7a46c5-d45f-4321-9ed4-bf9632a5cec0" />
+    <UnitTestResult executionId="f6522e78-5689-4a22-949a-c8ce60999725" testId="4be29d73-7c6a-fdba-1b3f-9cad0406f39c" testName="SlowCallbackRetainsReceiveBudgetWithoutStallingProtocol" computerName="DESKTOP-KSSU21A" duration="00:00:00.5893106" startTime="2026-09-30T18:30:52.5606871-05:00" endTime="2026-09-30T18:30:53.1501772-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f6522e78-5689-4a22-949a-c8ce60999725" />
+    <UnitTestResult executionId="140ae62a-26a6-41db-bff0-3500a5fe1acf" testId="c675336a-8766-d4f6-17fa-5dad678e8157" testName="FileTransferDoesNotOverwriteAndCancellationRemovesPartialFile" computerName="DESKTOP-KSSU21A" duration="00:00:00.3716680" startTime="2026-09-30T18:27:33.5925583-05:00" endTime="2026-09-30T18:27:33.9644663-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="140ae62a-26a6-41db-bff0-3500a5fe1acf" />
+    <UnitTestResult executionId="4621cb33-dc4e-42d5-90b9-835fd391595c" testId="bd692610-3644-610a-238d-17afa967af6a" testName="SharedSerializerIsConcurrentAndRejectsMalformedLengthsAndNumbers" computerName="DESKTOP-KSSU21A" duration="00:00:00.0153205" startTime="2026-09-30T18:27:13.7896062-05:00" endTime="2026-09-30T18:27:13.8052312-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="4621cb33-dc4e-42d5-90b9-835fd391595c" />
+    <UnitTestResult executionId="edd30efa-91ff-4fb5-8a09-7b62ef3d7662" testId="c754a639-0023-2506-f814-681a23344440" testName="PeerRedirectAndInterfaceReplyRemainReliable (False)" computerName="DESKTOP-KSSU21A" duration="00:00:08.6730678" startTime="2026-09-30T18:30:34.0659203-05:00" endTime="2026-09-30T18:30:42.7394664-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="edd30efa-91ff-4fb5-8a09-7b62ef3d7662">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.Fail failed. System.Security.SecurityException: Remote message authorization denied.&#xD;
+   at SocketJack.Serialization.DeserializationTypePolicy.Visit(Type type, ISocket socket, HashSet`1 seen) in C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack\Serialization\DeserializationTypePolicy.cs:line 14&#xD;
+   at SocketJack.Serialization.DeserializationTypePolicy.Visit(Type type, ISocket socket, HashSet`1 seen) in C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack\Serialization\DeserializationTypePolicy.cs:line 24&#xD;
+   at SocketJack.Serialization.Wrapper.Unwrap(Type Type, ISocket sender) in C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack\Serialization\Wrapper.cs:line 216&#xD;
+   at SocketJack.Net.InboundMessageDecoder.Read(ISocket socket, NetworkConnection connection, Byte[] bytes, Boolean allowSegments, Type expectedType) in C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack\Net\InboundMessageDecoder.cs:line 39&#xD;
+   at SocketJack.Net.UdpClient.DeserializeAndDispatch(Byte[] bytes, Int32 byteLength, IPEndPoint sender) in C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack\Net\UdpClient.cs:line 757
+System.IO.IOException: Remote UDP_Reliable session closed.
+System.Security.SecurityException: SocketJack SafeMode handshake rejected.
+System.IO.IOException: UDP_Reliable is not connected.&#xD;
+   at SocketJack.Net.UdpServer.ObserveReliable(Task task) in C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack\Net\UdpReliableIntegration.cs:line 84
+System.IO.IOException: UDP_Reliable is not connected.&#xD;
+   at SocketJack.Net.UdpServer.ObserveReliable(Task task) in C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack\Net\UdpReliableIntegration.cs:line 84
+System.Security.SecurityException: Remote message authorization denied.&#xD;
+   at SocketJack.Net.InboundMessageSecurity.Authenticated(NetworkConnection connection) in C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack\Net\NetworkAuthorization.cs:line 97&#xD;
+   at SocketJack.Net.InboundMessageSecurity.RequireType(ISocket socket, NetworkConnection connection, Type type) in C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack\Net\NetworkAuthorization.cs:line 107&#xD;
+   at SocketJack.Net.InboundMessageDecoder.Read(ISocket socket, NetworkConnection connection, Byte[] bytes, Boolean allowSegments, Type expectedType) in C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack\Net\InboundMessageDecoder.cs:line 32&#xD;
+   at SocketJack.Net.UdpServer.DeserializeAndDispatch(Byte[] bytes, Int32 byteLength, IPEndPoint senderEP) in C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack\Net\UdpServer.cs:line 719</Message>
+          <StackTrace>   at SocketJack.UdpReliable.Tests.ReliableTests.PeerRedirectAndInterfaceReplyRemainReliable(Boolean binary) in C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\ReliableTests.cs:line 231&#xD;
+</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="cf54af16-dc10-4ba4-a4e7-ddd0a01c0bfc" testId="6f289f24-3209-80c0-1a58-9869dfb2fe89" testName="ReliableModeDoesNotDowngradeToPlainUdp" computerName="DESKTOP-KSSU21A" duration="00:00:00.5707983" startTime="2026-09-30T18:30:51.4470282-05:00" endTime="2026-09-30T18:30:52.0180809-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="cf54af16-dc10-4ba4-a4e7-ddd0a01c0bfc" />
+    <UnitTestResult executionId="0d8446a9-6ddf-4470-a418-1d65b5c4d670" testId="25442e8c-78f6-1b49-9990-613e3dd1c9b7" testName="BinaryIndependentObjectsReassembleAcrossPacketIdReuse (0.05,1200)" computerName="DESKTOP-KSSU21A" duration="00:00:02.6895747" startTime="2026-09-30T18:27:07.4520337-05:00" endTime="2026-09-30T18:27:10.1421080-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="0d8446a9-6ddf-4470-a418-1d65b5c4d670" />
+    <UnitTestResult executionId="1ba5a7ac-58ab-48f7-ad98-cfa53c089e84" testId="b3e165f8-7131-ee11-9ee4-275c7118eab0" testName="CompressionCachingAndBroadcastUseReliablePath (False)" computerName="DESKTOP-KSSU21A" duration="00:00:00.6317326" startTime="2026-09-30T18:27:22.7885946-05:00" endTime="2026-09-30T18:27:23.4206192-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1ba5a7ac-58ab-48f7-ad98-cfa53c089e84" />
+    <UnitTestResult executionId="b3d29d8c-59b5-40b5-aec3-af98f1ab5180" testId="0778ba2f-7015-441d-faaa-54e78b7f46b6" testName="InterfaceReplyWorksWithoutPeerRouting (True)" computerName="DESKTOP-KSSU21A" duration="00:00:00.3539625" startTime="2026-09-30T18:27:14.2044843-05:00" endTime="2026-09-30T18:27:14.5587595-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b3d29d8c-59b5-40b5-aec3-af98f1ab5180" />
+    <UnitTestResult executionId="e6c46c09-305e-4a38-95b7-8b60566d6b8e" testId="eabf1e0b-ff4f-77cf-f655-7b74fc1e5b72" testName="PlainUdpStillExchangesTypedMessages (False)" computerName="DESKTOP-KSSU21A" duration="00:00:00.3230526" startTime="2026-09-30T18:30:53.5678060-05:00" endTime="2026-09-30T18:30:53.8910557-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e6c46c09-305e-4a38-95b7-8b60566d6b8e" />
+    <UnitTestResult executionId="d5db0405-1c12-4ce6-b9ae-20945ae053b6" testId="f64e521a-d859-e434-8470-b272e435d3ee" testName="StreamIsExplicitlyAcceptedAndHashVerified" computerName="DESKTOP-KSSU21A" duration="00:00:05.9183885" startTime="2026-09-30T18:27:24.0088755-05:00" endTime="2026-09-30T18:27:29.9275367-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d5db0405-1c12-4ce6-b9ae-20945ae053b6" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="LostCompletionAcknowledgmentRetriesWithoutDuplicateDispatch" storage="c:\users\vin\documents\github\socketjack\socketjack.udpreliable.tests\bin\release\net8.0\socketjack.udpreliable.tests.dll" id="40e120d3-392c-933a-3be8-39f68a8ea305">
+      <Execution id="b30da61d-177b-4816-a060-024d6ecd708e" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\bin\Release\net8.0\SocketJack.UdpReliable.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.UdpReliable.Tests.ReliableTests" name="LostCompletionAcknowledgmentRetriesWithoutDuplicateDispatch" />
+    </UnitTest>
+    <UnitTest name="SharedSerializerIsConcurrentAndRejectsMalformedLengthsAndNumbers" storage="c:\users\vin\documents\github\socketjack\socketjack.udpreliable.tests\bin\release\net8.0\socketjack.udpreliable.tests.dll" id="bd692610-3644-610a-238d-17afa967af6a">
+      <Execution id="4621cb33-dc4e-42d5-90b9-835fd391595c" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\bin\Release\net8.0\SocketJack.UdpReliable.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.UdpReliable.Tests.OptimizationTests" name="SharedSerializerIsConcurrentAndRejectsMalformedLengthsAndNumbers" />
+    </UnitTest>
+    <UnitTest name="InvalidConfigurationDoesNotLeaveListenerBound" storage="c:\users\vin\documents\github\socketjack\socketjack.udpreliable.tests\bin\release\net8.0\socketjack.udpreliable.tests.dll" id="6f76da30-e892-cf87-2644-3f9f86e8e79f">
+      <Execution id="069e0d0f-83fb-4e9c-adbf-665fe09eba62" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\bin\Release\net8.0\SocketJack.UdpReliable.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.UdpReliable.Tests.ReliableTests" name="InvalidConfigurationDoesNotLeaveListenerBound" />
+    </UnitTest>
+    <UnitTest name="FileBeyondFourGiBUsesBoundedMemoryAndMatchesDiskHash" storage="c:\users\vin\documents\github\socketjack\socketjack.udpreliable.tests\bin\release\net8.0\socketjack.udpreliable.tests.dll" id="75fd360d-26e6-1257-dd07-b632da7c5e05">
+      <TestCategory>
+        <TestCategoryItem TestCategory="LargeFile" />
+      </TestCategory>
+      <Execution id="6ce9088b-cac7-4229-a1eb-ea19e1a58ca3" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\bin\Release\net8.0\SocketJack.UdpReliable.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.UdpReliable.Tests.ReliableTests" name="FileBeyondFourGiBUsesBoundedMemoryAndMatchesDiskHash" />
+    </UnitTest>
+    <UnitTest name="BinaryIndependentObjectsReassembleAcrossPacketIdReuse (0.05,1200)" storage="c:\users\vin\documents\github\socketjack\socketjack.udpreliable.tests\bin\release\net8.0\socketjack.udpreliable.tests.dll" id="25442e8c-78f6-1b49-9990-613e3dd1c9b7">
+      <Execution id="0d8446a9-6ddf-4470-a418-1d65b5c4d670" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\bin\Release\net8.0\SocketJack.UdpReliable.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.UdpReliable.Tests.CompactTests" name="BinaryIndependentObjectsReassembleAcrossPacketIdReuse" />
+    </UnitTest>
+    <UnitTest name="PeerRedirectAndInterfaceReplyRemainReliable (True)" storage="c:\users\vin\documents\github\socketjack\socketjack.udpreliable.tests\bin\release\net8.0\socketjack.udpreliable.tests.dll" id="e4dfea16-8323-7ae1-2a85-566bb2f38a11">
+      <Execution id="f4b86e7b-36dd-49d4-a2a0-36e17f53b959" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\bin\Release\net8.0\SocketJack.UdpReliable.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.UdpReliable.Tests.ReliableTests" name="PeerRedirectAndInterfaceReplyRemainReliable" />
+    </UnitTest>
+    <UnitTest name="BinaryIndependentObjectsReassembleAcrossPacketIdReuse (0.01,1200)" storage="c:\users\vin\documents\github\socketjack\socketjack.udpreliable.tests\bin\release\net8.0\socketjack.udpreliable.tests.dll" id="b2912d1f-fd9b-dc28-808c-9aa5ba68acc2">
+      <Execution id="d98460b3-5590-4a7a-bf55-8f33713ca994" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\bin\Release\net8.0\SocketJack.UdpReliable.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.UdpReliable.Tests.CompactTests" name="BinaryIndependentObjectsReassembleAcrossPacketIdReuse" />
+    </UnitTest>
+    <UnitTest name="OrderedLargeObjectsSurviveLossDuplicationReordering (0)" storage="c:\users\vin\documents\github\socketjack\socketjack.udpreliable.tests\bin\release\net8.0\socketjack.udpreliable.tests.dll" id="67fe5b8f-08ec-59e6-8655-23ce4da2b39d">
+      <Execution id="c0022aee-776b-40a8-b9ba-8a4d46b8f133" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\bin\Release\net8.0\SocketJack.UdpReliable.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.UdpReliable.Tests.ReliableTests" name="OrderedLargeObjectsSurviveLossDuplicationReordering" />
+    </UnitTest>
+    <UnitTest name="OrderingControlsWhetherSlowCallbackBlocksNextObject (True)" storage="c:\users\vin\documents\github\socketjack\socketjack.udpreliable.tests\bin\release\net8.0\socketjack.udpreliable.tests.dll" id="a4bdfc68-4d1d-ec78-c4c9-dcd7f8a79435">
+      <Execution id="5b0dce3d-6577-430e-a7f1-f22293a813d8" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\bin\Release\net8.0\SocketJack.UdpReliable.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.UdpReliable.Tests.CompactTests" name="OrderingControlsWhetherSlowCallbackBlocksNextObject" />
+    </UnitTest>
+    <UnitTest name="NegotiatedWindowRespectsBothEndpoints (1200,32768,64,4)" storage="c:\users\vin\documents\github\socketjack\socketjack.udpreliable.tests\bin\release\net8.0\socketjack.udpreliable.tests.dll" id="50b9edeb-14e1-dafc-9f9d-a30830993190">
+      <Execution id="971a83c3-15ef-4ab1-b7e1-41cfe1e392ac" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\bin\Release\net8.0\SocketJack.UdpReliable.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.UdpReliable.Tests.OptimizationTests" name="NegotiatedWindowRespectsBothEndpoints" />
+    </UnitTest>
+    <UnitTest name="InterfaceReplyWorksWithoutPeerRouting (False)" storage="c:\users\vin\documents\github\socketjack\socketjack.udpreliable.tests\bin\release\net8.0\socketjack.udpreliable.tests.dll" id="3c61304a-5c1a-0df5-ea9d-ac9098ff12a8">
+      <Execution id="f99ab4da-8617-4ee0-8011-619ea6e33f10" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\bin\Release\net8.0\SocketJack.UdpReliable.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.UdpReliable.Tests.OptimizationTests" name="InterfaceReplyWorksWithoutPeerRouting" />
+    </UnitTest>
+    <UnitTest name="BinaryIndependentObjectsReassembleAcrossPacketIdReuse (0.01,32768)" storage="c:\users\vin\documents\github\socketjack\socketjack.udpreliable.tests\bin\release\net8.0\socketjack.udpreliable.tests.dll" id="0ca74729-c40d-d985-7fa9-08b139230f33">
+      <Execution id="22fb2709-529c-4f67-8357-01bd758443c1" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\bin\Release\net8.0\SocketJack.UdpReliable.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.UdpReliable.Tests.CompactTests" name="BinaryIndependentObjectsReassembleAcrossPacketIdReuse" />
+    </UnitTest>
+    <UnitTest name="CachePromotionCannotAdvancePastAnUnsendableStoreFrame" storage="c:\users\vin\documents\github\socketjack\socketjack.udpreliable.tests\bin\release\net8.0\socketjack.udpreliable.tests.dll" id="95a9036f-d903-0a04-6254-28bd6c68b813">
+      <Execution id="99183957-9d48-4c57-89af-81dccfcacbd4" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\bin\Release\net8.0\SocketJack.UdpReliable.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.UdpReliable.Tests.ReliableTests" name="CachePromotionCannotAdvancePastAnUnsendableStoreFrame" />
+    </UnitTest>
+    <UnitTest name="NegotiatedWindowRespectsBothEndpoints (32768,32768,64,64)" storage="c:\users\vin\documents\github\socketjack\socketjack.udpreliable.tests\bin\release\net8.0\socketjack.udpreliable.tests.dll" id="beeaa310-d170-8d78-87f0-56942aa5ad4a">
+      <Execution id="3e108e4c-ef54-405d-8a3a-2535bbe6dd50" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\bin\Release\net8.0\SocketJack.UdpReliable.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.UdpReliable.Tests.OptimizationTests" name="NegotiatedWindowRespectsBothEndpoints" />
+    </UnitTest>
+    <UnitTest name="OrderedLargeObjectsSurviveLossDuplicationReordering (0.05)" storage="c:\users\vin\documents\github\socketjack\socketjack.udpreliable.tests\bin\release\net8.0\socketjack.udpreliable.tests.dll" id="488b7d88-97bc-098a-020f-4fab6df45ce3">
+      <Execution id="8a6df93b-e8f1-4d54-bdf5-40ecc6432d5a" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\bin\Release\net8.0\SocketJack.UdpReliable.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.UdpReliable.Tests.ReliableTests" name="OrderedLargeObjectsSurviveLossDuplicationReordering" />
+    </UnitTest>
+    <UnitTest name="FileTransferDoesNotOverwriteAndCancellationRemovesPartialFile" storage="c:\users\vin\documents\github\socketjack\socketjack.udpreliable.tests\bin\release\net8.0\socketjack.udpreliable.tests.dll" id="c675336a-8766-d4f6-17fa-5dad678e8157">
+      <Execution id="140ae62a-26a6-41db-bff0-3500a5fe1acf" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\bin\Release\net8.0\SocketJack.UdpReliable.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.UdpReliable.Tests.ReliableTests" name="FileTransferDoesNotOverwriteAndCancellationRemovesPartialFile" />
+    </UnitTest>
+    <UnitTest name="BlackholeTimesOutAndReconnectStartsFreshSession" storage="c:\users\vin\documents\github\socketjack\socketjack.udpreliable.tests\bin\release\net8.0\socketjack.udpreliable.tests.dll" id="b4608390-f07f-805f-1053-3026a10d8926">
+      <Execution id="9a2a923c-7e07-47e4-8289-2f532dd614be" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\bin\Release\net8.0\SocketJack.UdpReliable.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.UdpReliable.Tests.ReliableTests" name="BlackholeTimesOutAndReconnectStartsFreshSession" />
+    </UnitTest>
+    <UnitTest name="BinaryEncodingPreservesPayloadAndWhitelistAndRejectsTruncation" storage="c:\users\vin\documents\github\socketjack\socketjack.udpreliable.tests\bin\release\net8.0\socketjack.udpreliable.tests.dll" id="445c701b-e9ce-9928-12c5-f1b6075f8440">
+      <Execution id="5c3a50c1-addc-4ba9-ac57-3ec4f9d0f9ff" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\bin\Release\net8.0\SocketJack.UdpReliable.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.UdpReliable.Tests.CompactTests" name="BinaryEncodingPreservesPayloadAndWhitelistAndRejectsTruncation" />
+    </UnitTest>
+    <UnitTest name="RefusedStreamAndCanceledAdmissionDoNotBreakSession" storage="c:\users\vin\documents\github\socketjack\socketjack.udpreliable.tests\bin\release\net8.0\socketjack.udpreliable.tests.dll" id="4a59bde2-55db-a4ce-2909-2a45a81c1ce2">
+      <Execution id="ab7a46c5-d45f-4321-9ed4-bf9632a5cec0" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\bin\Release\net8.0\SocketJack.UdpReliable.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.UdpReliable.Tests.ReliableTests" name="RefusedStreamAndCanceledAdmissionDoNotBreakSession" />
+    </UnitTest>
+    <UnitTest name="PlainUdpStillExchangesTypedMessages (False)" storage="c:\users\vin\documents\github\socketjack\socketjack.udpreliable.tests\bin\release\net8.0\socketjack.udpreliable.tests.dll" id="eabf1e0b-ff4f-77cf-f655-7b74fc1e5b72">
+      <Execution id="e6c46c09-305e-4a38-95b7-8b60566d6b8e" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\bin\Release\net8.0\SocketJack.UdpReliable.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.UdpReliable.Tests.ReliableTests" name="PlainUdpStillExchangesTypedMessages" />
+    </UnitTest>
+    <UnitTest name="SlowCallbackRetainsReceiveBudgetWithoutStallingProtocol" storage="c:\users\vin\documents\github\socketjack\socketjack.udpreliable.tests\bin\release\net8.0\socketjack.udpreliable.tests.dll" id="4be29d73-7c6a-fdba-1b3f-9cad0406f39c">
+      <Execution id="f6522e78-5689-4a22-949a-c8ce60999725" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\bin\Release\net8.0\SocketJack.UdpReliable.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.UdpReliable.Tests.ReliableTests" name="SlowCallbackRetainsReceiveBudgetWithoutStallingProtocol" />
+    </UnitTest>
+    <UnitTest name="IndependentMessageCanPassMissingLargeMessage" storage="c:\users\vin\documents\github\socketjack\socketjack.udpreliable.tests\bin\release\net8.0\socketjack.udpreliable.tests.dll" id="be6c00c0-48ab-198a-22b2-ea9422cf0caf">
+      <Execution id="1175c9b1-7487-4cea-b26e-43444996e61e" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\bin\Release\net8.0\SocketJack.UdpReliable.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.UdpReliable.Tests.ReliableTests" name="IndependentMessageCanPassMissingLargeMessage" />
+    </UnitTest>
+    <UnitTest name="AdmissionBackpressureCancellationAndSynchronousExhaustionAreExplicit" storage="c:\users\vin\documents\github\socketjack\socketjack.udpreliable.tests\bin\release\net8.0\socketjack.udpreliable.tests.dll" id="fbd224dc-21d1-1d6f-16a4-d7b27b06de90">
+      <Execution id="247b77c4-95e0-444b-8325-2d275f3f5d77" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\bin\Release\net8.0\SocketJack.UdpReliable.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.UdpReliable.Tests.ReliableTests" name="AdmissionBackpressureCancellationAndSynchronousExhaustionAreExplicit" />
+    </UnitTest>
+    <UnitTest name="OrderedLargeObjectsSurviveLossDuplicationReordering (0.01)" storage="c:\users\vin\documents\github\socketjack\socketjack.udpreliable.tests\bin\release\net8.0\socketjack.udpreliable.tests.dll" id="59f80a37-8c10-87d2-afd3-e1c9f52f9765">
+      <Execution id="02027ab5-963e-415b-bb96-35086ea3454c" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\bin\Release\net8.0\SocketJack.UdpReliable.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.UdpReliable.Tests.ReliableTests" name="OrderedLargeObjectsSurviveLossDuplicationReordering" />
+    </UnitTest>
+    <UnitTest name="SpanCodecPreservesV1BytesAcrossBlockBoundariesAndReadsOldMessages" storage="c:\users\vin\documents\github\socketjack\socketjack.udpreliable.tests\bin\release\net8.0\socketjack.udpreliable.tests.dll" id="0c286db2-fdc3-6f50-ca06-c81453638444">
+      <Execution id="f2d4c142-9f5c-42fb-a845-4a634349ddf5" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\bin\Release\net8.0\SocketJack.UdpReliable.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.UdpReliable.Tests.OptimizationTests" name="SpanCodecPreservesV1BytesAcrossBlockBoundariesAndReadsOldMessages" />
+    </UnitTest>
+    <UnitTest name="ReliableModeDoesNotDowngradeToPlainUdp" storage="c:\users\vin\documents\github\socketjack\socketjack.udpreliable.tests\bin\release\net8.0\socketjack.udpreliable.tests.dll" id="6f289f24-3209-80c0-1a58-9869dfb2fe89">
+      <Execution id="cf54af16-dc10-4ba4-a4e7-ddd0a01c0bfc" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\bin\Release\net8.0\SocketJack.UdpReliable.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.UdpReliable.Tests.ReliableTests" name="ReliableModeDoesNotDowngradeToPlainUdp" />
+    </UnitTest>
+    <UnitTest name="UnknownVersionTruncationAndStaleSessionAreIgnored" storage="c:\users\vin\documents\github\socketjack\socketjack.udpreliable.tests\bin\release\net8.0\socketjack.udpreliable.tests.dll" id="452c7a63-eba9-b8fc-7fea-b2869bea8cce">
+      <Execution id="56690f0a-6e08-42bf-92f0-e89a30d72b02" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\bin\Release\net8.0\SocketJack.UdpReliable.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.UdpReliable.Tests.ReliableTests" name="UnknownVersionTruncationAndStaleSessionAreIgnored" />
+    </UnitTest>
+    <UnitTest name="PeerRedirectAndInterfaceReplyRemainReliable (False)" storage="c:\users\vin\documents\github\socketjack\socketjack.udpreliable.tests\bin\release\net8.0\socketjack.udpreliable.tests.dll" id="c754a639-0023-2506-f814-681a23344440">
+      <Execution id="edd30efa-91ff-4fb5-8a09-7b62ef3d7662" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\bin\Release\net8.0\SocketJack.UdpReliable.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.UdpReliable.Tests.ReliableTests" name="PeerRedirectAndInterfaceReplyRemainReliable" />
+    </UnitTest>
+    <UnitTest name="CompressionCachingAndBroadcastUseReliablePath (True)" storage="c:\users\vin\documents\github\socketjack\socketjack.udpreliable.tests\bin\release\net8.0\socketjack.udpreliable.tests.dll" id="17dad28b-8990-433a-9d7a-7f926a606d27">
+      <Execution id="06e8e8c4-fc59-436b-98c2-c14bed3099e2" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\bin\Release\net8.0\SocketJack.UdpReliable.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.UdpReliable.Tests.ReliableTests" name="CompressionCachingAndBroadcastUseReliablePath" />
+    </UnitTest>
+    <UnitTest name="NegotiatedWindowRespectsBothEndpoints (32768,1200,4,64)" storage="c:\users\vin\documents\github\socketjack\socketjack.udpreliable.tests\bin\release\net8.0\socketjack.udpreliable.tests.dll" id="6a608d41-25a4-6884-ae46-d11b177948bb">
+      <Execution id="1daf9ee8-4b5c-4261-8063-c563d12fda25" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\bin\Release\net8.0\SocketJack.UdpReliable.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.UdpReliable.Tests.OptimizationTests" name="NegotiatedWindowRespectsBothEndpoints" />
+    </UnitTest>
+    <UnitTest name="OrderingControlsWhetherSlowCallbackBlocksNextObject (False)" storage="c:\users\vin\documents\github\socketjack\socketjack.udpreliable.tests\bin\release\net8.0\socketjack.udpreliable.tests.dll" id="5c57efca-156a-a896-560f-8973d730bdfc">
+      <Execution id="6fe4c5f4-4dbb-47f5-93bd-55da7ed3d806" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\bin\Release\net8.0\SocketJack.UdpReliable.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.UdpReliable.Tests.CompactTests" name="OrderingControlsWhetherSlowCallbackBlocksNextObject" />
+    </UnitTest>
+    <UnitTest name="CompressionCachingAndBroadcastUseReliablePath (False)" storage="c:\users\vin\documents\github\socketjack\socketjack.udpreliable.tests\bin\release\net8.0\socketjack.udpreliable.tests.dll" id="b3e165f8-7131-ee11-9ee4-275c7118eab0">
+      <Execution id="1ba5a7ac-58ab-48f7-ad98-cfa53c089e84" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\bin\Release\net8.0\SocketJack.UdpReliable.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.UdpReliable.Tests.ReliableTests" name="CompressionCachingAndBroadcastUseReliablePath" />
+    </UnitTest>
+    <UnitTest name="CompactHeadersUseSmallRecycledPacketIndexesAndRejectMalformedNumbers" storage="c:\users\vin\documents\github\socketjack\socketjack.udpreliable.tests\bin\release\net8.0\socketjack.udpreliable.tests.dll" id="7fdfb8d2-365b-f19d-7fd1-10c07ec78e2a">
+      <Execution id="48c8a83c-0d07-46b7-a694-bf5447d4ae33" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\bin\Release\net8.0\SocketJack.UdpReliable.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.UdpReliable.Tests.CompactTests" name="CompactHeadersUseSmallRecycledPacketIndexesAndRejectMalformedNumbers" />
+    </UnitTest>
+    <UnitTest name="BinaryIndependentObjectsReassembleAcrossPacketIdReuse (0.05,32768)" storage="c:\users\vin\documents\github\socketjack\socketjack.udpreliable.tests\bin\release\net8.0\socketjack.udpreliable.tests.dll" id="8610b7d8-0277-ea97-6da4-7649d5017b5e">
+      <Execution id="b92fd695-2e85-4664-935a-01b8be167e1b" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\bin\Release\net8.0\SocketJack.UdpReliable.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.UdpReliable.Tests.CompactTests" name="BinaryIndependentObjectsReassembleAcrossPacketIdReuse" />
+    </UnitTest>
+    <UnitTest name="PlainUdpStillExchangesTypedMessages (True)" storage="c:\users\vin\documents\github\socketjack\socketjack.udpreliable.tests\bin\release\net8.0\socketjack.udpreliable.tests.dll" id="d8bb7f86-3e52-91d9-0635-d9cc14535d2e">
+      <Execution id="9478f674-ee28-4062-92dd-598b83805cca" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\bin\Release\net8.0\SocketJack.UdpReliable.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.UdpReliable.Tests.ReliableTests" name="PlainUdpStillExchangesTypedMessages" />
+    </UnitTest>
+    <UnitTest name="StreamIsExplicitlyAcceptedAndHashVerified" storage="c:\users\vin\documents\github\socketjack\socketjack.udpreliable.tests\bin\release\net8.0\socketjack.udpreliable.tests.dll" id="f64e521a-d859-e434-8470-b272e435d3ee">
+      <Execution id="d5db0405-1c12-4ce6-b9ae-20945ae053b6" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\bin\Release\net8.0\SocketJack.UdpReliable.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.UdpReliable.Tests.ReliableTests" name="StreamIsExplicitlyAcceptedAndHashVerified" />
+    </UnitTest>
+    <UnitTest name="InterfaceReplyWorksWithoutPeerRouting (True)" storage="c:\users\vin\documents\github\socketjack\socketjack.udpreliable.tests\bin\release\net8.0\socketjack.udpreliable.tests.dll" id="0778ba2f-7015-441d-faaa-54e78b7f46b6">
+      <Execution id="b3d29d8c-59b5-40b5-aec3-af98f1ab5180" />
+      <TestMethod codeBase="C:\Users\Vin\Documents\GitHub\SocketJack\SocketJack.UdpReliable.Tests\bin\Release\net8.0\SocketJack.UdpReliable.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="SocketJack.UdpReliable.Tests.OptimizationTests" name="InterfaceReplyWorksWithoutPeerRouting" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="fbd224dc-21d1-1d6f-16a4-d7b27b06de90" executionId="247b77c4-95e0-444b-8325-2d275f3f5d77" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a4bdfc68-4d1d-ec78-c4c9-dcd7f8a79435" executionId="5b0dce3d-6577-430e-a7f1-f22293a813d8" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="0ca74729-c40d-d985-7fa9-08b139230f33" executionId="22fb2709-529c-4f67-8357-01bd758443c1" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="8610b7d8-0277-ea97-6da4-7649d5017b5e" executionId="b92fd695-2e85-4664-935a-01b8be167e1b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="75fd360d-26e6-1257-dd07-b632da7c5e05" executionId="6ce9088b-cac7-4229-a1eb-ea19e1a58ca3" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b4608390-f07f-805f-1053-3026a10d8926" executionId="9a2a923c-7e07-47e4-8289-2f532dd614be" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="3c61304a-5c1a-0df5-ea9d-ac9098ff12a8" executionId="f99ab4da-8617-4ee0-8011-619ea6e33f10" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b2912d1f-fd9b-dc28-808c-9aa5ba68acc2" executionId="d98460b3-5590-4a7a-bf55-8f33713ca994" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d8bb7f86-3e52-91d9-0635-d9cc14535d2e" executionId="9478f674-ee28-4062-92dd-598b83805cca" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="5c57efca-156a-a896-560f-8973d730bdfc" executionId="6fe4c5f4-4dbb-47f5-93bd-55da7ed3d806" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="be6c00c0-48ab-198a-22b2-ea9422cf0caf" executionId="1175c9b1-7487-4cea-b26e-43444996e61e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="0c286db2-fdc3-6f50-ca06-c81453638444" executionId="f2d4c142-9f5c-42fb-a845-4a634349ddf5" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6a608d41-25a4-6884-ae46-d11b177948bb" executionId="1daf9ee8-4b5c-4261-8063-c563d12fda25" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7fdfb8d2-365b-f19d-7fd1-10c07ec78e2a" executionId="48c8a83c-0d07-46b7-a694-bf5447d4ae33" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="95a9036f-d903-0a04-6254-28bd6c68b813" executionId="99183957-9d48-4c57-89af-81dccfcacbd4" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="488b7d88-97bc-098a-020f-4fab6df45ce3" executionId="8a6df93b-e8f1-4d54-bdf5-40ecc6432d5a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="40e120d3-392c-933a-3be8-39f68a8ea305" executionId="b30da61d-177b-4816-a060-024d6ecd708e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6f76da30-e892-cf87-2644-3f9f86e8e79f" executionId="069e0d0f-83fb-4e9c-adbf-665fe09eba62" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="452c7a63-eba9-b8fc-7fea-b2869bea8cce" executionId="56690f0a-6e08-42bf-92f0-e89a30d72b02" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="beeaa310-d170-8d78-87f0-56942aa5ad4a" executionId="3e108e4c-ef54-405d-8a3a-2535bbe6dd50" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="67fe5b8f-08ec-59e6-8655-23ce4da2b39d" executionId="c0022aee-776b-40a8-b9ba-8a4d46b8f133" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="17dad28b-8990-433a-9d7a-7f926a606d27" executionId="06e8e8c4-fc59-436b-98c2-c14bed3099e2" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e4dfea16-8323-7ae1-2a85-566bb2f38a11" executionId="f4b86e7b-36dd-49d4-a2a0-36e17f53b959" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="50b9edeb-14e1-dafc-9f9d-a30830993190" executionId="971a83c3-15ef-4ab1-b7e1-41cfe1e392ac" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="445c701b-e9ce-9928-12c5-f1b6075f8440" executionId="5c3a50c1-addc-4ba9-ac57-3ec4f9d0f9ff" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="59f80a37-8c10-87d2-afd3-e1c9f52f9765" executionId="02027ab5-963e-415b-bb96-35086ea3454c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="4a59bde2-55db-a4ce-2909-2a45a81c1ce2" executionId="ab7a46c5-d45f-4321-9ed4-bf9632a5cec0" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="4be29d73-7c6a-fdba-1b3f-9cad0406f39c" executionId="f6522e78-5689-4a22-949a-c8ce60999725" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="c675336a-8766-d4f6-17fa-5dad678e8157" executionId="140ae62a-26a6-41db-bff0-3500a5fe1acf" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="bd692610-3644-610a-238d-17afa967af6a" executionId="4621cb33-dc4e-42d5-90b9-835fd391595c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="c754a639-0023-2506-f814-681a23344440" executionId="edd30efa-91ff-4fb5-8a09-7b62ef3d7662" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6f289f24-3209-80c0-1a58-9869dfb2fe89" executionId="cf54af16-dc10-4ba4-a4e7-ddd0a01c0bfc" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="25442e8c-78f6-1b49-9990-613e3dd1c9b7" executionId="0d8446a9-6ddf-4470-a418-1d65b5c4d670" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b3e165f8-7131-ee11-9ee4-275c7118eab0" executionId="1ba5a7ac-58ab-48f7-ad98-cfa53c089e84" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="0778ba2f-7015-441d-faaa-54e78b7f46b6" executionId="b3d29d8c-59b5-40b5-aec3-af98f1ab5180" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="eabf1e0b-ff4f-77cf-f655-7b74fc1e5b72" executionId="e6c46c09-305e-4a38-95b7-8b60566d6b8e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f64e521a-d859-e434-8470-b272e435d3ee" executionId="d5db0405-1c12-4ce6-b9ae-20945ae053b6" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Failed">
+    <Counters total="37" executed="37" passed="35" failed="2" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+  </ResultSummary>
+</TestRun>

@@ -1,5 +1,11 @@
 # SocketJack changelog
 
+## 2026.14.1
+
+- Restore reliable UDP and custom binary serializer benchmark documentation, historical results, and raw datasets.
+
+- Remove a stale admin-page event handler after application UI cleanup, and validate event bindings against page elements.
+
 ## 2026.14.0
 
 - Require authenticated, locally assigned principals for application messages by default, with explicit anonymous DTO registration.

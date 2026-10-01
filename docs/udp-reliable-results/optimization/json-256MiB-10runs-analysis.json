@@ -1,0 +1,140 @@
+{
+  "Source": "json-256MiB-10runs.json",
+  "Method": "Mean paired relative improvements; 20,000 paired bootstrap samples, seed 7301; percentile 95% intervals.",
+  "Summary": [
+    {
+      "Mode": "tcp",
+      "Runs": 10,
+      "MeanMiBPerSecond": 84.94875550988824,
+      "MeanP95Milliseconds": 4.5709,
+      "Retransmissions": null
+    },
+    {
+      "Mode": "raw-tcp",
+      "Runs": 10,
+      "MeanMiBPerSecond": 47.215605824326474,
+      "MeanP95Milliseconds": 4.26902,
+      "Retransmissions": null
+    },
+    {
+      "Mode": "adaptive",
+      "Runs": 10,
+      "MeanMiBPerSecond": 38.82792087713692,
+      "MeanP95Milliseconds": 4.53584,
+      "Retransmissions": 11
+    },
+    {
+      "Mode": "fast-lan",
+      "Runs": 10,
+      "MeanMiBPerSecond": 38.26253997291815,
+      "MeanP95Milliseconds": 4.55581,
+      "Retransmissions": 4
+    },
+    {
+      "Mode": "fast-lan-32k",
+      "Runs": 10,
+      "MeanMiBPerSecond": 83.92239426483266,
+      "MeanP95Milliseconds": 4.431620000000001,
+      "Retransmissions": 0
+    }
+  ],
+  "Comparisons": [
+    {
+      "Mode": "adaptive",
+      "Baseline": "tcp",
+      "Pairs": 10,
+      "ThroughputImprovement": -0.5422291036799685,
+      "Throughput95CI": [
+        -0.5579160805486498,
+        -0.527845619004829
+      ],
+      "P95LatencyReduction": -0.0019097206751945706,
+      "Latency95CI": [
+        -0.05597775688470461,
+        0.06565226795845323
+      ],
+      "Pass": false
+    },
+    {
+      "Mode": "adaptive",
+      "Baseline": "raw-tcp",
+      "Pairs": 10,
+      "ThroughputImprovement": -0.17771589357415943,
+      "Throughput95CI": [
+        -0.1915885941898499,
+        -0.16344997865863684
+      ],
+      "P95LatencyReduction": -0.06308233360511153,
+      "Latency95CI": [
+        -0.08961996227045821,
+        -0.03740507470102407
+      ],
+      "Pass": false
+    },
+    {
+      "Mode": "fast-lan",
+      "Baseline": "tcp",
+      "Pairs": 10,
+      "ThroughputImprovement": -0.5483006207228412,
+      "Throughput95CI": [
+        -0.5683672786243119,
+        -0.5285556542267149
+      ],
+      "P95LatencyReduction": -0.008782791668822653,
+      "Latency95CI": [
+        -0.07482541278007651,
+        0.07028564250451884
+      ],
+      "Pass": false
+    },
+    {
+      "Mode": "fast-lan",
+      "Baseline": "raw-tcp",
+      "Pairs": 10,
+      "ThroughputImprovement": -0.18921591872606522,
+      "Throughput95CI": [
+        -0.20730265668059195,
+        -0.1684334537722481
+      ],
+      "P95LatencyReduction": -0.0689964129069546,
+      "Latency95CI": [
+        -0.10781166174503695,
+        -0.02987591526327177
+      ],
+      "Pass": false
+    },
+    {
+      "Mode": "fast-lan-32k",
+      "Baseline": "tcp",
+      "Pairs": 10,
+      "ThroughputImprovement": -0.009308183766514077,
+      "Throughput95CI": [
+        -0.05111480975280928,
+        0.0342550919603983
+      ],
+      "P95LatencyReduction": 0.020547824158138273,
+      "Latency95CI": [
+        -0.020847917018942997,
+        0.0814776506421349
+      ],
+      "Pass": false
+    },
+    {
+      "Mode": "fast-lan-32k",
+      "Baseline": "raw-tcp",
+      "Pairs": 10,
+      "ThroughputImprovement": 0.7789377021546451,
+      "Throughput95CI": [
+        0.7331406932993403,
+        0.8332402979403555
+      ],
+      "P95LatencyReduction": -0.04057748587025408,
+      "Latency95CI": [
+        -0.07025580806366168,
+        -0.008855461344173865
+      ],
+      "Pass": false
+    }
+  ],
+  "Acceptance": "FAIL"
+}

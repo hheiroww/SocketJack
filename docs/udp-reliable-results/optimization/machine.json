@@ -1,0 +1,75 @@
+{
+  "Date": "2026-09-30T18:13:11.5858147-05:00",
+  "Cpu": {
+    "Name": "Intel(R) Xeon(R) W-2140B CPU @ 3.20GHz",
+    "NumberOfCores": 8,
+    "NumberOfLogicalProcessors": 16
+  },
+  "Os": {
+    "Caption": "Microsoft Windows 11 Pro",
+    "Version": "10.0.22631",
+    "TotalVisibleMemorySize": 16441544
+  },
+  "Network": [
+    {
+      "Name": "VMware Network Adapter VMnet1",
+      "InterfaceDescription": "VMware Virtual Ethernet Adapter for VMnet1",
+      "Status": "Up",
+      "LinkSpeed": "100 Mbps"
+    },
+    {
+      "Name": "vEthernet (New Virtual Switch)",
+      "InterfaceDescription": "Hyper-V Virtual Ethernet Adapter #3",
+      "Status": "Disconnected",
+      "LinkSpeed": "10 Gbps"
+    },
+    {
+      "Name": "Bluetooth Network Connection 2",
+      "InterfaceDescription": "Bluetooth Device (Personal Area Network) #2",
+      "Status": "Disconnected",
+      "LinkSpeed": "3 Mbps"
+    },
+    {
+      "Name": "VMware Network Adapter VMnet8",
+      "InterfaceDescription": "VMware Virtual Ethernet Adapter for VMnet8",
+      "Status": "Up",
+      "LinkSpeed": "100 Mbps"
+    },
+    {
+      "Name": "Local Area Connection",
+      "InterfaceDescription": "Private Internet Access Network Adapter",
+      "Status": "Disconnected",
+      "LinkSpeed": "1 Gbps"
+    },
+    {
+      "Name": "Ethernet 7",
+      "InterfaceDescription": "Intel(R) Ethernet Connection (5) I219-LM",
+      "Status": "Disconnected",
+      "LinkSpeed": "0 bps"
+    },
+    {
+      "Name": "Wi-Fi 5",
+      "InterfaceDescription": "Intel(R) Dual Band Wireless-AC 8265",
+      "Status": "Not Present",
+      "LinkSpeed": "0 bps"
+    },
+    {
+      "Name": "Tailscale",
+      "InterfaceDescription": "Tailscale Tunnel",
+      "Status": "Up",
+      "LinkSpeed": "100 Gbps"
+    },
+    {
+      "Name": "Wi-Fi 4",
+      "InterfaceDescription": "Intel(R) Wi-Fi 6E AX210 160MHz #3",
+      "Status": "Up",
+      "LinkSpeed": "1.2 Gbps"
+    },
+    {
+      "Name": "HotspotShield Network Adapter",
+      "InterfaceDescription": "HotspotShield TAP-Windows Adapter V9",
+      "Status": "Not Present",
+      "LinkSpeed": "0 bps"
+    }
+  ]
+}

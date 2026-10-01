@@ -1,0 +1,606 @@
+{
+  "DateUtc": "2026-10-01T00:00:19.9519501Z",
+  "Method": "256 KiB raw codec only; 200 warmups, full GC before each phase, 2000 operations, ten rotating rounds; in-phase GC remains timed.",
+  "Measurements": [
+    {
+      "Run": 0,
+      "Mode": "binary-before",
+      "Operation": "encode",
+      "Nanoseconds": 214203.4,
+      "AllocatedBytes": 1052079.852,
+      "Gen0": 462,
+      "Gen1": 461,
+      "Gen2": 461
+    },
+    {
+      "Run": 0,
+      "Mode": "binary-before",
+      "Operation": "decode",
+      "Nanoseconds": 49346.55,
+      "AllocatedBytes": 265640.476,
+      "Gen0": 118,
+      "Gen1": 117,
+      "Gen2": 117
+    },
+    {
+      "Run": 0,
+      "Mode": "binary",
+      "Operation": "encode",
+      "Nanoseconds": 48312.55,
+      "AllocatedBytes": 262993.46,
+      "Gen0": 119,
+      "Gen1": 119,
+      "Gen2": 119
+    },
+    {
+      "Run": 0,
+      "Mode": "binary",
+      "Operation": "decode",
+      "Nanoseconds": 50116.25,
+      "AllocatedBytes": 264470.52,
+      "Gen0": 118,
+      "Gen1": 117,
+      "Gen2": 117
+    },
+    {
+      "Run": 0,
+      "Mode": "json",
+      "Operation": "encode",
+      "Nanoseconds": 316144.75,
+      "AllocatedBytes": 1054279.608,
+      "Gen0": 457,
+      "Gen1": 456,
+      "Gen2": 456
+    },
+    {
+      "Run": 0,
+      "Mode": "json",
+      "Operation": "decode",
+      "Nanoseconds": 501180.2,
+      "AllocatedBytes": 1183688.392,
+      "Gen0": 284,
+      "Gen1": 283,
+      "Gen2": 283
+    },
+    {
+      "Run": 1,
+      "Mode": "binary",
+      "Operation": "encode",
+      "Nanoseconds": 71184,
+      "AllocatedBytes": 262640.176,
+      "Gen0": 166,
+      "Gen1": 166,
+      "Gen2": 166
+    },
+    {
+      "Run": 1,
+      "Mode": "binary",
+      "Operation": "decode",
+      "Nanoseconds": 72786.55,
+      "AllocatedBytes": 264248.02,
+      "Gen0": 166,
+      "Gen1": 166,
+      "Gen2": 166
+    },
+    {
+      "Run": 1,
+      "Mode": "json",
+      "Operation": "encode",
+      "Nanoseconds": 291299.3,
+      "AllocatedBytes": 1052262.94,
+      "Gen0": 470,
+      "Gen1": 469,
+      "Gen2": 469
+    },
+    {
+      "Run": 1,
+      "Mode": "json",
+      "Operation": "decode",
+      "Nanoseconds": 442035.1,
+      "AllocatedBytes": 1191559.252,
+      "Gen0": 303,
+      "Gen1": 302,
+      "Gen2": 302
+    },
+    {
+      "Run": 1,
+      "Mode": "binary-before",
+      "Operation": "encode",
+      "Nanoseconds": 278416.2,
+      "AllocatedBytes": 1050880.1,
+      "Gen0": 666,
+      "Gen1": 666,
+      "Gen2": 666
+    },
+    {
+      "Run": 1,
+      "Mode": "binary-before",
+      "Operation": "decode",
+      "Nanoseconds": 73579.3,
+      "AllocatedBytes": 265392.02,
+      "Gen0": 166,
+      "Gen1": 166,
+      "Gen2": 166
+    },
+    {
+      "Run": 2,
+      "Mode": "json",
+      "Operation": "encode",
+      "Nanoseconds": 297087.15,
+      "AllocatedBytes": 1051823.6,
+      "Gen0": 488,
+      "Gen1": 487,
+      "Gen2": 487
+    },
+    {
+      "Run": 2,
+      "Mode": "json",
+      "Operation": "decode",
+      "Nanoseconds": 477058.1,
+      "AllocatedBytes": 1177779.328,
+      "Gen0": 264,
+      "Gen1": 263,
+      "Gen2": 263
+    },
+    {
+      "Run": 2,
+      "Mode": "binary-before",
+      "Operation": "encode",
+      "Nanoseconds": 288045.6,
+      "AllocatedBytes": 1050880.1,
+      "Gen0": 666,
+      "Gen1": 666,
+      "Gen2": 666
+    },
+    {
+      "Run": 2,
+      "Mode": "binary-before",
+      "Operation": "decode",
+      "Nanoseconds": 72096.2,
+      "AllocatedBytes": 265392.02,
+      "Gen0": 166,
+      "Gen1": 166,
+      "Gen2": 166
+    },
+    {
+      "Run": 2,
+      "Mode": "binary",
+      "Operation": "encode",
+      "Nanoseconds": 67117.15,
+      "AllocatedBytes": 262640.252,
+      "Gen0": 166,
+      "Gen1": 166,
+      "Gen2": 166
+    },
+    {
+      "Run": 2,
+      "Mode": "binary",
+      "Operation": "decode",
+      "Nanoseconds": 67635.25,
+      "AllocatedBytes": 264248.02,
+      "Gen0": 166,
+      "Gen1": 166,
+      "Gen2": 166
+    },
+    {
+      "Run": 3,
+      "Mode": "binary-before",
+      "Operation": "encode",
+      "Nanoseconds": 348170.65,
+      "AllocatedBytes": 1050880.1,
+      "Gen0": 666,
+      "Gen1": 666,
+      "Gen2": 666
+    },
+    {
+      "Run": 3,
+      "Mode": "binary-before",
+      "Operation": "decode",
+      "Nanoseconds": 81472.05,
+      "AllocatedBytes": 265392.02,
+      "Gen0": 166,
+      "Gen1": 166,
+      "Gen2": 166
+    },
+    {
+      "Run": 3,
+      "Mode": "binary",
+      "Operation": "encode",
+      "Nanoseconds": 79251.9,
+      "AllocatedBytes": 262640.176,
+      "Gen0": 166,
+      "Gen1": 166,
+      "Gen2": 166
+    },
+    {
+      "Run": 3,
+      "Mode": "binary",
+      "Operation": "decode",
+      "Nanoseconds": 77896,
+      "AllocatedBytes": 264248.02,
+      "Gen0": 166,
+      "Gen1": 166,
+      "Gen2": 166
+    },
+    {
+      "Run": 3,
+      "Mode": "json",
+      "Operation": "encode",
+      "Nanoseconds": 263129.75,
+      "AllocatedBytes": 1053958.196,
+      "Gen0": 469,
+      "Gen1": 468,
+      "Gen2": 468
+    },
+    {
+      "Run": 3,
+      "Mode": "json",
+      "Operation": "decode",
+      "Nanoseconds": 416667,
+      "AllocatedBytes": 1180194.432,
+      "Gen0": 271,
+      "Gen1": 270,
+      "Gen2": 270
+    },
+    {
+      "Run": 4,
+      "Mode": "binary",
+      "Operation": "encode",
+      "Nanoseconds": 68387.5,
+      "AllocatedBytes": 262640.176,
+      "Gen0": 166,
+      "Gen1": 166,
+      "Gen2": 166
+    },
+    {
+      "Run": 4,
+      "Mode": "binary",
+      "Operation": "decode",
+      "Nanoseconds": 68736.8,
+      "AllocatedBytes": 264248.02,
+      "Gen0": 166,
+      "Gen1": 166,
+      "Gen2": 166
+    },
+    {
+      "Run": 4,
+      "Mode": "json",
+      "Operation": "encode",
+      "Nanoseconds": 257806.75,
+      "AllocatedBytes": 1053394.164,
+      "Gen0": 464,
+      "Gen1": 463,
+      "Gen2": 463
+    },
+    {
+      "Run": 4,
+      "Mode": "json",
+      "Operation": "decode",
+      "Nanoseconds": 441485.1,
+      "AllocatedBytes": 1187820.732,
+      "Gen0": 289,
+      "Gen1": 288,
+      "Gen2": 288
+    },
+    {
+      "Run": 4,
+      "Mode": "binary-before",
+      "Operation": "encode",
+      "Nanoseconds": 267539.35,
+      "AllocatedBytes": 1050880.1,
+      "Gen0": 666,
+      "Gen1": 666,
+      "Gen2": 666
+    },
+    {
+      "Run": 4,
+      "Mode": "binary-before",
+      "Operation": "decode",
+      "Nanoseconds": 68827.55,
+      "AllocatedBytes": 265392.02,
+      "Gen0": 166,
+      "Gen1": 166,
+      "Gen2": 166
+    },
+    {
+      "Run": 5,
+      "Mode": "json",
+      "Operation": "encode",
+      "Nanoseconds": 258967.45,
+      "AllocatedBytes": 1053219.116,
+      "Gen0": 463,
+      "Gen1": 462,
+      "Gen2": 462
+    },
+    {
+      "Run": 5,
+      "Mode": "json",
+      "Operation": "decode",
+      "Nanoseconds": 461572.5,
+      "AllocatedBytes": 1167068.084,
+      "Gen0": 284,
+      "Gen1": 283,
+      "Gen2": 283
+    },
+    {
+      "Run": 5,
+      "Mode": "binary-before",
+      "Operation": "encode",
+      "Nanoseconds": 282980.8,
+      "AllocatedBytes": 1050880.1,
+      "Gen0": 666,
+      "Gen1": 666,
+      "Gen2": 666
+    },
+    {
+      "Run": 5,
+      "Mode": "binary-before",
+      "Operation": "decode",
+      "Nanoseconds": 70319.55,
+      "AllocatedBytes": 265392.02,
+      "Gen0": 166,
+      "Gen1": 166,
+      "Gen2": 166
+    },
+    {
+      "Run": 5,
+      "Mode": "binary",
+      "Operation": "encode",
+      "Nanoseconds": 96029.45,
+      "AllocatedBytes": 262640.176,
+      "Gen0": 166,
+      "Gen1": 166,
+      "Gen2": 166
+    },
+    {
+      "Run": 5,
+      "Mode": "binary",
+      "Operation": "decode",
+      "Nanoseconds": 92948.25,
+      "AllocatedBytes": 264248.02,
+      "Gen0": 166,
+      "Gen1": 166,
+      "Gen2": 166
+    },
+    {
+      "Run": 6,
+      "Mode": "binary-before",
+      "Operation": "encode",
+      "Nanoseconds": 273411.75,
+      "AllocatedBytes": 1050880.1,
+      "Gen0": 666,
+      "Gen1": 666,
+      "Gen2": 666
+    },
+    {
+      "Run": 6,
+      "Mode": "binary-before",
+      "Operation": "decode",
+      "Nanoseconds": 69168.95,
+      "AllocatedBytes": 265392.02,
+      "Gen0": 166,
+      "Gen1": 166,
+      "Gen2": 166
+    },
+    {
+      "Run": 6,
+      "Mode": "binary",
+      "Operation": "encode",
+      "Nanoseconds": 68021.1,
+      "AllocatedBytes": 262640.176,
+      "Gen0": 166,
+      "Gen1": 166,
+      "Gen2": 166
+    },
+    {
+      "Run": 6,
+      "Mode": "binary",
+      "Operation": "decode",
+      "Nanoseconds": 71967.7,
+      "AllocatedBytes": 264248.02,
+      "Gen0": 166,
+      "Gen1": 166,
+      "Gen2": 166
+    },
+    {
+      "Run": 6,
+      "Mode": "json",
+      "Operation": "encode",
+      "Nanoseconds": 309674.4,
+      "AllocatedBytes": 1052100.924,
+      "Gen0": 469,
+      "Gen1": 468,
+      "Gen2": 468
+    },
+    {
+      "Run": 6,
+      "Mode": "json",
+      "Operation": "decode",
+      "Nanoseconds": 460073.75,
+      "AllocatedBytes": 1191999.684,
+      "Gen0": 274,
+      "Gen1": 273,
+      "Gen2": 273
+    },
+    {
+      "Run": 7,
+      "Mode": "binary",
+      "Operation": "encode",
+      "Nanoseconds": 70256.9,
+      "AllocatedBytes": 262640.176,
+      "Gen0": 166,
+      "Gen1": 166,
+      "Gen2": 166
+    },
+    {
+      "Run": 7,
+      "Mode": "binary",
+      "Operation": "decode",
+      "Nanoseconds": 67598.8,
+      "AllocatedBytes": 264248.02,
+      "Gen0": 166,
+      "Gen1": 166,
+      "Gen2": 166
+    },
+    {
+      "Run": 7,
+      "Mode": "json",
+      "Operation": "encode",
+      "Nanoseconds": 296155.35,
+      "AllocatedBytes": 1051834.768,
+      "Gen0": 481,
+      "Gen1": 480,
+      "Gen2": 480
+    },
+    {
+      "Run": 7,
+      "Mode": "json",
+      "Operation": "decode",
+      "Nanoseconds": 402416.6,
+      "AllocatedBytes": 1186822.6,
+      "Gen0": 301,
+      "Gen1": 300,
+      "Gen2": 300
+    },
+    {
+      "Run": 7,
+      "Mode": "binary-before",
+      "Operation": "encode",
+      "Nanoseconds": 267405.45,
+      "AllocatedBytes": 1050880.1,
+      "Gen0": 666,
+      "Gen1": 666,
+      "Gen2": 666
+    },
+    {
+      "Run": 7,
+      "Mode": "binary-before",
+      "Operation": "decode",
+      "Nanoseconds": 72608.2,
+      "AllocatedBytes": 265392.02,
+      "Gen0": 166,
+      "Gen1": 166,
+      "Gen2": 166
+    },
+    {
+      "Run": 8,
+      "Mode": "json",
+      "Operation": "encode",
+      "Nanoseconds": 284635.95,
+      "AllocatedBytes": 1053249.412,
+      "Gen0": 456,
+      "Gen1": 455,
+      "Gen2": 455
+    },
+    {
+      "Run": 8,
+      "Mode": "json",
+      "Operation": "decode",
+      "Nanoseconds": 487406.8,
+      "AllocatedBytes": 1183609.776,
+      "Gen0": 273,
+      "Gen1": 272,
+      "Gen2": 272
+    },
+    {
+      "Run": 8,
+      "Mode": "binary-before",
+      "Operation": "encode",
+      "Nanoseconds": 369978.75,
+      "AllocatedBytes": 1050880.1,
+      "Gen0": 666,
+      "Gen1": 666,
+      "Gen2": 666
+    },
+    {
+      "Run": 8,
+      "Mode": "binary-before",
+      "Operation": "decode",
+      "Nanoseconds": 91293.2,
+      "AllocatedBytes": 265392.02,
+      "Gen0": 166,
+      "Gen1": 166,
+      "Gen2": 166
+    },
+    {
+      "Run": 8,
+      "Mode": "binary",
+      "Operation": "encode",
+      "Nanoseconds": 85646.35,
+      "AllocatedBytes": 262640.176,
+      "Gen0": 166,
+      "Gen1": 166,
+      "Gen2": 166
+    },
+    {
+      "Run": 8,
+      "Mode": "binary",
+      "Operation": "decode",
+      "Nanoseconds": 85065.4,
+      "AllocatedBytes": 264248.02,
+      "Gen0": 166,
+      "Gen1": 166,
+      "Gen2": 166
+    },
+    {
+      "Run": 9,
+      "Mode": "binary-before",
+      "Operation": "encode",
+      "Nanoseconds": 268963.55,
+      "AllocatedBytes": 1050880.1,
+      "Gen0": 666,
+      "Gen1": 666,
+      "Gen2": 666
+    },
+    {
+      "Run": 9,
+      "Mode": "binary-before",
+      "Operation": "decode",
+      "Nanoseconds": 72726.2,
+      "AllocatedBytes": 265392.02,
+      "Gen0": 166,
+      "Gen1": 166,
+      "Gen2": 166
+    },
+    {
+      "Run": 9,
+      "Mode": "binary",
+      "Operation": "encode",
+      "Nanoseconds": 67209.9,
+      "AllocatedBytes": 262640.176,
+      "Gen0": 166,
+      "Gen1": 166,
+      "Gen2": 166
+    },
+    {
+      "Run": 9,
+      "Mode": "binary",
+      "Operation": "decode",
+      "Nanoseconds": 76267.5,
+      "AllocatedBytes": 264248.02,
+      "Gen0": 166,
+      "Gen1": 166,
+      "Gen2": 166
+    },
+    {
+      "Run": 9,
+      "Mode": "json",
+      "Operation": "encode",
+      "Nanoseconds": 272857.2,
+      "AllocatedBytes": 1053719.816,
+      "Gen0": 474,
+      "Gen1": 473,
+      "Gen2": 473
+    },
+    {
+      "Run": 9,
+      "Mode": "json",
+      "Operation": "decode",
+      "Nanoseconds": 421090.6,
+      "AllocatedBytes": 1185456.4,
+      "Gen0": 290,
+      "Gen1": 289,
+      "Gen2": 289
+    }
+  ]
+}
