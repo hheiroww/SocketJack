@@ -14,14 +14,15 @@ using System.Threading;
 using System.Threading.Tasks;
 
 namespace SocketJack.Net {
-    // Wire v2 uses compact numeric identifiers; see UdpReliableWire.
+    // Wire v3 uses compact numeric identifiers and negotiated receive-flight capacity; see UdpReliableWire.
     // A fragment's (session,message,index) is its unique sequence. All numeric fields are little endian.
     internal sealed class UdpReliableTransport : IDisposable {
         internal const int Header = UdpReliableWire.MaximumHeader;
         internal enum Op : byte { Hello = 1, Cookie, Confirm, Ready, Open, Grant, Data, Ack, Complete, Close, Ping, Pong, Inline }
-        internal sealed class Frame {
+        internal struct Frame {
             internal Op Type; internal ulong Session; internal ulong Id; internal int A, B;
             internal byte[] Data; internal int Offset, Count; internal IPEndPoint Endpoint;
+            internal ulong Bits;
         }
         readonly Socket socket;
         readonly bool server;
@@ -38,6 +39,7 @@ namespace SocketJack.Net {
         readonly byte[] secret = new byte[32];
         int disposed, controlCount;
         long reserved;
+        readonly int socketQueueBytes;
         internal static double Now => Stopwatch.GetTimestamp() * 1000.0 / Stopwatch.Frequency;
         internal int MaxMessage => (int)Math.Min(network.MaximumBufferSize, Math.Min(Options.ReceiveQueueBytes, int.MaxValue));
         internal UdpReliableTransport(Socket socket, bool server, NetworkOptions network,
@@ -49,8 +51,9 @@ namespace SocketJack.Net {
                 throw new NotSupportedException("UDP_Reliable requires GZip2 or Deflate for bounded decompression.");
             this.connected = connected; this.received = received; this.failed = failed;
             using (var rng = RandomNumberGenerator.Create()) rng.GetBytes(secret);
-            socket.ReceiveBufferSize = Options.BufferSize;
-            socket.SendBufferSize = Options.BufferSize;
+            socket.ReceiveBufferSize = Options.SocketQueueBytes;
+            socket.SendBufferSize = Options.SocketQueueBytes;
+            socketQueueBytes = Math.Min(Options.SocketQueueBytes, socket.ReceiveBufferSize);
         }
         static ulong NewSession() {
             byte[] bytes = new byte[8];
@@ -70,7 +73,13 @@ namespace SocketJack.Net {
                 return peer;
             }
         }
-        internal void Wake() { try { signal.Release(); } catch (SemaphoreFullException) { } }
+        internal void Wake() {
+            // Serialize producers; WaitAsync only decreases the count. No exception-driven coalescing.
+            lock (signal) if (signal.CurrentCount == 0) signal.Release();
+        }
+        internal int ReceiveWindow(int mtu) => Math.Min(Options.MaximumFlightPackets, Math.Max(1, socketQueueBytes / mtu / 2));
+        internal void Acknowledge(UdpReliablePeer p, ulong id, int firstMissing, int block, ulong bits) =>
+            Enqueue(new Frame { Endpoint = p.Endpoint, Session = p.Session, Type = Op.Ack, Id = id, A = firstMissing, B = block, Count = 8, Bits = bits });
         internal void Control(UdpReliablePeer p, Op op, ulong id = 0, int a = 0, int b = 0, byte[] body = null) {
             Enqueue(new Frame { Endpoint = p.Endpoint, Session = p.Session, Type = op, Id = id, A = a, B = b, Data = body, Count = body?.Length ?? 0 });
         }
@@ -92,9 +101,12 @@ namespace SocketJack.Net {
             _ = Task.Run(() => { peer.Transfers?.Dispose(); failed(peer, error); });
         }
         static ulong CookieEpoch => (ulong)(DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 30);
-        byte[] Cookie(IPEndPoint ep, ulong session, int mtu, int size, ulong epoch) {
+        byte[] Cookie(IPEndPoint ep, ulong session, int mtu, int size, ulong epoch, int window) {
             using (var hmac = new HMACSHA256(secret)) {
-                return hmac.ComputeHash(Encoding.UTF8.GetBytes(ep + "|" + session + "|" + mtu + "|" + size + "|" + epoch)).Take(16).ToArray();
+                byte[] result = new byte[20];
+                Buffer.BlockCopy(hmac.ComputeHash(Encoding.UTF8.GetBytes(ep + "|" + session + "|" + mtu + "|" + size + "|" + epoch + "|" + window)), 0, result, 0, 16);
+                BinaryPrimitives.WriteInt32LittleEndian(result.AsSpan(16), window);
+                return result;
             }
         }
         async Task ReceiveLoop() {
@@ -107,16 +119,22 @@ namespace SocketJack.Net {
                     catch (SocketException ex) when (ex.SocketErrorCode == SocketError.ConnectionReset || ex.SocketErrorCode == SocketError.MessageSize) { continue; }
                     if (!UdpReliableWire.Read(buffer, length, out var op, out var session, out var id, out var a, out var b, out int header)) continue;
                     var ep = (IPEndPoint)operation.RemoteEndPoint;
-                    if (server && op == Op.Hello && length == header && a >= 256 && a <= 32768 && b > 0) {
+                    if (server && op == Op.Hello && length == header + 8 && a >= 256 && a <= 32768 && b > 0) {
                         int mtu = Math.Min(a, Options.DatagramSize), size = Math.Min(b, MaxMessage);
+                        int advertisedBytes = BinaryPrimitives.ReadInt32LittleEndian(buffer.AsSpan(header, 4));
+                        int advertisedPackets = BinaryPrimitives.ReadInt32LittleEndian(buffer.AsSpan(header + 4, 4));
+                        if (advertisedBytes < a || advertisedBytes > 64 * 1024 * 1024 || advertisedPackets < 1 || advertisedPackets > 65536) continue;
+                        int window = Math.Min(Math.Min(ReceiveWindow(mtu), advertisedPackets), advertisedBytes / mtu);
                         ulong epoch = CookieEpoch;
-                        Enqueue(new Frame { Endpoint = ep, Session = session, Type = Op.Cookie, Id = epoch, A = mtu, B = size, Data = Cookie(ep, session, mtu, size, epoch), Count = 16 });
+                        Enqueue(new Frame { Endpoint = ep, Session = session, Type = Op.Cookie, Id = epoch, A = mtu, B = size, Data = Cookie(ep, session, mtu, size, epoch, window), Count = 20 });
                         continue;
                     }
-                    if (server && op == Op.Confirm && length == header + 16 && a >= 256 && a <= Options.DatagramSize && b > 0 && b <= MaxMessage) {
+                    if (server && op == Op.Confirm && length == header + 20 && a >= 256 && a <= Options.DatagramSize && b > 0 && b <= MaxMessage) {
                         ulong epoch = CookieEpoch;
                         if ((id != epoch && id != epoch - 1) || retired.ContainsKey(ep + "|" + session) || retired.Count >= (long)Options.MaximumPeers * 8) continue;
-                        byte[] expected = Cookie(ep, session, a, b, id);
+                        int window = BinaryPrimitives.ReadInt32LittleEndian(buffer.AsSpan(header + 16, 4));
+                        if (window < 1 || window > ReceiveWindow(a)) continue;
+                        byte[] expected = Cookie(ep, session, a, b, id, window);
                         int difference = 0;
                         for (int i = 0; i < 16; i++) difference |= expected[i] ^ buffer[header + i];
                         if (difference != 0) continue;
@@ -125,6 +143,7 @@ namespace SocketJack.Net {
                         if (!peers.TryGetValue(ep, out var existing)) {
                             if (peers.Count >= Options.MaximumPeers) continue;
                             var accepted = new UdpReliablePeer(this, ep, session, a, b);
+                            accepted.FlightLimit = window;
                             accepted.MarkReady();
                             if (peers.TryAdd(ep, accepted)) {
                                 try { connected(accepted); } catch (Exception ex) { accepted.Fail(ex); continue; }
@@ -145,16 +164,21 @@ namespace SocketJack.Net {
             byte[] buffer = ArrayPool<byte>.Shared.Rent(Options.BufferSize);
             using var operation = new UdpReliableSocketOperation(buffer, Options.BufferSize);
             var batch = new List<Frame>(256);
+            double maintenance = 0;
             try {
                 while (!stop.IsCancellationRequested) {
                     batch.Clear();
                     while (batch.Count < 256 && controls.TryDequeue(out var control)) { Interlocked.Decrement(ref controlCount); batch.Add(control); }
                     double now = Now;
-                    if (retired.Count > 0) foreach (var item in retired) if (item.Value < now) retired.TryRemove(item.Key, out _);
-                    foreach (var peer in peers.Values) { peer.Transfers?.Expire(now); peer.Pump(now, batch); }
+                    bool maintain = now >= maintenance;
+                    if (maintain) { maintenance = now + 1000; foreach (var item in retired) if (item.Value < now) retired.TryRemove(item.Key, out _); }
+                    foreach (var pair in peers) { if (maintain) pair.Value.Transfers?.Expire(now); pair.Value.Pump(now, batch); }
                     foreach (var frame in batch) {
                         int header = UdpReliableWire.Write(buffer, frame);
-                        if (frame.Count > 0) Buffer.BlockCopy(frame.Data, frame.Offset, buffer, header, frame.Count);
+                        if (frame.Count > 0) {
+                            if (frame.Data != null) Buffer.BlockCopy(frame.Data, frame.Offset, buffer, header, frame.Count);
+                            else BinaryPrimitives.WriteUInt64LittleEndian(buffer.AsSpan(header, 8), frame.Bits);
+                        }
                         try {
                             await operation.Send(socket, frame.Endpoint, header + frame.Count).ConfigureAwait(false);
                             if (peers.TryGetValue(frame.Endpoint, out var p)) Interlocked.Add(ref p.Statistics.sent, header + frame.Count);
@@ -199,12 +223,14 @@ namespace SocketJack.Net {
         internal readonly ulong Session;
         internal UdpReliableTransfers Transfers;
         internal int Mtu, MaxMessage;
+        internal bool SafeModeVerified;
         internal bool IsReady { get; private set; }
         internal bool IsClosed { get; private set; }
         ulong nextOrdered = 1, nextIndependent = 1, deliverNext = 1, reserveNext = 1, doneOrdered, doneIndependent;
-        int roundRobin, delivering;
+        int roundRobin, delivering, synchronousAdmissions, capacityBlocked;
         internal bool IsServer => host.IsServer;
-        int FlightLimit => Math.Min(host.Options.MaximumFlightPackets, Math.Max(1, host.Options.BufferSize / Mtu / 2));
+        internal int FlightLimit;
+        readonly Outgoing[] active;
         long sendBytes, receiveBytes;
         double handshakeSent = -1000, created = UdpReliableTransport.Now, lastReceive = UdpReliableTransport.Now, lastPing;
         double srtt = 20, variation = 10, window = 10, threshold = double.MaxValue, nextPace, lastReduction;
@@ -214,18 +240,29 @@ namespace SocketJack.Net {
         static TaskCompletionSource<bool> NewSignal() => new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         internal UdpReliablePeer(UdpReliableTransport host, IPEndPoint endpoint, ulong session, int mtu, int maxMessage) {
             this.host = host; Endpoint = endpoint; Session = session; Mtu = mtu; MaxMessage = maxMessage;
+            FlightLimit = host.ReceiveWindow(mtu);
+            active = new Outgoing[host.Options.MaximumConcurrentMessages];
             if (host.Options.Profile == UdpReliableProfile.FastLan) window = FlightLimit;
             _ = DeliverLoop(deliveries, deliverySignal);
             _ = DeliverLoop(streamDeliveries, streamSignal);
             for (int i = 0; i < host.Options.ReceiveWorkers; i++) _ = DeliverLoop(independentDeliveries, independentSignal);
         }
-        internal void MarkReady() { window = Math.Min(window, FlightLimit); IsReady = true; Ready.TrySetResult(true); }
+        internal void MarkReady() { window = host.Options.Profile == UdpReliableProfile.FastLan ? FlightLimit : Math.Min(window, FlightLimit); IsReady = true; Ready.TrySetResult(true); }
         internal Task Send(byte[] data, byte kind, bool independent, bool wait, CancellationToken cancellation) => SendCore(_ => data, data.Length, kind, independent, wait, cancellation);
         // Preparation runs only after admission, serialized with indexing. Pattern-cache state cannot advance for a rejected send.
         internal async Task SendCore(Func<long, byte[]> prepare, int reservation, byte kind, bool independent, bool wait, CancellationToken cancellation, Func<int> measure = null) {
             Outgoing message;
-            if (wait) await admission.WaitAsync(cancellation).ConfigureAwait(false);
-            else if (!admission.Wait(0)) throw new IOException("UDP_Reliable send admission is busy. Use SendAsync for backpressure.");
+            // Synchronous APIs must not lose a reply merely because an identity/control message
+            // is being encoded. Bound their waiting references separately from encoded payload bytes.
+            if (!wait) {
+                int pending = Interlocked.Increment(ref synchronousAdmissions);
+                if (pending > host.Options.MaximumQueuedMessages || Volatile.Read(ref capacityBlocked) != 0) {
+                    Interlocked.Decrement(ref synchronousAdmissions);
+                    throw new IOException("UDP_Reliable send queue is full. Use SendAsync for backpressure.");
+                }
+            }
+            try { await admission.WaitAsync(cancellation).ConfigureAwait(false); }
+            catch { if (!wait) Interlocked.Decrement(ref synchronousAdmissions); throw; }
             try {
             // Only one unadmitted serialized object can exist per peer, even with many awaiting callers.
             if (measure != null) reservation = measure();
@@ -249,6 +286,7 @@ namespace SocketJack.Net {
                         break;
                     }
                     if (!wait) throw new IOException("UDP_Reliable send queue is full. Use SendAsync for backpressure.");
+                    Volatile.Write(ref capacityBlocked, 1);
                     available = capacity.Task;
                 }
                 var canceled = NewSignal();
@@ -256,7 +294,11 @@ namespace SocketJack.Net {
                     await await Task.WhenAny(available, canceled.Task).ConfigureAwait(false);
                 }
             }
-            } finally { admission.Release(); }
+            } finally {
+                Volatile.Write(ref capacityBlocked, 0);
+                if (!wait) Interlocked.Decrement(ref synchronousAdmissions);
+                admission.Release();
+            }
             host.Wake();
             // Removing a committed ordered message would create a permanent gap. Canceling it terminates the session.
             using (cancellation.Register(() => Fail(new OperationCanceledException("A committed reliable send was canceled.", cancellation))))
@@ -267,8 +309,11 @@ namespace SocketJack.Net {
                 if (IsClosed) return;
                 double now = UdpReliableTransport.Now;
                 if (!IsReady) {
-                    if (op == UdpReliableTransport.Op.Cookie && count == 16 && a >= 256 && a <= Mtu && b > 0 && b <= MaxMessage) {
-                        Mtu = a; MaxMessage = b; cookieEpoch = id; cookie = new byte[16]; Buffer.BlockCopy(data, offset, cookie, 0, 16); handshakeSent = -1000; host.Wake();
+                    if (op == UdpReliableTransport.Op.Cookie && count == 20 && a >= 256 && a <= Mtu && b > 0 && b <= MaxMessage) {
+                        int offeredWindow = BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(offset + 16, 4));
+                        if (offeredWindow < 1 || offeredWindow > host.ReceiveWindow(a)) return;
+                        FlightLimit = offeredWindow;
+                        Mtu = a; MaxMessage = b; cookieEpoch = id; cookie = new byte[20]; Buffer.BlockCopy(data, offset, cookie, 0, 20); handshakeSent = -1000; host.Wake();
                     } else if (op == UdpReliableTransport.Op.Ready && count == 0 && cookie != null && a == Mtu && b == MaxMessage) MarkReady();
                     return;
                 }
@@ -315,10 +360,11 @@ namespace SocketJack.Net {
                         Buffer.BlockCopy(data, offset, input.Data, position, count); input.Fragments[a] = true; input.Count++; input.Progress = now;
                         while (input.FirstMissing < input.Fragments.Length && input.Fragments[input.FirstMissing]) input.FirstMissing++;
                     }
+                    if (!input.AckPending) input.AckDue = now + 1;
                     input.AckPending = true; input.LastBlock = a / 64 * 64;
                     if (input.Count == input.Fragments.Length) {
                         incoming.Remove(id); CompleteIncoming(input);
-                    } else if (++input.SinceAck >= Math.Min(16, Math.Max(1, FlightLimit / 2)) || a != input.FirstMissing - 1) Ack(input);
+                    } else if (++input.SinceAck >= Math.Min(16, Math.Max(1, FlightLimit / (2 * host.Options.MaximumConcurrentMessages))) || a != input.FirstMissing - 1) Ack(input);
                     return;
                 }
                 if (op == UdpReliableTransport.Op.Ack && count == 8 && outgoing.TryGetValue(id, out var sent)) {
@@ -377,10 +423,9 @@ namespace SocketJack.Net {
             } catch (OperationCanceledException) { }
         }
         void Ack(Incoming input) {
-            byte[] bits = new byte[8]; ulong value = 0;
+            ulong value = 0;
             for (int i = 0; i < 64 && input.LastBlock + i < input.Fragments.Length; i++) if (input.Fragments[input.LastBlock + i]) value |= 1UL << i;
-            BinaryPrimitives.WriteUInt64LittleEndian(bits, value);
-            host.Control(this, UdpReliableTransport.Op.Ack, input.Id, input.FirstMissing, input.LastBlock, bits);
+            host.Acknowledge(this, input.Id, input.FirstMissing, input.LastBlock, value);
             input.AckPending = false; input.SinceAck = 0;
         }
         void Acknowledge(Outgoing message, int index, double now) {
@@ -398,7 +443,14 @@ namespace SocketJack.Net {
                 if (IsClosed) return;
                 if (!IsReady) {
                     if (now - created > 10000) { Fail(new TimeoutException("UDP_Reliable handshake timed out; verify both endpoints use the same mode/version.")); return; }
-                    if (now - handshakeSent >= 200) { host.Control(this, cookie == null ? UdpReliableTransport.Op.Hello : UdpReliableTransport.Op.Confirm, id: cookieEpoch, a: Mtu, b: MaxMessage, body: cookie); handshakeSent = now; }
+                    if (now - handshakeSent >= 200) {
+                        byte[] body = cookie;
+                        if (body == null) {
+                            body = new byte[8]; BinaryPrimitives.WriteInt32LittleEndian(body, host.ReceiveWindow(Mtu) * Mtu);
+                            BinaryPrimitives.WriteInt32LittleEndian(body.AsSpan(4), host.Options.MaximumFlightPackets);
+                        }
+                        host.Control(this, cookie == null ? UdpReliableTransport.Op.Hello : UdpReliableTransport.Op.Confirm, id: cookieEpoch, a: Mtu, b: MaxMessage, body: body); handshakeSent = now;
+                    }
                     return;
                 }
                 double deadline = host.Options.DeliveryTimeout.TotalMilliseconds;
@@ -406,14 +458,17 @@ namespace SocketJack.Net {
                 if (now - lastPing >= Math.Min(1000, deadline / 3)) { host.Control(this, UdpReliableTransport.Op.Ping); lastPing = now; }
                 foreach (var input in incoming.Values) {
                     if (now - input.Progress > deadline) { Fail(new TimeoutException("UDP_Reliable reassembly stalled.")); return; }
-                    if (input.AckPending) Ack(input);
+                    if (input.AckPending && now >= input.AckDue) Ack(input);
                 }
                 double rto = Math.Max(30, Math.Min(2000, srtt + Math.Max(1, 4 * variation)));
                 int budget = 64;
-                var active = sendOrder.Take(host.Options.MaximumConcurrentMessages).ToArray();
-                int first = active.Length == 0 ? 0 : (roundRobin = (roundRobin + 1) % active.Length);
+                int activeCount = 0;
+                for (var node = sendOrder.First; node != null && activeCount < active.Length; node = node.Next) active[activeCount++] = node.Value;
+                Array.Clear(active, activeCount, active.Length - activeCount);
+                int first = activeCount == 0 ? 0 : (roundRobin = (roundRobin + 1) % activeCount);
                 // Admission/inline frames must follow lane order. Rotate only already reserved fragment work.
-                foreach (var message in active) {
+                for (int n = 0; n < activeCount; n++) {
+                    var message = active[n];
                     if (!message.Activated) { message.Activated = true; message.Progress = now; }
                     if (now - message.Progress > deadline) { Fail(new TimeoutException("UDP_Reliable delivery made no progress.")); return; }
                     if (message.Data.Length <= Mtu - UdpReliableTransport.Header) {
@@ -434,8 +489,8 @@ namespace SocketJack.Net {
                         }
                     }
                 }
-                for (int n = 0; n < active.Length; n++) {
-                    var message = active[(first + n) % active.Length];
+                for (int n = 0; n < activeCount; n++) {
+                    var message = active[(first + n) % activeCount];
                     if (!message.Granted || message.Data.Length <= Mtu - UdpReliableTransport.Header) continue;
                     for (int i = message.FirstUnacked; i < message.Next && budget > 0; i++) {
                         if (message.Acked[i]) continue;
@@ -468,7 +523,7 @@ namespace SocketJack.Net {
                 if (notify && IsReady) host.Control(this, UdpReliableTransport.Op.Close);
                 Ready.TrySetException(error);
                 foreach (var message in outgoing.Values) message.Done.TrySetException(error);
-                outgoing.Clear(); sendOrder.Clear(); sendBytes = 0; Interlocked.Exchange(ref Statistics.queued, 0);
+                outgoing.Clear(); sendOrder.Clear(); Array.Clear(active, 0, active.Length); sendBytes = 0; Interlocked.Exchange(ref Statistics.queued, 0);
                 foreach (var input in incoming.Values.Concat(ordered.Values)) { receiveBytes -= input.Data.Length; host.Release(input.Data.Length); }
                 incoming.Clear(); ordered.Clear();
                 foreach (var queue in new[] { deliveries, independentDeliveries, streamDeliveries })
@@ -486,7 +541,7 @@ namespace SocketJack.Net {
         }
         sealed class Incoming {
             internal ulong Id; internal byte Kind; internal byte[] Data; internal bool[] Fragments;
-            internal int Count, FirstMissing, LastBlock, SinceAck; internal bool AckPending; internal double Progress;
+            internal int Count, FirstMissing, LastBlock, SinceAck; internal bool AckPending; internal double Progress, AckDue;
         }
     }
 }

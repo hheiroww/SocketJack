@@ -40,7 +40,7 @@
     <NeutralLanguage>en-001</NeutralLanguage>
     <IncludeSymbols>False</IncludeSymbols>
     <ImportedNamespaces>System.Text.Json=False,System.Text.Json.Serialization=False,Microsoft.VisualBasic=True,System=True,System.Collections=True,System.Collections.Generic=True,System.Diagnostics=True,System.Linq=True,System.Xml.Linq=True,System.Threading.Tasks=True,SocketJack=True</ImportedNamespaces>
-    <PackageReleaseNotes></PackageReleaseNotes>
+    <PackageReleaseNotes>2026.14 separates application components from the networking library, requires authenticated authorization before remote commands, blocks administrative peer redirects and remote CLR reflection, and hardens type activation and segment reassembly.</PackageReleaseNotes>
     <PackageProjectUrl>https://www.nuget.org/packages/SocketJack/</PackageProjectUrl>
     <PackageIcon>SocketJackIcon.png</PackageIcon>
     <PackageReadmeFile>SocketJack v1.1.0.md</PackageReadmeFile>
@@ -344,12 +344,6 @@
     <Compile Include="..\SocketJack\Net\RtmpSession.cs" Link="Net\RtmpSession.cs" />
     <Compile Include="..\SocketJack\Net\Segment.cs" Link="Net\Segment.cs" />
     <Compile Include="..\SocketJack\Net\SendQueueItem.cs" Link="Net\SendQueueItem.cs" />
-    <Compile Include="..\SocketJack\Net\Services\GitService.cs" Link="Net\Services\GitService.cs" />
-    <Compile Include="..\SocketJack\Net\Services\PromptIntellisense.cs" Link="Net\Services\PromptIntellisense.cs" />
-    <Compile Include="..\SocketJack\Net\Services\ReflectionService.cs" Link="Net\Services\ReflectionService.cs" />
-    <Compile Include="..\SocketJack\Net\Services\SearchInternet.cs" Link="Net\Services\SearchInternet.cs" />
-    <Compile Include="..\SocketJack\Net\Services\SearchService.cs" Link="Net\Services\SearchService.cs" />
-    <Compile Include="..\SocketJack\Net\Services\TerminalService.cs" Link="Net\Services\TerminalService.cs" />
     <Compile Include="..\SocketJack\Net\TcpClient.cs" Link="Net\TcpClient.cs" />
     <Compile Include="..\SocketJack\Net\TcpDuplicator.cs" Link="Net\TcpDuplicator.cs" />
     <Compile Include="..\SocketJack\Net\TcpForwardingBufferProfile.cs" Link="Net\TcpForwardingBufferProfile.cs" />
@@ -425,9 +419,7 @@
     <Folder Include="Compression\" />
     <Folder Include="Net\Database\" />
     <Folder Include="Net\Payments\" />
-    <Folder Include="Net\Services\" />
     <Folder Include="Net\P2P\" />
-    <Folder Include="HeirowLlm\" />
     <Folder Include="Serialization\Json\Converters\" />
   </ItemGroup>
   <ItemGroup>
@@ -694,7 +686,6 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\SocketJack.LlmCore\SocketJack.LlmCore.csproj" PrivateAssets="all" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="..\SocketJack\html\*.html" Link="html\%(Filename)%(Extension)">

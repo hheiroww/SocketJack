@@ -286,6 +286,8 @@ namespace SocketJack.Net {
                     _Stream = Connection._Stream;
                     if (Options.UseSsl)
                         Connection.InitializeSslStream(SslTargetHost);
+                    if (Options.UseTerminatedStreams)
+                        await SafeModeHandshake.Exchange(Connection, Options, false);
                     StartReceiving();
                     StartSending();
                     StartConnectionTester();

@@ -227,6 +227,7 @@ namespace SocketJack.Net {
                 tcpConn.ID = conn.ID;
                 tcpConn._Identity = conn._Identity;
                 tcpConn.EndPoint = remoteEP;
+                if (Options.SafeMode) SafeModeHandshake.MarkVerified(tcpConn, Options);
                 _clientNetworkConnections.TryAdd(key, tcpConn);
 
                 LogFormat("[{0}] Client Connected.", new[] { Name + @"\" + conn.Identity.ID.ToUpper(), Port.ToString() });
@@ -560,6 +561,17 @@ namespace SocketJack.Net {
                             Buffer.BlockCopy(buffer, 0, data, 0, bytesRead);
 
                             IPEndPoint remoteEP = (IPEndPoint)senderEP;
+                            if (Options.SafeMode && (SafeModeHandshake.HasMagic(data) || !Clients.ContainsKey(remoteEP.ToString()))) {
+                                try {
+                                    SafeModeHandshake.Validate(data, Options, null);
+                                    Socket.SendTo(SafeModeHandshake.Accepted, remoteEP);
+                                    GetOrCreateClient(remoteEP);
+                                } catch {
+                                    RemoveClient(remoteEP.ToString());
+                                    Socket.SendTo(Encoding.ASCII.GetBytes("SJNO1"), remoteEP);
+                                }
+                                continue;
+                            }
                             var udpConn = GetOrCreateClient(remoteEP);
 
                             Interlocked.Add(ref udpConn._TotalBytesReceived, bytesRead);
@@ -686,7 +698,7 @@ namespace SocketJack.Net {
                 if (Options.UseCompression && Options.UdpMode == UdpMode.UDP_Reliable) {
                     data = UdpReliableObjects.Decompress(data, Options);
                 } else if (Options.UseCompression) {
-                    var result = MethodExtensions.TryInvoke(Options.CompressionAlgorithm.Decompress, ref data);
+                    var result = MethodExtensions.TryInvoke(b => UdpReliableObjects.Decompress(b, Options), ref data);
                     if (result.Success) {
                         data = result.Result;
                     } else {
@@ -704,45 +716,13 @@ namespace SocketJack.Net {
                     }
                 }
 
-                Wrapper wrapper = Options.Serializer.Deserialize(data);
-                if (wrapper == null) {
-                    InvokeOnError(Connection, new Exception("Deserialized object returned null."));
-                    return;
-                }
-
-                NetworkConnection tcpConn = null;
-                _clientNetworkConnections.TryGetValue(key, out tcpConn);
-
-                var valueType = wrapper.GetValueType();
-                if (wrapper.value != null || wrapper.Type != "") {
-                    if (valueType == typeof(PeerRedirect)) {
-                        byte[] redirectBytes = null;
-                        object val = wrapper.value;
-                        Type type = wrapper.value.GetType();
-                        if (type == typeof(string)) {
-                            redirectBytes = Encoding.UTF8.GetBytes((string)val);
-                        } else if (type == typeof(JsonElement)) {
-                            string json = ((JsonElement)val).GetRawText();
-                            redirectBytes = Encoding.UTF8.GetBytes(json);
-                        }
-                        PeerRedirect redirect = Options.Serializer is SocketJack.Serialization.BinarySerializer binary ? binary.UnwrapRedirect(this, wrapper) : Options.Serializer.DeserializeRedirect(this, redirectBytes);
-                        if (tcpConn != null) {
-                            if (redirect != null)
-                                redirect.Sender = tcpConn.ID.ToString();
-                            HandleReceive(tcpConn, redirect, valueType, byteLength);
-                        }
-                    } else {
-                        object unwrapped = null;
-                        try {
-                            unwrapped = wrapper.Unwrap(this);
-                        } catch (Exception ex) {
-                            InvokeOnError(Connection, ex);
-                        }
-                        if (unwrapped != null && tcpConn != null)
-                            HandleReceive(tcpConn, unwrapped, valueType, byteLength);
-                    }
-                }
+                object message = InboundMessageDecoder.Read(this, cacheConnection, data);
+                if (message != null) HandleReceive(cacheConnection, message, message.GetType(), byteLength);
             } catch (Exception ex) {
+                {
+                    if (Clients.TryGetValue(senderEP.ToString(), out var invalid)) invalid.ReliablePeer?.Fail(SafeModeHandshake.Rejected());
+                    RemoveClient(senderEP.ToString());
+                }
                 InvokeOnError(Connection, ex);
             }
         }

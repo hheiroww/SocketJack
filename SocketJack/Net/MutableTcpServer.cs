@@ -311,7 +311,7 @@ namespace SocketJack.Net {
                 _connectionHandlers.TryAdd(connId, _socketJackHandler);
                 e.Connection._Protocol = TcpProtocol.SocketJack;
                 _socketJackHandler.ProcessReceive(this, e.Connection, ref e);
-                try { SocketJackClientConnected?.Invoke(e.Connection); } catch { }
+                if (!Options.SafeMode) InvokeSocketJackClientConnected(e.Connection);
                 return;
             }
 
@@ -513,10 +513,10 @@ namespace SocketJack.Net {
             }
         }
 
-        /// <summary>
-        /// Invoked by <see cref="WebSocketProtocolHandler"/> after a successful
-        /// WebSocket handshake to raise the <see cref="WebSocketClientConnected"/> event.
-        /// </summary>
+        internal void InvokeSocketJackClientConnected(NetworkConnection connection) {
+            try { SocketJackClientConnected?.Invoke(connection); } catch { }
+        }
+        /// <summary>Raises the typed WebSocket connected event after validation.</summary>
         internal void InvokeWebSocketClientConnected(NetworkConnection connection) {
             try { WebSocketClientConnected?.Invoke(connection); } catch { }
         }
@@ -730,7 +730,11 @@ namespace SocketJack.Net {
             // This runs before ProcessBuffer so the peer is registered in Peers before
             // any deserialized message handlers (e.g. MetadataKeyValue) execute.
             bool isNewConnection = !_buffers.ContainsKey(connection.ID);
-            if (isNewConnection && server.Options.UsePeerToPeer) {
+            if (isNewConnection && server.Options.SafeMode) _ = Task.Run(async () => {
+                await Task.Delay(5000);
+                if (!connection.SafeModeVerified) connection.Close(server, DisconnectionReason.Unknown);
+            });
+            if (isNewConnection && server.Options.UsePeerToPeer && !server.Options.SafeMode) {
                 server.InitializePeer(connection);
             }
 
@@ -757,7 +761,10 @@ namespace SocketJack.Net {
                 if (!int.TryParse(lengthStr, out int payloadLength) || payloadLength <= 0)
                     break;
 
-                int totalFrameSize = 15 + payloadLength;
+                if (payloadLength > (target.Options.SafeMode && !sender.SafeModeVerified ? SafeModeHandshake.MaximumBytes : target.Options.MaximumBufferSize)) {
+                    sender.Close(target, DisconnectionReason.Unknown); buffer.Clear(); return;
+                }
+                int totalFrameSize = checked(15 + payloadLength);
                 if (buffer.Count < totalFrameSize)
                     break; // Wait for more data.
 
@@ -765,6 +772,15 @@ namespace SocketJack.Net {
                 buffer.CopyTo(15, payload, 0, payloadLength);
                 buffer.RemoveRange(0, totalFrameSize);
 
+                if (target.Options.SafeMode && !sender.SafeModeVerified) {
+                    try {
+                        SafeModeHandshake.Validate(payload, target.Options, sender);
+                        sender.Stream.Write(SafeModeHandshake.Accepted, 0, SafeModeHandshake.Accepted.Length);
+                        if (target.Options.UsePeerToPeer) target.InitializePeer(sender);
+                        target.InvokeSocketJackClientConnected(sender);
+                    } catch { sender.Close(target, DisconnectionReason.Unknown); return; }
+                    continue;
+                }
                 var securityDecision = target.RecordEndpointSecuritySocketJackFrame(sender, payloadLength);
                 if (!securityDecision.Allowed) {
                     target.CloseEndpointSecurityBlockedConnection(sender, securityDecision);
@@ -779,7 +795,7 @@ namespace SocketJack.Net {
                 try {
                     byte[] bytes = payload;
                     if (target.Options.UseCompression) {
-                        bytes = target.Options.CompressionAlgorithm.Decompress(bytes);
+                        bytes = UdpReliableObjects.Decompress(bytes, target.Options);
                     }
                     if (sender != null && sender.PatternCache != null) {
                         if (!sender.PatternCache.TryResolveReceived(bytes, target.Options, out bytes, out string cacheError)) {
@@ -787,20 +803,16 @@ namespace SocketJack.Net {
                             return;
                         }
                     }
-                    Wrapper wrapper = target.Options.Serializer.Deserialize(bytes);
-                    if (wrapper == null) return;
-                    var valueType = wrapper.GetValueType();
-                    if (wrapper.value != null || wrapper.Type != "") {
-                        object unwrapped = wrapper.Unwrap(target);
-                        if (unwrapped != null) {
-                            target.HandleReceive(sender, unwrapped, valueType, payloadLength);
-                            var genericType = typeof(ReceivedEventArgs<>).MakeGenericType(unwrapped.GetType());
-                            var receivedEventArgs = (IReceivedEventArgs)Activator.CreateInstance(genericType);
-                            receivedEventArgs.Initialize(target, sender, unwrapped, payloadLength);
-                            target.InvokeCallbacks(receivedEventArgs);
-                        }
+                    object unwrapped = InboundMessageDecoder.Read(target, sender, bytes);
+                    if (unwrapped != null) {
+                        target.HandleReceive(sender, unwrapped, unwrapped.GetType(), payloadLength);
+                        var genericType = typeof(ReceivedEventArgs<>).MakeGenericType(unwrapped.GetType());
+                        var receivedEventArgs = (IReceivedEventArgs)Activator.CreateInstance(genericType);
+                        receivedEventArgs.Initialize(target, sender, unwrapped, payloadLength);
+                        target.InvokeCallbacks(receivedEventArgs);
                     }
                 } catch (Exception ex) {
+                    sender.Close(target, DisconnectionReason.Unknown);
                     target.InvokeOnError(sender, ex);
                 }
             }
@@ -1432,6 +1444,8 @@ namespace SocketJack.Net {
                 return;
             }
 
+            try { SafeModeHandshake.ValidateHttp(request, server.Options, connection); }
+            catch { connection.Close(server, DisconnectionReason.Unknown); return; }
             string acceptKey;
             using (var sha1 = SHA1.Create()) {
                 byte[] hash = sha1.ComputeHash(Encoding.UTF8.GetBytes(secKey + WebSocketMagicGuid));
@@ -1582,22 +1596,18 @@ namespace SocketJack.Net {
             try {
                 byte[] data = payload;
                 if (server.Options.UseCompression && isBinary) {
-                    data = server.Options.CompressionAlgorithm.Decompress(data);
+                    data = UdpReliableObjects.Decompress(data, server.Options);
                 }
-                Wrapper wrapper = server.Options.Serializer.Deserialize(data);
-                if (wrapper == null) return;
-                var valueType = wrapper.GetValueType();
-                if (wrapper.value != null || wrapper.Type != "") {
-                    object unwrapped = wrapper.Unwrap(server);
-                    if (unwrapped != null) {
-                        server.HandleReceive(connection, unwrapped, valueType, payloadLen);
-                        var genericType = typeof(ReceivedEventArgs<>).MakeGenericType(unwrapped.GetType());
-                        var receivedEventArgs = (IReceivedEventArgs)Activator.CreateInstance(genericType);
-                        receivedEventArgs.Initialize(server, connection, unwrapped, payloadLen);
-                        server.InvokeCallbacks(receivedEventArgs);
-                    }
+                object unwrapped = InboundMessageDecoder.Read(server, connection, data);
+                if (unwrapped != null) {
+                    server.HandleReceive(connection, unwrapped, unwrapped.GetType(), payloadLen);
+                    var genericType = typeof(ReceivedEventArgs<>).MakeGenericType(unwrapped.GetType());
+                    var receivedEventArgs = (IReceivedEventArgs)Activator.CreateInstance(genericType);
+                    receivedEventArgs.Initialize(server, connection, unwrapped, payloadLen);
+                    server.InvokeCallbacks(receivedEventArgs);
                 }
             } catch (Exception ex) {
+                connection.Close(server, DisconnectionReason.Unknown);
                 server.InvokeOnError(connection, ex);
             }
         }

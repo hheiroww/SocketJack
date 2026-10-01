@@ -32,7 +32,7 @@ namespace SocketJack.Serialization {
         public object value { get; set; }
         protected static bool hasRecieved = false;
 
-        private readonly ConcurrentDictionary<string, Type> TypeCache = new();
+        private ConcurrentDictionary<string, Type> TypeCache;
 
         private static string RemoveNamespace(string fullTypeName) {
             if (string.IsNullOrEmpty(fullTypeName))
@@ -66,12 +66,25 @@ namespace SocketJack.Serialization {
             return fullTypeName;
         }
 
-        public Type GetValueType() {
+        public Type GetValueType(ISocket sender) {
+            var resolved = ResolveValueType(sender);
+            if (sender.Options.SafeMode) sender.Options.VerifiedAssemblies.Verify(resolved.Assembly);
+            return resolved;
+        }
+        private Type ResolveValueType(ISocket sender) {
+            var resolved = sender.Options.Whitelist.Resolve(Type);
+            if (resolved == null || sender.Options.Blacklist.Contains(resolved))
+                throw new TypeNotAllowedException(Type);
+            return resolved;
+        }
 
-            
-            if (!TypeCache.ContainsKey(Type))
-                TypeCache.AddOrUpdate(Type, GetValueType(Type));
-            return TypeCache[Type];
+        public Type GetValueType() {
+            var cache = TypeCache;
+            if (cache == null) {
+                var created = new ConcurrentDictionary<string, Type>();
+                cache = System.Threading.Interlocked.CompareExchange(ref TypeCache, created, null) ?? created;
+            }
+            return cache.GetOrAdd(Type, GetValueType);
         }
 
         private static Assembly[] loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
@@ -156,9 +169,48 @@ namespace SocketJack.Serialization {
 
         private object Strip(Type T, object obj, ISocket sender) {
             var instance = FormatterServices.GetSafeUninitializedObject(T);
-            GetPropertyReferences(T).ForEach(r => MethodExtensions.TryInvoke(() => SetProperty(obj, ref instance, r, sender)));
+            foreach (var property in Plans(T)) {
+                if (property.Set == null || property.Get == null) continue;
+                // Preserve the existing outgoing-strip behavior for throwing getters/setters.
+                try {
+                    object v = property.Get(obj);
+                    if (property.Info.PropertyType == typeof(object) && v != null) {
+                        if (sender.Options.Serializer is BinarySerializer ||
+                            (sender.Options.Serializer.GetType() == typeof(JsonSerializer) && !((JsonSerializer)sender.Options.Serializer).HasConverter(v.GetType())))
+                            v = new Wrapper(v, sender);
+                    }
+                    property.Set(instance, v);
+                } catch { }
+            }
             return instance;
         }
+
+        // Immutable local accessors only: no whitelist, pin, or authorization result is cached.
+        private sealed class PropertyPlan {
+            internal PropertyInfo Info;
+            internal int Index;
+            internal Func<object, object> Get;
+            internal Action<object, object> Set;
+        }
+        private static readonly ConcurrentDictionary<(Type, BindingFlags), PropertyPlan[]> plans = new();
+        private static PropertyPlan[] Plans(Type type) => plans.GetOrAdd((type, ReflectionFlags), key => {
+            var properties = key.Item1.GetProperties(key.Item2);
+            var result = new PropertyPlan[properties.Length];
+            for (int i = 0; i < properties.Length; i++) {
+                var p = properties[i]; var plan = new PropertyPlan { Info = p, Index = i }; result[i] = plan;
+                if (p.GetIndexParameters().Length != 0) continue;
+                try {
+                    var obj = Expression.Parameter(typeof(object)); var value = Expression.Parameter(typeof(object));
+                    var access = Expression.Property(Expression.Convert(obj, key.Item1), p);
+                    if (p.CanRead) plan.Get = Expression.Lambda<Func<object, object>>(Expression.Convert(access, typeof(object)), obj).Compile();
+                    if (p.CanWrite) plan.Set = Expression.Lambda<Action<object, object>>(Expression.Assign(access, Expression.Convert(value, p.PropertyType)), obj, value).Compile();
+                } catch (Exception ex) when (ex is PlatformNotSupportedException || ex is ArgumentException || ex is MemberAccessException) {
+                    if (p.CanRead) plan.Get = obj => p.GetValue(obj);
+                    if (p.CanWrite) plan.Set = (obj, value) => p.SetValue(obj, value);
+                }
+            }
+            return result;
+        });
 
         private TypeNotAllowedException CreateTypeException(ref ISocket sender, string Type, bool isBlacklisted = false) {
             var exception = new TypeNotAllowedException(Type, isBlacklisted);
@@ -170,12 +222,14 @@ namespace SocketJack.Serialization {
             return CreateTypeException(ref sender, GetTypeName(Type), isBlacklisted);
         }
 
-        private bool IsTypeAllowed(Type Type, ISocket sender) {
+        private bool IsTypeAllowed(Type Type, ISocket sender, bool verifyAssembly = true) {
+            if (Type == null) throw new TypeNotAllowedException("null");
             if (sender.Options.Blacklist.Contains(Type)) {
                 throw CreateTypeException(ref sender, Type, true);
             } else if(!sender.Options.Whitelist.Contains(Type) ){
                 throw CreateTypeException(ref sender, Type);
             }
+            if (verifyAssembly && sender.Options.SafeMode) sender.Options.VerifiedAssemblies.Verify(Type.Assembly);
             return true;
         }
 
@@ -183,7 +237,7 @@ namespace SocketJack.Serialization {
             Type T = Obj.GetType();
             if (T == typeof(PeerRedirect)) {
                 PeerRedirect peerRedirect = (PeerRedirect)Obj;
-                Type redirectType = ResolveTypeCached(peerRedirect.Type);
+                Type redirectType = sender.Options.Whitelist.Resolve(peerRedirect.Type);
                 if (redirectType == null) {
                     Exception exception = new Exception("Type '" + peerRedirect.Type + "' is not found in any referenced assembly.");
                     throw exception;
@@ -195,85 +249,48 @@ namespace SocketJack.Serialization {
         }
 
         public object Unwrap(Type Type, ISocket sender) {
-            bool isAllowed = IsTypeAllowed(Type, sender);
-            if (Type == null) {
-                Exception exception = new Exception("Type 'null' is not found in any referenced assembly.");
-                throw exception;
-            } else if (!isAllowed) {
-                this.Type = Type.Name;
-                return null;
+            InboundMessageSecurity.BeforeMaterialization(sender, Type);
+            if (Type == typeof(PeerRedirect)) {
+                if (sender.Options.Serializer is BinarySerializer binary) return binary.UnwrapRedirect(sender, this);
+                byte[] bytes = value is System.Text.Json.JsonElement json ? System.Text.Encoding.UTF8.GetBytes(json.GetRawText()) :
+                    value is string text ? System.Text.Encoding.UTF8.GetBytes(text) : throw InboundMessageSecurity.Denied();
+                return sender.Options.Serializer.DeserializeRedirect(sender, bytes);
             }
-            if (Type.IsValueType || Type.IsArray || Type == typeof(string)) {
+            // Graph validation below verifies this root DLL before any setters run.
+            // Do not repeat the identical allowed-type hash as well. The graph check still
+            // runs after authorization, which may have changed the local approval policy.
+            IsTypeAllowed(Type, sender, false);
+            DeserializationTypePolicy.Validate(Type, sender);
+            if (Type.IsValueType || Type.IsArray || Type == typeof(string))
                 return sender.Options.Serializer.GetValue(value, Type, true);
-            } else {
-                var instance = FormatterServices.GetSafeUninitializedObject(Type);
-                var references = GetPropertyReferences(Type);
-                int index = 0;
-
-                for (int i = 0, loopTo = references.Count - 1; i <= loopTo; i++) {
-                    index = i;
-                    var reference = references[i];
-                    try {
-                        bool isAllowedProperty = IsTypeAllowed(reference.Info.PropertyType, sender);
-                        if (isAllowedProperty)
-                            SetProperty(ref instance, reference, sender);
-                    } catch (Exception ex) {
-                        var r = references[index];
-                        if (ex.Message.Contains("Object of type 'System.Int64' cannot be converted to type 'System.Int32'.")) {
-                            throw new Int32NotSupportedException(instance.GetType().Name + "." + r.Info.Name);
-                        } else {
-                            string errorMessage = "Deserialization Error @ " + r.Index + " (" + instance.GetType().Name + "." + r.Info.Name + ")" + Environment.NewLine +
-                                                  (ex.Message == string.Empty ? string.Empty : "     " + ex.Message) +
-                                                  (ex.StackTrace == string.Empty ? string.Empty : Environment.NewLine + ex.StackTrace) + Environment.NewLine;
-                            Exception exception = new Exception(errorMessage, ex);
-                            sender.InvokeOnError(sender.Connection, exception);
-                        }
+            if (sender.Options.Serializer is BinarySerializer prepared) prepared.Prepare(Type);
+            var instance = FormatterServices.GetSafeUninitializedObject(Type);
+            foreach (var property in Plans(Type)) {
+                try {
+                    // Check every property against the live policy, including read-only properties.
+                    IsTypeAllowed(property.Info.PropertyType, sender);
+                    if (property.Set == null) continue;
+                    object v = sender.Options.Serializer is BinarySerializer binary
+                        ? binary.PropertyValue(property.Info.Name, value, property.Info.PropertyType)
+                        : sender.Options.Serializer.GetPropertyValue(new PropertyValueArgs(property.Info.Name, value, new PropertyReference(property.Info, property.Index)));
+                    if (v == null) continue;
+                    if (v is Wrapper nested) {
+                        if (nested.Type == null || nested.value == null) continue;
+                        v = nested.Unwrap(sender);
                     }
+                    if (property.Info.PropertyType.IsEnum && v.GetType() != property.Info.PropertyType)
+                        v = Enum.ToObject(property.Info.PropertyType, v);
+                    property.Set(instance, v);
+                } catch (Exception ex) {
+                    if (ex.Message.Contains("Object of type 'System.Int64' cannot be converted to type 'System.Int32'."))
+                        throw new Int32NotSupportedException(Type.Name + "." + property.Info.Name);
+                    throw new Exception("Deserialization Error @ " + property.Index + " (" + Type.Name + "." + property.Info.Name + ")" + Environment.NewLine + ex.Message, ex);
                 }
-                return instance;
             }
+            return instance;
         }
 
-        public object Unwrap(ISocket sender) {
-            Type Type = GetValueType();
-            bool isAllowed = IsTypeAllowed(Type, sender);
-            if (Type == null) {
-                Exception exception = new Exception("Type 'null' is not found in any referenced assembly.");
-                throw exception;
-            } else if(!isAllowed) {
-                this.Type = Type.Name;
-                return null;
-            }
-            if (Type.IsValueType || Type.IsArray || Type == typeof(string)) {
-                return sender.Options.Serializer.GetValue(value, Type, true);
-            } else {
-                var instance = FormatterServices.GetSafeUninitializedObject(Type);
-                var references = GetPropertyReferences(Type);
-                int index = 0;
-
-                for (int i = 0, loopTo = references.Count - 1; i <= loopTo; i++) {
-                    index = i;
-                    var reference = references[i];
-                    try {
-                        bool isAllowedProperty = IsTypeAllowed(reference.Info.PropertyType, sender);    
-                        if (isAllowedProperty)
-                            SetProperty(ref instance, reference, sender);
-                    } catch (Exception ex) {
-                        var r = references[index];
-                        if (ex.Message.Contains("Object of type 'System.Int64' cannot be converted to type 'System.Int32'.")) {
-                            throw new Int32NotSupportedException(instance.GetType().Name + "." + r.Info.Name);
-                        } else {
-                            string errorMessage = "Deserialization Error @ " + r.Index + " (" + instance.GetType().Name + "." + r.Info.Name + ")" + Environment.NewLine +
-                                                  (ex.Message == string.Empty ? string.Empty : "     " + ex.Message) +
-                                                  (ex.StackTrace == string.Empty ? string.Empty : Environment.NewLine + ex.StackTrace) + Environment.NewLine;
-                            Exception exception = new Exception(errorMessage, ex);
-                            sender.InvokeOnError(sender.Connection, exception);
-                        }
-                    }
-                }
-                return instance;
-            }
-        }
+        public object Unwrap(ISocket sender) => Unwrap(GetValueType(sender), sender);
 
         public object GetPropertyValue(ISocket sender, PropertyReference Reference) {
             return sender.Options.Serializer.GetPropertyValue(new PropertyValueArgs(Reference.Info.Name, value, Reference));
@@ -305,7 +322,7 @@ namespace SocketJack.Serialization {
                 Type vType = v.GetType();
                 if (iType == typeof(PeerRedirect) && vType == typeof(Wrapper)) {
                     PeerRedirect redirect = (PeerRedirect)Instance;
-                    Type redirectType = ResolveTypeCached(redirect.Type);
+                    Type redirectType = sender.Options.Whitelist.Resolve(redirect.Type);
                     v = redirectType != null ? ((Wrapper)v).Unwrap(redirectType, sender) : ((Wrapper)v).Unwrap(sender);
                 } else if(vType == typeof(Wrapper)) {
                     Wrapper wrapper = (Wrapper)v;
@@ -345,7 +362,7 @@ namespace SocketJack.Serialization {
                 string PropertyTypeName = Reference.Info.PropertyType.FullName;
                 Type vType = v.GetType();
                 if (iType == typeof(PeerRedirect) && vType == typeof(Wrapper)) {
-                    Type redirectType = System.Type.GetType(redirect.Type);
+                    Type redirectType = sender.Options.Whitelist.Resolve(redirect.Type);
                     v = Unwrap(redirectType, sender);
                 } else if (vType == typeof(Wrapper)) {
                     Wrapper wrapper = (Wrapper)v;

@@ -51,7 +51,7 @@ namespace SocketJack.Net.Database {
         private static readonly ConcurrentDictionary<string, string> _pageTemplateCache = new ConcurrentDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private static readonly ConcurrentDictionary<string, string> _pageHashCache = new ConcurrentDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private static readonly JsonSerializerOptions _reflectJsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-        private const string ErrorDiagnosticsTableName = "HeirowLlmErrorLog";
+        private const string ErrorDiagnosticsTableName = "SocketJackErrorLog";
         private const string SqlAdminAuditTableName = "SqlAdminAuditLog";
         private const string SqlAdminRestorePointsTableName = "SqlAdminRestorePoints";
         private const int MaxSqlRestorePointRows = 32;
@@ -105,7 +105,6 @@ namespace SocketJack.Net.Database {
             _server.Map("POST", basePath + "/api/backups/restore", (conn, req, ct) => ApiBackupsRestore(req));
             _server.Map("GET", basePath + "/api/operations/dashboard", (conn, req, ct) => ApiOperationsDashboard(req));
             _server.Map("GET", basePath + "/api/errors/recent", (conn, req, ct) => ApiErrorDiagnosticsRecent(req));
-            _server.Map("POST", basePath + "/api/errors/analyze", (conn, req, ct) => ApiErrorDiagnosticsAnalyze(req));
 
             // Table Designer API endpoints
             _server.Map("POST", basePath + "/api/designer/create-table", (conn, req, ct) => ApiDesignerCreateTable(req));
@@ -170,7 +169,6 @@ namespace SocketJack.Net.Database {
             _server.RemoveRoute("POST", basePath + "/api/backups/restore");
             _server.RemoveRoute("GET", basePath + "/api/operations/dashboard");
             _server.RemoveRoute("GET", basePath + "/api/errors/recent");
-            _server.RemoveRoute("POST", basePath + "/api/errors/analyze");
 
             // Table Designer routes
             _server.RemoveRoute("POST", basePath + "/api/designer/create-table");
@@ -2098,46 +2096,6 @@ namespace SocketJack.Net.Database {
             });
         }
 
-        private object ApiErrorDiagnosticsAnalyze(HttpRequest req) {
-            req.Context.ContentType = "application/json";
-            var session = GetSession(req);
-            if (session == null) { req.Context.StatusCode = "401 Unauthorized"; return "{\"error\":\"Not authenticated.\"}"; }
-            if (!ValidateSqlAdminMutation(req, session, "error-diagnostics.analyze", out var mutationError)) return mutationError;
-
-            var ds = GetDataServer();
-            if (ds == null) return "{\"error\":\"DataServer not available.\"}";
-            if (!CanSqlAdminSessionAccessDatabase(req, session, ds, "SocketJack"))
-                return SqlTenantForbiddenJson(req, "SocketJack");
-
-            string body = req.Body ?? "";
-            int take = ParsePositiveInt(ExtractJsonString(body, "take"), 80);
-            take = Math.Min(Math.Max(take, 1), 200);
-            string focus = ExtractJsonString(body, "focus") ?? "";
-            var rows = ReadRecentErrorDiagnosticsRows(ds, take);
-            if (rows.Count == 0)
-                return JsonSerializer.Serialize(new {
-                    success = true,
-                    analysis = "No stored HeirowLlm errors are available to analyze.",
-                    entries = new List<object>()
-                });
-
-            try {
-                string analysis = AnalyzeErrorDiagnosticsWithLocalLlm(rows, focus);
-                WriteSqlAudit(req, session, "error-diagnostics.analyze", "SocketJack", ErrorDiagnosticsTableName, "success", rows.Count, "LLM diagnosis completed.", "");
-                return JsonSerializer.Serialize(new {
-                    success = true,
-                    generatedUtc = DateTime.UtcNow.ToString("O"),
-                    analyzedCount = rows.Count,
-                    analysis,
-                    entries = rows.Select(ErrorDiagnosticsRowToDto).ToList()
-                });
-            } catch (Exception ex) {
-                WriteSqlAudit(req, session, "error-diagnostics.analyze", "SocketJack", ErrorDiagnosticsTableName, "error", 0, ex.Message, "");
-                req.Context.StatusCode = "502 Bad Gateway";
-                return JsonSerializer.Serialize(new { error = ex.Message });
-            }
-        }
-
         private List<object[]> ReadRecentErrorDiagnosticsRows(DataServer ds, int take) {
             var table = GetErrorDiagnosticsTable(ds);
             var rows = new List<object[]>();
@@ -2168,95 +2126,6 @@ namespace SocketJack.Net.Database {
                 fingerprint = GetRow(row, 12),
                 count = ParsePositiveInt(GetRow(row, 13), 1)
             };
-        }
-
-        private string AnalyzeErrorDiagnosticsWithLocalLlm(List<object[]> rows, string focus) {
-            string endpoint = "http://127.0.0.1:" + _server.Port.ToString(System.Globalization.CultureInfo.InvariantCulture) + "/api/chat";
-            string logText = BuildErrorDiagnosticsPrompt(rows, focus);
-            var payload = new {
-                model = "lm-studio",
-                temperature = 0.2,
-                max_tokens = 900,
-                messages = new[] {
-                    new {
-                        role = "system",
-                        content = "You diagnose SocketJack HeirowLlm server errors for an administrator. Be concise and operational. Return: Summary, Most likely cause, Evidence, Next checks, and Suggested fix. If the evidence is weak, say what is uncertain."
-                    },
-                    new {
-                        role = "user",
-                        content = logText
-                    }
-                }
-            };
-
-            using (var client = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(120) })
-            using (var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json"))
-            using (var response = client.PostAsync(endpoint, content).GetAwaiter().GetResult()) {
-                string responseBody = response.Content == null ? "" : response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
-                if (!response.IsSuccessStatusCode)
-                    throw new InvalidOperationException("LLM diagnostics request failed: HTTP " + ((int)response.StatusCode).ToString(System.Globalization.CultureInfo.InvariantCulture) + " " + response.ReasonPhrase + ". " + TruncateAuditText(responseBody, 1000));
-
-                using (JsonDocument document = JsonDocument.Parse(responseBody)) {
-                    JsonElement root = document.RootElement;
-                    if (root.ValueKind == JsonValueKind.Object &&
-                        root.TryGetProperty("ok", out JsonElement okElement) &&
-                        okElement.ValueKind == JsonValueKind.False) {
-                        string error = root.TryGetProperty("error", out JsonElement errorElement) ? JsonElementToText(errorElement) : "LLM diagnostics request failed.";
-                        throw new InvalidOperationException(error);
-                    }
-
-                    string contentText = root.TryGetProperty("content", out JsonElement contentElement) ? JsonElementToText(contentElement) : "";
-                    string reasoningText = root.TryGetProperty("reasoning", out JsonElement reasoningElement) ? JsonElementToText(reasoningElement) : "";
-                    string combined = (contentText ?? "").Trim();
-                    if (string.IsNullOrWhiteSpace(combined))
-                        combined = (reasoningText ?? "").Trim();
-                    if (string.IsNullOrWhiteSpace(combined))
-                        combined = TruncateAuditText(responseBody, 4000);
-                    return combined;
-                }
-            }
-        }
-
-        private string BuildErrorDiagnosticsPrompt(List<object[]> rows, string focus) {
-            var sb = new StringBuilder();
-            sb.AppendLine("Analyze these stored HeirowLlm errors.");
-            if (!string.IsNullOrWhiteSpace(focus))
-                sb.AppendLine("Admin focus: " + focus.Trim());
-            sb.AppendLine();
-            sb.AppendLine("Recent grouped errors, newest first:");
-            int index = 0;
-            foreach (object[] sourceRow in rows) {
-                object[] row = NormalizeErrorDiagnosticsRow(sourceRow);
-                index++;
-                sb.Append(index.ToString(System.Globalization.CultureInfo.InvariantCulture)).Append(". ");
-                sb.Append("lastSeen=").Append(GetRow(row, 2));
-                sb.Append("; count=").Append(GetRow(row, 13));
-                sb.Append("; severity=").Append(GetRow(row, 3));
-                sb.Append("; category=").Append(GetRow(row, 4));
-                sb.Append("; source=").Append(GetRow(row, 5));
-                sb.Append("; route=").Append(GetRow(row, 6));
-                sb.AppendLine();
-                sb.AppendLine("   message: " + TruncateAuditText(GetRow(row, 8), 1200));
-                string detail = GetRow(row, 9);
-                if (!string.IsNullOrWhiteSpace(detail))
-                    sb.AppendLine("   detail: " + TruncateAuditText(detail, 1200));
-                string stack = GetRow(row, 11);
-                if (!string.IsNullOrWhiteSpace(stack))
-                    sb.AppendLine("   stack: " + TruncateAuditText(stack, 1600));
-            }
-            return sb.ToString();
-        }
-
-        private static string JsonElementToText(JsonElement element) {
-            switch (element.ValueKind) {
-                case JsonValueKind.String:
-                    return element.GetString() ?? "";
-                case JsonValueKind.Null:
-                case JsonValueKind.Undefined:
-                    return "";
-                default:
-                    return element.GetRawText();
-            }
         }
 
         private static int ReadTakeQuery(HttpRequest req, int defaultValue, int maxValue) {
@@ -4447,62 +4316,9 @@ namespace SocketJack.Net.Database {
         }
 
         private object ExecuteReflectedEndpoint(HttpRequest req, ApiEndpointDef endpoint, Dictionary<string, string> parameters) {
-            req.Context.ContentType = string.IsNullOrWhiteSpace(endpoint.ContentType) ? "application/json" : endpoint.ContentType;
-            try {
-                var result = InvokeStaticReflectMethod(
-                    endpoint.HandlerTypeName,
-                    endpoint.HandlerMethodName,
-                    endpoint.HandlerArguments,
-                    req,
-                    parameters);
-
-                switch ((endpoint.ResponseFormat ?? "handler").ToLowerInvariant()) {
-                    case "plaintext":
-                        req.Context.ContentType = "text/plain";
-                        return result?.ToString() ?? "";
-                    case "binary":
-                        if (result is byte[] bytes)
-                            return new FileResponse(bytes, string.IsNullOrWhiteSpace(endpoint.ContentType) ? "application/octet-stream" : endpoint.ContentType);
-                        return SerializeReflectResultSafe(result);
-                    case "handler":
-                    case "json":
-                    default:
-                        req.Context.ContentType = "application/json";
-                        return SerializeReflectResultSafe(result);
-                }
-            } catch (Exception ex) {
-                req.Context.ContentType = "application/json";
-                req.Context.StatusCode = "500 Internal Server Error";
-                var message = ex is TargetInvocationException && ex.InnerException != null ? ex.InnerException.Message : ex.Message;
-                return "{\"error\":\"" + EscapeJson(message) + "\"}";
-            }
-        }
-
-        private object InvokeStaticReflectMethod(string typeName, string methodName, string argumentsJson, HttpRequest req, Dictionary<string, string> parameters) {
-            var targetType = FindReflectType(typeName);
-            if (targetType == null)
-                throw new InvalidOperationException("Type not found: " + typeName);
-
-            var methods = targetType
-                .GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.IgnoreCase)
-                .Where(m => string.Equals(m.Name, methodName, StringComparison.OrdinalIgnoreCase))
-                .OrderByDescending(m => m.GetParameters().Length)
-                .ToArray();
-            if (methods.Length == 0)
-                throw new InvalidOperationException("Public static method not found: " + methodName);
-
-            Exception lastError = null;
-            foreach (var method in methods) {
-                try {
-                    var args = BuildReflectArguments(method, argumentsJson, req, parameters);
-                    var value = method.Invoke(null, args);
-                    return UnwrapTaskResult(value);
-                } catch (Exception ex) {
-                    lastError = ex;
-                }
-            }
-
-            throw lastError ?? new InvalidOperationException("Could not bind reflected method arguments.");
+            // An authenticated admin session is not permission to execute arbitrary CLR methods.
+            req.Context.StatusCode = "403 Forbidden";
+            return "{\"error\":\"Remote reflection invocation is disabled. Register an explicit authorized handler in application code.\"}";
         }
 
         private object[] BuildReflectArguments(MethodInfo method, string argumentsJson, HttpRequest req, Dictionary<string, string> parameters) {
@@ -5324,125 +5140,8 @@ namespace SocketJack.Net.Database {
                         return sb.ToString();
                     }
                     case "reflect": {
-                        // Invoke a method on a loaded type via reflection
-                        var typeName = ExtractJsonString(body, "typeName") ?? "";
-                        var methodName = ExtractJsonString(body, "methodName") ?? "";
-                        var argsJson = ExtractJsonString(body, "args") ?? "[]";
-                        if (string.IsNullOrWhiteSpace(typeName) || string.IsNullOrWhiteSpace(methodName))
-                            return "{\"error\":\"typeName and methodName are required.\"}";
-                        if (!IsEventReflectionAllowed(req, eventDef, typeName, methodName)) {
-                            req.Context.StatusCode = "403 Forbidden";
-                            return "{\"error\":\"Reflection events are blocked unless they are local, approved, and allowlisted.\"}";
-                        }
-
-                        // Search across application assemblies (skip system/framework DLLs)
-                        Type targetType = null;
-                        foreach (var asm in AppDomain.CurrentDomain.GetAssemblies()) {
-                            if (!IsApplicationAssembly(asm)) continue;
-                            try { targetType = asm.GetType(typeName, false, true); } catch { }
-                            if (targetType != null) break;
-                        }
-                        if (targetType == null) return "{\"error\":\"Type not found: " + EscapeJson(typeName) + "\"}";
-
-                        // Parse simple string args from JSON array (needed early for overload resolution)
-                        var args = ParseSimpleJsonArray(argsJson);
-
-                        // Use GetMethods + filter to avoid AmbiguousMatchException on overloaded methods
-                        var candidates = targetType.GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.IgnoreCase | BindingFlags.DeclaredOnly)
-                            .Where(m => string.Equals(m.Name, methodName, StringComparison.OrdinalIgnoreCase))
-                            .ToArray();
-                        if (candidates.Length == 0) {
-                            // Fall back to include inherited methods
-                            candidates = targetType.GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.IgnoreCase)
-                                .Where(m => string.Equals(m.Name, methodName, StringComparison.OrdinalIgnoreCase))
-                                .ToArray();
-                        }
-                        if (candidates.Length == 0) return "{\"error\":\"Static method not found: " + EscapeJson(methodName) + "\"}";
-
-                        // Pick the best overload: prefer exact param count match, then allow optional params
-                        MethodInfo mi = null;
-                        if (candidates.Length == 1) {
-                            mi = candidates[0];
-                        } else {
-                            // Exact match on argument count
-                            mi = candidates.FirstOrDefault(m => m.GetParameters().Length == args.Count);
-                            if (mi == null) {
-                                // Match methods where required param count <= args.Count <= total param count
-                                mi = candidates.FirstOrDefault(m => {
-                                    var p = m.GetParameters();
-                                    var required = p.Count(pp => !pp.HasDefaultValue);
-                                    return args.Count >= required && args.Count <= p.Length;
-                                });
-                            }
-                            if (mi == null) mi = candidates[0]; // last resort: take first
-                        }
-                        var parameters = mi.GetParameters();
-                        var convertedArgs = new object[parameters.Length];
-                        for (int i = 0; i < parameters.Length; i++) {
-                            if (i < args.Count) {
-                                var paramType = parameters[i].ParameterType;
-                                try {
-                                    if (paramType.IsArray) {
-                                        // Parse JSON array string into the correct array type
-                                        var elemType = paramType.GetElementType();
-                                        var parsed = ParseSimpleJsonArray(args[i]);
-                                        var arr = Array.CreateInstance(elemType, parsed.Count);
-                                        for (int j = 0; j < parsed.Count; j++) {
-                                            try { arr.SetValue(Convert.ChangeType(parsed[j], elemType), j); }
-                                            catch { arr.SetValue(parsed[j], j); }
-                                        }
-                                        convertedArgs[i] = arr;
-                                    } else if (paramType.IsGenericType && (paramType.GetGenericTypeDefinition() == typeof(List<>)
-                                        || paramType.GetGenericTypeDefinition() == typeof(IEnumerable<>)
-                                        || paramType.GetGenericTypeDefinition() == typeof(ICollection<>)
-                                        || paramType.GetGenericTypeDefinition() == typeof(IList<>)
-                                        || paramType.GetGenericTypeDefinition() == typeof(IReadOnlyList<>)
-                                        || paramType.GetGenericTypeDefinition() == typeof(IReadOnlyCollection<>))) {
-                                        // Parse JSON array string into a List<T>
-                                        var elemType = paramType.GetGenericArguments()[0];
-                                        var listType = typeof(List<>).MakeGenericType(elemType);
-                                        var list = (System.Collections.IList)Activator.CreateInstance(listType);
-                                        var parsed = ParseSimpleJsonArray(args[i]);
-                                        foreach (var item in parsed) {
-                                            try { list.Add(Convert.ChangeType(item, elemType)); }
-                                            catch { list.Add(item); }
-                                        }
-                                        convertedArgs[i] = list;
-                                    } else if (string.Equals(args[i], "null", StringComparison.OrdinalIgnoreCase) && !paramType.IsValueType) {
-                                        convertedArgs[i] = null;
-                                    } else {
-                                        convertedArgs[i] = Convert.ChangeType(args[i], paramType);
-                                    }
-                                }
-                                catch { convertedArgs[i] = args[i]; }
-                            } else if (parameters[i].HasDefaultValue) {
-                                convertedArgs[i] = parameters[i].DefaultValue;
-                            }
-                        }
-
-                        var returnVal = mi.Invoke(null, parameters.Length > 0 ? convertedArgs : null);
-
-                        // Await Task-returning (async) methods
-                        if (returnVal is System.Threading.Tasks.Task task) {
-                            task.GetAwaiter().GetResult();
-                            // Extract the result from Task<T> if applicable
-                            var taskType = returnVal.GetType();
-                            if (taskType.IsGenericType) {
-                                var resultProp = taskType.GetProperty("Result");
-                                if (resultProp != null)
-                                    returnVal = resultProp.GetValue(returnVal);
-                                else
-                                    returnVal = null;
-                            } else {
-                                returnVal = null; // void Task
-                            }
-                        }
-
-                        var serialized = SerializeReflectResultSafe(returnVal);
-                        WriteSqlAudit(req, session, "event.reflect", "", typeName + "." + methodName, "success", 0, "SQL Admin event reflection action executed.", argsJson, "", "", eventId, "event");
-                        ResetEventCircuit(eventId);
-                        sb.Append("{\"success\":true,\"result\":").Append(serialized).Append("}");
-                        return sb.ToString();
+                        req.Context.StatusCode = "403 Forbidden";
+                        return "{\"error\":\"Remote reflection invocation is disabled. Register an explicit authorized handler in application code.\"}";
                     }
                     default:
                         return "{\"error\":\"Unknown actionType: " + EscapeJson(actionType) + ". Expected http, sql, or reflect.\"}";
@@ -5536,17 +5235,6 @@ namespace SocketJack.Net.Database {
             }
         }
 
-        private bool IsEventReflectionAllowed(HttpRequest req, EventDef eventDef, string typeName, string methodName) {
-            if (!IsLocalhostRequest(req) || eventDef == null || !eventDef.Approved)
-                return false;
-
-            string target = (typeName ?? "") + "." + (methodName ?? "");
-            string allowlist = Environment.GetEnvironmentVariable("SOCKETJACK_SQL_EVENT_REFLECT_ALLOWLIST") ?? "";
-            return allowlist.Split(',')
-                .Select(item => item.Trim())
-                .Where(item => !string.IsNullOrWhiteSpace(item))
-                .Any(item => item == "*" || string.Equals(item, target, StringComparison.OrdinalIgnoreCase) || (item.EndsWith(".*", StringComparison.Ordinal) && target.StartsWith(item.Substring(0, item.Length - 1), StringComparison.OrdinalIgnoreCase)));
-        }
 
         private void ResetEventCircuit(string eventId) {
             if (!string.IsNullOrWhiteSpace(eventId))

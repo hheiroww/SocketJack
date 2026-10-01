@@ -466,10 +466,20 @@ namespace SocketJack.Net {
             }
         }
 
-        /// <summary>
-        /// Maps a route whose handler receives a deserialized body of type <typeparamref name="T"/>.
-        /// The request body is deserialized using the configured serializer before the handler is invoked.
-        /// </summary>
+        private void VerifyTypedRequest(HttpRequest request) {
+            if (!Options.SafeMode) return;
+            var connection = request.Context?.Connection;
+            try {
+                if (connection == null || !request.Headers.TryGetValue(SafeModeHandshake.HeaderName, out string value)) throw SafeModeHandshake.Rejected();
+                if (value.Length > SafeModeHandshake.MaximumBytes * 2) throw SafeModeHandshake.Rejected();
+                SafeModeHandshake.Validate(Convert.FromBase64String(value), Options, connection);
+            } catch {
+                if (connection != null) connection.Close(this, DisconnectionReason.Unknown);
+                throw SafeModeHandshake.Rejected();
+            }
+        }
+
+        /// <summary>Maps a typed body route. SafeMode validates client DLL claims before deserialization or handler invocation.</summary>
         public void Map<T>(string method, string path, RouteHandler<T> handler) {
             if (string.IsNullOrWhiteSpace(method))
                 throw new ArgumentException("Method is required.", nameof(method));
@@ -479,16 +489,19 @@ namespace SocketJack.Net {
                 throw new ArgumentNullException(nameof(handler));
 
             Map(method, path, (connection, request, cancellationToken) => {
-                T body = default;
-                if (request.BodyBytes != null && request.BodyBytes.Length > 0) {
-                    var wrapped = Options.Serializer.Deserialize(request.BodyBytes);
-                    if (wrapped != null) {
-                        var obj = wrapped.Unwrap(this as ISocket);
-                        if (obj is T typed)
-                            body = typed;
-                    }
+                T typed;
+                try {
+                    VerifyTypedRequest(request);
+                    InboundMessageSecurity.RequireType(this, connection, typeof(T));
+                    var body = InboundMessageDecoder.Read(this, connection, request.BodyBytes, expectedType: typeof(T));
+                    if (!(body is T)) throw InboundMessageSecurity.Denied();
+                    typed = (T)body;
+                } catch {
+                    // Invalid manifests, types and malformed payloads all terminate the client.
+                    connection?.Close(this, DisconnectionReason.Unknown);
+                    throw;
                 }
-                return handler(connection, body, request, cancellationToken);
+                return handler(connection, typed, request, cancellationToken);
             });
             SetMappedRouteMetadata(method, path, handler, typeof(T));
         }
@@ -529,16 +542,19 @@ namespace SocketJack.Net {
                 throw new ArgumentNullException(nameof(handler));
 
             MapHost(hostName, method, path, (connection, request, cancellationToken) => {
-                T body = default;
-                if (request.BodyBytes != null && request.BodyBytes.Length > 0) {
-                    var wrapped = Options.Serializer.Deserialize(request.BodyBytes);
-                    if (wrapped != null) {
-                        var obj = wrapped.Unwrap(this as ISocket);
-                        if (obj is T typed)
-                            body = typed;
-                    }
+                T typed;
+                try {
+                    VerifyTypedRequest(request);
+                    InboundMessageSecurity.RequireType(this, connection, typeof(T));
+                    var body = InboundMessageDecoder.Read(this, connection, request.BodyBytes, expectedType: typeof(T));
+                    if (!(body is T)) throw InboundMessageSecurity.Denied();
+                    typed = (T)body;
+                } catch {
+                    // Invalid manifests, types and malformed payloads all terminate the client.
+                    connection?.Close(this, DisconnectionReason.Unknown);
+                    throw;
                 }
-                return handler(connection, body, request, cancellationToken);
+                return handler(connection, typed, request, cancellationToken);
             });
         }
 
@@ -3098,26 +3114,8 @@ namespace SocketJack.Net {
                 }
                 ApplyEndpointSecurityDelay(endpointSecurityDecision);
 
-                // If any callbacks registered for deserialized types, attempt to deserialize body and invoke
-                if (request.BodyBytes != null && request.BodyBytes.Length > 0) {
-                    try {
-                        var wrapped = Options.Serializer.Deserialize(request.BodyBytes);
-                        if (wrapped != null) {
-                            var obj = wrapped.Unwrap(this as ISocket);
-                            if (obj != null) {
-                                var objType = obj.GetType();
-                                if (TypeCallbacks.ContainsKey(objType)) {
-                                    var genericType = typeof(ReceivedEventArgs<>).MakeGenericType(objType);
-                                    var args = (IReceivedEventArgs)Activator.CreateInstance(genericType);
-                                    args.Initialize(this as ISocket, e.Connection, obj, request.BodyBytes.Length);
-                                    InvokeCallbacks(args);
-                                }
-                            }
-                        }
-                    } catch {
-                        // ignore deserialize errors
-                    }
-                }
+                // Typed bodies are decoded only by explicitly mapped typed routes, after request gates.
+                // An arbitrary URL/body must never invoke registered SocketJack callbacks.
 
                 if (!IsHostAllowed(request)) {
                     context.StatusCodeNumber = 421;

@@ -141,6 +141,9 @@
             Attempts to read an embedded binary page asset by file name.
             </summary>
         </member>
+        <member name="M:SocketJack.Extensions.ByteExtensions.GetSegments(System.Byte[],System.Int32)">
+            <summary>Split an object into bounded chunks. Segment indexes restart at one for each legacy object envelope.</summary>
+        </member>
         <member name="M:SocketJack.Extensions.ByteExtensions.Remove(System.Byte[],System.Int32,System.Int32)">
             <summary>
             Remove bytes from source Array.
@@ -543,7 +546,13 @@
         <member name="P:SocketJack.Net.Database.DataServer.AutoSave">
             <summary>
             When <see langword="true"/>, every dirty data mutation (table/row add/remove)
-            schedules a verified flush to <see cref="P:SocketJack.Net.Database.DataServer.DataPath"/>.
+            persists changes to <see cref="P:SocketJack.Net.Database.DataServer.DataPath"/> before returning by default.
+            </summary>
+        </member>
+        <member name="P:SocketJack.Net.Database.DataServer.DurableAutoSave">
+            <summary>
+            Wait for durable storage before acknowledging a mutation. Disable only
+            for workloads that explicitly accept losing pending changes on a crash.
             </summary>
         </member>
         <member name="P:SocketJack.Net.Database.DataServer.HasUnsavedChanges">
@@ -577,8 +586,8 @@
         </member>
         <member name="P:SocketJack.Net.Database.DataServer.AutoSaveDebounceMs">
             <summary>
-            Interval in milliseconds to debounce auto-save writes.
-            Only the last mutation within this window triggers a write.
+            Maximum batching delay when DurableAutoSave is disabled. Further edits
+            do not postpone the scheduled write. Failed saves are retried every five seconds.
             </summary>
         </member>
         <member name="P:SocketJack.Net.Database.DataServer.EnablePayloadEncryption">
@@ -618,6 +627,9 @@
             <param name="Name">Server name for logging.</param>
             <param name="hosted">Must be <see langword="true"/>. Distinguishes this from the standalone constructor.</param>
             <param name="loadFromDisk">Load persisted state during construction.</param>
+        </member>
+        <member name="P:SocketJack.Net.Database.DataServer.SqlSyncRoot">
+            <summary>Shared synchronization boundary for embedded database mutations.</summary>
         </member>
         <member name="M:SocketJack.Net.Database.DataServer.Save">
             <summary>
@@ -731,6 +743,15 @@
             Maps a SQL Server data type name to a .NET <see cref="T:System.Type"/>.
             </summary>
         </member>
+        <member name="M:SocketJack.Net.Database.DataServer.BeginTransaction(SocketJack.Net.Database.SqlSession)">
+            <summary>Starts an optimistic serializable transaction. Commit detects changes to the committed store.</summary>
+        </member>
+        <member name="T:SocketJack.Net.Database.SqlCommand">
+            <summary>A command carries values separately from SQL text.</summary>
+        </member>
+        <member name="T:SocketJack.Net.Database.ISqlConnector">
+            <summary>Implement this interface to add a database connection without changing the query engine.</summary>
+        </member>
         <member name="T:SocketJack.Net.Database.DataServerSnapshot">
             <summary>
             Serializable snapshot of the entire DataServer state.
@@ -827,6 +848,9 @@
             Command-line tool for generating DbContext from database schema.
             Can be used as a pre-build event or MSBuild target.
             </summary>
+        </member>
+        <member name="P:SocketJack.Net.Database.QueryResult.Handled">
+            <summary>Explicitly marks an extension-handled command, including zero-row writes.</summary>
         </member>
         <member name="P:SocketJack.Net.Database.QueryResult.ColumnTypes">
             <summary>
@@ -1732,10 +1756,7 @@
             </summary>
         </member>
         <member name="M:SocketJack.Net.HttpServer.Map``1(System.String,System.String,SocketJack.Net.HttpServer.RouteHandler{``0})">
-            <summary>
-            Maps a route whose handler receives a deserialized body of type <typeparamref name="T"/>.
-            The request body is deserialized using the configured serializer before the handler is invoked.
-            </summary>
+            <summary>Maps a typed body route. SafeMode validates client DLL claims before deserialization or handler invocation.</summary>
         </member>
         <member name="M:SocketJack.Net.HttpServer.MapHost(System.String,System.String,System.String,SocketJack.Net.HttpServer.RouteHandler)">
             <summary>
@@ -2298,10 +2319,7 @@
             </summary>
         </member>
         <member name="M:SocketJack.Net.MutableTcpServer.InvokeWebSocketClientConnected(SocketJack.Net.NetworkConnection)">
-            <summary>
-            Invoked by <see cref="T:SocketJack.Net.WebSocketProtocolHandler"/> after a successful
-            WebSocket handshake to raise the <see cref="E:SocketJack.Net.MutableTcpServer.WebSocketClientConnected"/> event.
-            </summary>
+            <summary>Raises the typed WebSocket connected event after validation.</summary>
         </member>
         <member name="M:SocketJack.Net.MutableTcpServer.FindDataServer">
             <summary>
@@ -2930,6 +2948,16 @@
             <returns>Value as string.</returns>
             </summary>
         </member>
+        <member name="P:SocketJack.Net.NetworkConnection.AuthenticatedPrincipal">
+            <summary>A defensive copy of the locally verified identity. Wire metadata never sets this property.</summary>
+        </member>
+        <member name="M:SocketJack.Net.NetworkConnection.SetAuthenticatedPrincipal(System.Security.Claims.ClaimsPrincipal,System.DateTimeOffset)">
+            <summary>Call only after the server has verified credentials or a client certificate. Requires encrypted TLS.
+            Never copy roles or an authentication flag from a DTO, peer metadata, or DLL claims. UDP has no authenticated channel.</summary>
+        </member>
+        <member name="M:SocketJack.Net.NetworkConnection.ClearAuthentication">
+            <summary>Revoke local authentication on logout or credential invalidation.</summary>
+        </member>
         <member name="T:SocketJack.Net.NetworkOptions">
             <summary>
             Default options for <see langword="TcpClient"/>, <see langword="TcpServer"/>, <see langword="UdpClient"/>, and <see langword="UdpServer"/>.
@@ -2941,11 +2969,23 @@
             </code>
             </summary>
         </member>
-        <member name="P:SocketJack.Net.NetworkOptions.Serializer">
+        <member name="P:SocketJack.Net.NetworkOptions.Authorization">
             <summary>
             Serializer for both <see langword="TcpClient"/> and <see langword="TcpServer"/>.
             <para>Default is System.Text.Json.</para>
             </summary>
+            <summary>Local receive authorization policy. Independent of SafeMode and never negotiated by a client.</summary>
+        </member>
+        <member name="P:SocketJack.Net.NetworkOptions.SafeMode">
+            <summary>Require a client DLL fingerprint handshake before typed network traffic. Default: true.</summary>
+            <remarks>WARNING: setting SafeMode = false disables the DLL handshake and verified-assembly requirement.
+            This is not a smart move on an untrusted network. Use only for an explicitly isolated legacy endpoint.
+            WARNING: client-reported MD5/SHA-256 values are compatibility claims, not remote attestation or authentication.
+            Use authenticated TLS and application authorization as well. Register callbacks and approved DLL pins before connecting.</remarks>
+        </member>
+        <member name="P:SocketJack.Net.NetworkOptions.VerifiedAssemblies">
+            <summary>Trusted local application DLL pins. Supply SHA-256 values from your trusted release process.
+            Never populate this registry from a network client. SafeMode requires every application message DLL to be approved.</summary>
         </member>
         <member name="P:SocketJack.Net.NetworkOptions.CompressionAlgorithm">
             <summary>
@@ -3221,6 +3261,37 @@
             Interval in milliseconds between client timeout checks on the UDP server.
             <para>Default is 5000 ms (5 seconds).</para>
             </summary>
+        </member>
+        <member name="T:SocketJack.Net.AdministrativeMessageAttribute">
+            <summary>Marks a command DTO as administrative. It can never be delivered through a peer redirect.</summary>
+        </member>
+        <member name="T:SocketJack.Net.NetworkAuthorizationOptions">
+            <summary>Server-owned policy. Register anonymous login DTOs explicitly; registering a callback does not grant access.</summary>
+        </member>
+        <member name="P:SocketJack.Net.NetworkAuthorizationOptions.RequireAuthentication">
+            <summary>Require authentication for application messages. Default true. False allows ordinary data only;
+            administrative commands and peer operations still require authentication and explicit authorization.</summary>
+        </member>
+        <member name="P:SocketJack.Net.NetworkAuthorizationOptions.AnonymousMessageTypes">
+            <summary>Exact DTO types allowed before login. Keep login DTOs inert and authenticate credentials in their handler.</summary>
+        </member>
+        <member name="P:SocketJack.Net.NetworkAuthorizationOptions.AdministrativeMessageTypes">
+            <summary>Application command types requiring the Administrator role plus AuthorizeMessage approval.</summary>
+        </member>
+        <member name="P:SocketJack.Net.NetworkAuthorizationOptions.AuthorizeMessage">
+            <summary>Additional per-message policy. Required for administrative commands; exceptions deny access.</summary>
+        </member>
+        <member name="P:SocketJack.Net.NetworkAuthorizationOptions.AuthorizePeerRedirect">
+            <summary>Explicit recipient and payload policy for peer forwarding. Null denies all redirects, including broadcasts.</summary>
+        </member>
+        <member name="P:SocketJack.Net.NetworkAuthorizationOptions.AuthorizePeerControl">
+            <summary>Explicit policy for client-originated peer identity, metadata, and connection-control messages. Null denies them.</summary>
+        </member>
+        <member name="T:SocketJack.Net.NetworkAuthorizationContext">
+            <summary>Trusted connection context, not identity or roles supplied in a message body.</summary>
+        </member>
+        <member name="T:SocketJack.Net.InboundSegmentBuffer">
+            <summary>Per-connection, bounded legacy reassembly. A segment ID from another client never joins this buffer.</summary>
         </member>
         <member name="T:SocketJack.Net.NIC">
             <summary>
@@ -3756,235 +3827,6 @@
             Enqueue format: [typeId:1][timestamp_ms big-endian:4][payload]
             </summary>
         </member>
-        <member name="T:SocketJack.Net.Services.GitService">
-            <summary>
-            Executes a narrow, Codex-style Git tool surface for HeirowLlm agent mode.
-            This service builds known git commands itself instead of accepting raw shell text.
-            </summary>
-        </member>
-        <member name="T:SocketJack.Net.Services.PromptIntellisense">
-            <summary>
-            Provides intellisense-style completions for the WinAgent prompt input.
-            Handles command completion, parameter completion, and file system browsing.
-            Supports dynamic registration — call <see cref="M:SocketJack.Net.Services.PromptIntellisense.AddCommand(SocketJack.Net.Services.PromptIntellisense.CompletionItem)"/> or <see cref="M:SocketJack.Net.Services.PromptIntellisense.AddFeature(System.String,System.String,System.String,System.String)"/>
-            at any time and completions update automatically.
-            </summary>
-        </member>
-        <member name="T:SocketJack.Net.Services.PromptIntellisense.CompletionItem">
-            <summary>A single completion item with display text, insert text, and description.</summary>
-        </member>
-        <member name="P:SocketJack.Net.Services.PromptIntellisense.CompletionItem.Writeup">
-            <summary>Extended writeup shown in expanded tooltips / help panels.</summary>
-        </member>
-        <member name="P:SocketJack.Net.Services.PromptIntellisense.CompletionItem.IsExecutable">
-            <summary>Whether this item can be executed directly from intellisense.</summary>
-        </member>
-        <member name="F:SocketJack.Net.Services.PromptIntellisense._commands">
-            <summary>All registered commands - dynamically extensible.</summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.PromptIntellisense.AddCommand(SocketJack.Net.Services.PromptIntellisense.CompletionItem)">
-            <summary>Register a single command into intellisense.</summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.PromptIntellisense.AddCommands(System.Collections.Generic.IEnumerable{SocketJack.Net.Services.PromptIntellisense.CompletionItem})">
-            <summary>Register multiple commands at once.</summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.PromptIntellisense.AddFeature(System.String,System.String,System.String,System.String)">
-            <summary>Register an LLM / AI feature that appears in intellisense and is executable.</summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.PromptIntellisense.AddAgentActions(System.Collections.Generic.IEnumerable{System.ValueTuple{System.String,System.String,System.Boolean}})">
-            <summary>Register agent slave actions so they appear in intellisense and can be invoked.</summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.PromptIntellisense.ClearCategory(System.String)">
-            <summary>Remove all commands in a given category (useful before re-registering).</summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.PromptIntellisense.GetAllCommands">
-            <summary>Get a snapshot of all registered commands (for help display, etc.).</summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.PromptIntellisense.SetSequenceProvider(System.Func{System.Collections.Generic.List{System.String}})">
-            <summary>
-            Register a callback that returns current sequence names (for play/delete completion).
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.PromptIntellisense.SetModelProvider(System.Func{System.Collections.Generic.List{System.String}})">
-            <summary>
-            Register a callback that returns available .gguf model file paths (for ai load completion).
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.PromptIntellisense.SetReflectionProvider(System.Func{System.Collections.Generic.List{SocketJack.Net.Services.ReflectionService.MemberInfo}},System.Func{System.String,SocketJack.Net.Services.ReflectionService.MemberInfo},System.Func{System.String,System.Collections.Generic.List{SocketJack.Net.Services.ReflectionService.MemberInfo}})">
-            <summary>
-            Register a callback that returns discoverable reflection members.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.PromptIntellisense.GetCompletions(System.String,System.Int32)">
-            <summary>
-            Get completion items for the current input text and caret position.
-            Returns an empty list if no completions are relevant.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.PromptIntellisense.ApplyCompletion(System.String,System.Int32,SocketJack.Net.Services.PromptIntellisense.CompletionItem)">
-            <summary>
-            Apply a completion item to the current input, returning the new text and caret position.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.PromptIntellisense.ExtractTrailingPath(System.String)">
-            <summary>
-            Extract a trailing file path from the input (e.g. "ai load C:\Users" ? "C:\Users").
-            Returns null if no path-like segment is found.
-            </summary>
-        </member>
-        <member name="T:SocketJack.Net.Services.ReflectionService">
-            <summary>
-            Provides reflection-based execution of properties, fields, and methods on a target object.
-            Results are serialized to JSON using SocketJack-compatible settings with safe fallback
-            for non-serializable types.
-            Supports scanning all loaded assemblies and parsing method parameters.
-            </summary>
-        </member>
-        <member name="T:SocketJack.Net.Services.ReflectionService.AssemblyInfo">
-            <summary>Describes a loaded assembly with its types.</summary>
-        </member>
-        <member name="T:SocketJack.Net.Services.ReflectionService.MemberInfo">
-            <summary>Describes a discoverable member on the target object.</summary>
-        </member>
-        <member name="T:SocketJack.Net.Services.ReflectionService.ParameterDetail">
-            <summary>Describes a parameter of a method.</summary>
-        </member>
-        <member name="T:SocketJack.Net.Services.ReflectionService.ExecutionResult">
-            <summary>Result of executing a reflection command.</summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.ReflectionService.GetLoadedAssemblies">
-            <summary>
-            Gets all loaded assemblies with their public types.
-            Includes framework and application assemblies so /reflect can inspect the full runtime.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.ReflectionService.CreateSocketJackJsonOptions">
-            <summary>
-            Creates the SocketJack JSON options used for safe reflection output.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.ReflectionService.TryResolveLoadedType(System.String,System.Predicate{System.Type},System.Type@,System.String@)">
-            <summary>
-            Resolve a type from loaded assemblies and optionally enforce an allowlist.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.ReflectionService.CreateInstance(System.Type,System.String[])">
-            <summary>
-            Creates an instance with string arguments converted to the constructor parameter types.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.ReflectionService.ExecuteStatic(System.String,System.String,System.String[],System.Predicate{System.Type})">
-            <summary>
-            Executes a static property, field, or method after resolving the type from loaded assemblies.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.ReflectionService.SerializeResultValue(System.Object,System.Type)">
-            <summary>
-            Serializes reflection output with SocketJack-compatible options and safe fallback.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.ReflectionService.NavigateTo(System.String)">
-            <summary>
-            Navigate a dot-separated member path and return a ReflectionService for the resolved object.
-            Returns null if any segment is null or not found.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.ReflectionService.ReadMember(System.String)">
-            <summary>
-            Read the current value of a member by name (property or field).
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.ReflectionService.DiscoverMembers">
-            <summary>
-            Discovers all accessible members (properties, fields, methods) on the target.
-            Excludes compiler-generated, WPF infrastructure, and common noise members.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.ReflectionService.GetMatchingMembers(System.String)">
-            <summary>
-            Get members filtered by a prefix for intellisense.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.ReflectionService.GetMethodInfo(System.String)">
-            <summary>
-            Get parameter info for a specific method by name.
-            Returns null if the method is not found.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.ReflectionService.ParseParameters(System.String)">
-            <summary>
-            Parse parameter string from /reflect command. 
-            Parameters are in format (param1, param2, ...) where strings are quoted and numerics are not.
-            Example: (123, "hello world", 45.6, "test")
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.ReflectionService.Execute(System.String,System.String[])">
-            <summary>
-            Execute a member by name, optionally with string arguments.
-            Properties/fields return their value; methods are invoked.
-            Supports parsing parameters from method call syntax: method(arg1, arg2, ...)
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.ReflectionService.SafeSerialize(System.Object,System.Type)">
-            <summary>
-            Safely serialize a value to JSON. Skips non-serializable objects gracefully.
-            Uses SocketJack-compatible serializer options.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.ReflectionService.IsFileType(System.Type)">
-            <summary>Returns true for types that represent file-like inputs (byte[], Stream, FileInfo, etc.).</summary>
-        </member>
-        <member name="T:SocketJack.Net.Services.SearchInternet">
-            <summary>
-            Runs internet search queries and returns raw JSON so prompt commands can surface
-            structured results without the UI formatter rewriting them.
-            </summary>
-        </member>
-        <member name="T:SocketJack.Net.Services.SearchService">
-            <summary>
-            Handles all web search operations: Google/DuckDuckGo, Bing RSS fallback,
-            video/YouTube/image/download searches.
-            Extracted from MainWindow to reduce monolith size.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.SearchService.SearchAndReturnContext(System.String)">
-            <summary>
-            Search the web and return plain-text results for LLM context injection.
-            Uses DuckDuckGo HTML with Bing RSS fallback.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.SearchService.SearchAsync(System.String,System.Int32)">
-            <summary>
-            Execute a web search and return structured results.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.SearchService.SearchVideosAsync(System.String,System.Int32)">
-            <summary>Search for videos via DuckDuckGo (appends site:youtube.com).</summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.SearchService.SearchYouTubeAsync(System.String,System.Int32)">
-            <summary>Search YouTube specifically, filtering to YouTube URLs only.</summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.SearchService.SearchDownloadsAsync(System.String,System.Int32)">
-            <summary>Search for downloads by appending "download" to the query.</summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.SearchService.FetchImagesAsync(System.String,System.Int32)">
-            <summary>
-            Fetch image results. Tries DuckDuckGo Images API first, falls back to
-            Bing Image HTML scraping, then plain text search with image hints.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.SearchService.FetchOgImageAsync(System.String,System.Int32)">
-            <summary>
-            Fetch the og:image (or twitter:image) URL from a page's HEAD section.
-            Returns null if not found or on error.
-            </summary>
-        </member>
-        <member name="T:SocketJack.Net.Services.TerminalService">
-            <summary>
-            Executes local terminal commands for HeirowLlm after the caller has passed
-            the GUI-owned permission gate.
-            </summary>
-        </member>
         <member name="T:SocketJack.Net.TcpClient">
             <summary>
             Multithreaded TCP Client.
@@ -4228,7 +4070,7 @@
         </member>
         <member name="F:SocketJack.Net.TcpServer.DeferPeerInitialization">
             <summary>
-            When <see langword="true"/>, <see cref="M:SocketJack.Net.TcpServer.NewConnection(System.Net.Sockets.Socket@)"/> will not call
+            When <see langword="true"/>, <see cref="M:SocketJack.Net.TcpServer.NewConnection(System.Net.Sockets.Socket)"/> will not call
             <see cref="M:SocketJack.Net.TcpServer.InitializePeer(SocketJack.Net.NetworkConnection)"/> automatically.  Derived classes (e.g.
             <see cref="T:SocketJack.Net.MutableTcpServer"/>) set this so that peer initialization
             is deferred until the connection's protocol has been identified.
@@ -4954,6 +4796,120 @@
             Send an object to all Remote Clients on the server via peer broadcast.
             </summary>
         </member>
+        <member name="T:SocketJack.Net.UdpReliableOptions">
+            <summary>Configure before connecting/listening. Limits are local resource budgets, not bandwidth caps.</summary>
+        </member>
+        <member name="P:SocketJack.Net.UdpReliableOptions.Ordering">
+            <summary>Wait for earlier objects and run callbacks sequentially. Default: false.</summary>
+        </member>
+        <member name="P:SocketJack.Net.UdpReliableOptions.ReceiveWorkers">
+            <summary>Maximum concurrent independent object decoders/callbacks per peer.</summary>
+        </member>
+        <member name="P:SocketJack.Net.UdpReliableOptions.BufferSize">
+            <summary>Individual reusable transport I/O buffers, at most 32 KiB. Aggregate queues are separate.</summary>
+        </member>
+        <member name="P:SocketJack.Net.UdpReliableOptions.SocketQueueBytes">
+            <summary>Aggregate operating-system socket queue capacity, shared by all peers. This is not a datagram or individual I/O buffer size.</summary>
+        </member>
+        <member name="T:SocketJack.Net.UdpReliableStatistics">
+            <summary>Transport counters include retries and headers; payload counters exclude them.</summary>
+        </member>
+        <member name="T:SocketJack.Net.UDP_Reliable">
+            <summary>Reliable, indexed UDP. Both endpoints must select this mode. It does not provide encryption.</summary>
+        </member>
+        <member name="T:SocketJack.Net.UdpServer">
+            <summary>
+            Multithreaded UDP Server.
+            Modeled after TcpServer but uses connectionless UDP datagrams.
+            </summary>
+        </member>
+        <member name="P:SocketJack.Net.UdpServer.Name">
+            <summary>
+            (Optional) Name used for logging purposes.
+            </summary>
+        </member>
+        <member name="P:SocketJack.Net.UdpServer.Clients">
+            <summary>
+            Connected clients tracked by their endpoint.
+            </summary>
+        </member>
+        <member name="F:SocketJack.Net.UdpServer.RestrictedMetadataKeys">
+            <summary>
+            Stop the client from updating metadata keys that are restricted, such as `Username`.
+            <para>Not case sensitive.</para>
+            </summary>
+        </member>
+        <member name="F:SocketJack.Net.UdpServer._clientLastActivity">
+            <summary>
+            Track last activity time per client endpoint.
+            </summary>
+        </member>
+        <member name="F:SocketJack.Net.UdpServer._clientNetworkConnections">
+            <summary>
+            Map from client endpoint key to their NetworkConnection (for HandleReceive compatibility).
+            </summary>
+        </member>
+        <member name="M:SocketJack.Net.UdpServer.#ctor(System.Int32,System.String)">
+            <summary>
+            Initializes a new instance of UdpServer.
+            <para>Uses System.Text.Json as the default serializer.</para>
+            </summary>
+            <param name="Port">Socket Listen Port.</param>
+            <param name="Name">Name used for Logging.</param>
+        </member>
+        <member name="M:SocketJack.Net.UdpServer.#ctor(SocketJack.Net.NetworkOptions,System.Int32,System.String)">
+            <summary>
+            Initializes a new instance of UdpServer.
+            </summary>
+            <param name="Options">NetworkOptions for configuration.</param>
+            <param name="Port">Socket Listen Port.</param>
+            <param name="Name">Name used for Logging.</param>
+        </member>
+        <member name="M:SocketJack.Net.UdpServer.Listen">
+            <summary>
+            Starts listening on the specified Port for UDP datagrams.
+            </summary>
+        </member>
+        <member name="M:SocketJack.Net.UdpServer.StopListening">
+            <summary>
+            Stops listening.
+            </summary>
+        </member>
+        <member name="M:SocketJack.Net.UdpServer.SendTo(SocketJack.Net.UdpConnection,System.Object)">
+            <summary>
+            Sends an object to a specific UDP client.
+            </summary>
+            <param name="Client">The UdpConnection representing the client.</param>
+            <param name="Obj">Object to send.</param>
+        </member>
+        <member name="M:SocketJack.Net.UdpServer.Send(SocketJack.Net.P2P.Identifier,System.Object)">
+            <summary>
+            Sends an object to a peer by Identifier.
+            </summary>
+        </member>
+        <member name="M:SocketJack.Net.UdpServer.Send(System.String,System.Object)">
+            <summary>
+            Sends an object to a client by string ID.
+            </summary>
+        </member>
+        <member name="M:SocketJack.Net.UdpServer.SendBroadcast(System.Object)">
+            <summary>
+            Send a serializable object to all connected UDP clients.
+            </summary>
+        </member>
+        <member name="M:SocketJack.Net.UdpServer.SendBroadcast(System.Object,SocketJack.Net.NetworkConnection)">
+            <summary>
+            Send a serializable object to all connected UDP clients except one.
+            </summary>
+        </member>
+        <member name="M:SocketJack.Net.UdpServer.SendBroadcastUdp(System.Object,SocketJack.Net.UdpConnection)">
+            <summary>
+            Send a serializable object to all connected UDP clients.
+            </summary>
+        </member>
+        <member name="T:SocketJack.Net.UdpTransferRequest">
+            <summary>Accept synchronously from TransferRequested. Remote names are display metadata, never destination paths.</summary>
+        </member>
         <member name="T:SocketJack.Net.UdpConnection">
             <summary>
             Represents a UDP connection endpoint with send/receive capabilities.
@@ -5058,96 +5014,6 @@
         <member name="T:SocketJack.Net.UdpSendItem">
             <summary>
             Represents a queued UDP send operation.
-            </summary>
-        </member>
-        <member name="T:SocketJack.Net.UdpServer">
-            <summary>
-            Multithreaded UDP Server.
-            Modeled after TcpServer but uses connectionless UDP datagrams.
-            </summary>
-        </member>
-        <member name="P:SocketJack.Net.UdpServer.Name">
-            <summary>
-            (Optional) Name used for logging purposes.
-            </summary>
-        </member>
-        <member name="P:SocketJack.Net.UdpServer.Clients">
-            <summary>
-            Connected clients tracked by their endpoint.
-            </summary>
-        </member>
-        <member name="F:SocketJack.Net.UdpServer.RestrictedMetadataKeys">
-            <summary>
-            Stop the client from updating metadata keys that are restricted, such as `Username`.
-            <para>Not case sensitive.</para>
-            </summary>
-        </member>
-        <member name="F:SocketJack.Net.UdpServer._clientLastActivity">
-            <summary>
-            Track last activity time per client endpoint.
-            </summary>
-        </member>
-        <member name="F:SocketJack.Net.UdpServer._clientNetworkConnections">
-            <summary>
-            Map from client endpoint key to their NetworkConnection (for HandleReceive compatibility).
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.UdpServer.#ctor(System.Int32,System.String)">
-            <summary>
-            Initializes a new instance of UdpServer.
-            <para>Uses System.Text.Json as the default serializer.</para>
-            </summary>
-            <param name="Port">Socket Listen Port.</param>
-            <param name="Name">Name used for Logging.</param>
-        </member>
-        <member name="M:SocketJack.Net.UdpServer.#ctor(SocketJack.Net.NetworkOptions,System.Int32,System.String)">
-            <summary>
-            Initializes a new instance of UdpServer.
-            </summary>
-            <param name="Options">NetworkOptions for configuration.</param>
-            <param name="Port">Socket Listen Port.</param>
-            <param name="Name">Name used for Logging.</param>
-        </member>
-        <member name="M:SocketJack.Net.UdpServer.Listen">
-            <summary>
-            Starts listening on the specified Port for UDP datagrams.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.UdpServer.StopListening">
-            <summary>
-            Stops listening.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.UdpServer.SendTo(SocketJack.Net.UdpConnection,System.Object)">
-            <summary>
-            Sends an object to a specific UDP client.
-            </summary>
-            <param name="Client">The UdpConnection representing the client.</param>
-            <param name="Obj">Object to send.</param>
-        </member>
-        <member name="M:SocketJack.Net.UdpServer.Send(SocketJack.Net.P2P.Identifier,System.Object)">
-            <summary>
-            Sends an object to a peer by Identifier.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.UdpServer.Send(System.String,System.Object)">
-            <summary>
-            Sends an object to a client by string ID.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.UdpServer.SendBroadcast(System.Object)">
-            <summary>
-            Send a serializable object to all connected UDP clients.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.UdpServer.SendBroadcast(System.Object,SocketJack.Net.NetworkConnection)">
-            <summary>
-            Send a serializable object to all connected UDP clients except one.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.UdpServer.SendBroadcastUdp(System.Object,SocketJack.Net.UdpConnection)">
-            <summary>
-            Send a serializable object to all connected UDP clients.
             </summary>
         </member>
         <member name="T:SocketJack.Net.WebSocketFrameHelper">
@@ -5273,6 +5139,13 @@
             Segments add support transfering objects above the network interface card's maximum transmission unit.
             </summary>
         </member>
+        <member name="T:SocketJack.Serialization.BinarySerializer">
+            <summary>
+            SocketJack binary format v1. Byte arrays are raw bytes, integers use variable-length encoding,
+            and decoding creates inert values until Wrapper applies the socket's type whitelist.
+            Select the same serializer at both endpoints. Usable with TCP and UDP.
+            </summary>
+        </member>
         <member name="T:SocketJack.Serialization.ISerializer">
             <summary>
             Interface used to add alternative serializers.
@@ -5283,6 +5156,14 @@
             This property should be type of Int64.
             </summary>
             <returns></returns>
+        </member>
+        <member name="T:SocketJack.Serialization.VerifiedAssemblyRegistry">
+            <summary>Local, administrator-supplied SHA-256 pins for assemblies containing message types.
+            Pins are never sent to peers. Obtain pins from a trusted build/release, not from a client.</summary>
+        </member>
+        <member name="M:SocketJack.Serialization.VerifiedAssemblyRegistry.Add(System.Reflection.Assembly,System.String)">
+            <summary>Approve a DLL only if its bytes match the trusted SHA-256 pin.
+            This verifies the local DLL; it cannot attest what a remote process executes.</summary>
         </member>
     </members>
 </doc>

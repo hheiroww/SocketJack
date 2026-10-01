@@ -165,15 +165,7 @@ input,textarea,select{width:100%;border:1px solid var(--line);border-radius:6px;
             <button class="danger" id="applyOverrideBtn" disabled>Override All</button>
           </div>
           <div id="overrideStatus" class="status"></div>
-          <div class="editor grid" style="margin-top:10px">
-            <div class="row"><span class="pill">heirowWebUI source link</span></div>
-            <div class="status">Create a five-minute, single-use code for Sync and Publish. The linked editor receives source-only access; SQL Admin credentials are never shared.</div>
-            <div class="row">
-              <button class="primary" id="webUiLinkCodeBtn" type="button">Generate link code</button>
-              <code id="webUiLinkCode" class="pill" style="font-size:16px;letter-spacing:2px;user-select:all"></code>
-            </div>
-            <div id="webUiLinkStatus" class="status"></div>
-          </div>
+
         </div>
       </div>
     </section>
@@ -216,7 +208,7 @@ function clientCrud(){if($('crudId').value)window.open(BASE+'/api/crud/client/'+
 async function saveSettings(){await api('/api/settings/save',{defaultStorageMode:$('defaultStorage').value});await refresh()}
 async function previewOverride(){const d=await api('/api/settings/override-all/preview',{targetStorageMode:$('defaultStorage').value});let out='Affected: '+d.affectedCount+'\\n';(d.pages||[]).forEach(p=>{out+=p.route+' '+p.from+' -> '+p.to+'\\nsource: '+p.source+'\\ntarget: '+p.target+(p.missingTarget?'\\nmissing target':'')+'\\n\\n'});$('overrideStatus').textContent=out;let n=3;$('applyOverrideBtn').disabled=true;$('applyOverrideBtn').textContent='Override All ('+n+')';const timer=setInterval(()=>{n--;$('applyOverrideBtn').textContent=n>0?'Override All ('+n+')':'Override All';if(n<=0){clearInterval(timer);$('applyOverrideBtn').disabled=false}},1000)}
 async function applyOverride(){await api('/api/settings/override-all/apply',{targetStorageMode:$('defaultStorage').value});$('applyOverrideBtn').disabled=true;await refresh()}
-async function createWebUiLinkCode(){const button=$('webUiLinkCodeBtn'),status=$('webUiLinkStatus');button.disabled=true;status.textContent='Generating a source link…';try{const data=await api('/api/heirowwebui/link-code',{});$('webUiLinkCode').textContent=data.code||'';status.textContent='Target URL: '+location.origin+BASE+'\nExpires: '+new Date(data.expiresUtc).toLocaleString()}catch(e){status.textContent=e.message||String(e)}finally{button.disabled=false}}
+
 function uiId(type){const suffix=(crypto&&crypto.randomUUID)?crypto.randomUUID().replaceAll('-',''):(Date.now().toString(36)+Math.random().toString(36).slice(2));return 'ui_'+String(type||'node').toLowerCase()+'_'+suffix}
 function uiDefaultProps(type,label){if(type==='page')return{name:label||'Main Page',title:label||'Admin Page',route:'ui-page.html',background:'#f8fafc',color:'#0f172a',padding:'28px',gap:'16px',maxWidth:'none',mobileMode:'auto',css:''};if(type==='row')return{label:label||'Row',columns:'1fr 1fr',gap:'12px',align:'stretch',padding:'0',css:''};if(type==='column')return{label:label||'Column',gap:'10px',padding:'0',css:''};if(type==='card')return{label:label||'Card',padding:'16px',gap:'10px',background:'#ffffff',border:'1px solid rgba(15,23,42,.14)',borderRadius:'6px',css:''};if(type==='form')return{label:label||'Form',gap:'10px',padding:'0',css:''};if(type==='heading')return{text:label||'Heading',level:'2',margin:'0 0 8px',color:'',css:''};if(type==='text')return{text:'Text block',margin:'0',color:'',css:''};if(type==='button')return{text:'Button',buttonType:'button',background:'#0f766e',color:'#ffffff',padding:'10px 14px',css:''};if(type==='input')return{label:'Input',name:'input',type:'text',placeholder:'',value:'',css:''};if(type==='textarea')return{label:'Message',name:'message',placeholder:'',value:'',rows:'4',css:''};if(type==='image')return{src:'',alt:'Image',width:'100%',css:''};if(type==='divider')return{borderColor:'rgba(15,23,42,.18)',margin:'8px 0',css:''};if(type==='spacer')return{height:'24px',css:''};return{label:label||type,css:''}}
 function uiDefaultNode(type,label){return{id:uiId(type),type,name:label||type,props:uiDefaultProps(type,label),children:uiContainers.has(type)?[]:undefined}}

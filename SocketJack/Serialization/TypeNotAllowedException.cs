@@ -19,15 +19,9 @@ namespace SocketJack.Serialization
 
         private void Initialize(string Type, bool isBlacklisted = false) {
             this.Type = Type;
-            Type t = System.Type.GetType(Type);
-            if (t != null) {
-                if (isBlacklisted) {
-                    Blacklisted = true;
-                    _message = $"Type '{t.Namespace}+{t.Name}' is blacklisted.";
-                } else {
-                    _message = $"Type '{t.Namespace}+{t.Name}' has not been white-listed and cannot be deserialized.";
-                }
-            }
+            // Do not resolve an attacker-controlled assembly/type merely to format a rejection.
+            Blacklisted = isBlacklisted;
+            _message = isBlacklisted ? "Type is blacklisted and cannot be deserialized." : "Type has not been allowlisted and cannot be deserialized.";
         }
     }
 }

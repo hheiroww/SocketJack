@@ -53,32 +53,29 @@ namespace SocketJack.Serialization.Json {
         }
 
         public PeerRedirect DeserializeRedirect(ISocket Target, byte[] bytes) {
-            string json = Encoding.UTF8.GetString(bytes);
-            try {
-                PeerRedirect redirect = (PeerRedirect)System.Text.Json.JsonSerializer.Deserialize(json, typeof(PeerRedirect), JsonOptions);
-                Type T = Wrapper.ResolveTypeCached(redirect.Type);
-                if (Target.Options.Serializer.GetType() == typeof(JsonSerializer)) {
-                    JsonSerializer serializer = (JsonSerializer)Target.Options.Serializer;
-                    if (serializer.HasConverter(T)) {
-                        redirect.Value = System.Text.Json.JsonSerializer.Deserialize((JsonElement)redirect.Value, T, JsonOptions);
-                        return redirect;
-                    } else {
-                        //var txt = ((JsonElement)redirect.value).GetRawText();
-                        var js = (JsonElement)redirect.Value;
-                        if (js.TryGetProperty("Type", out var t)) {
-                            Type valueType = Wrapper.GetValueType(t.GetString());
-                            redirect.Value = System.Text.Json.JsonSerializer.Deserialize(js.GetProperty("value").GetRawText(), valueType, JsonOptions);
-                        } else {
-                            redirect.Value = System.Text.Json.JsonSerializer.Deserialize(js.GetRawText(), T, JsonOptions);
-                        }
-                    }
-                } else {
-                    redirect.Value = ((Wrapper)System.Text.Json.JsonSerializer.Deserialize(redirect.Value.ToString(), typeof(Wrapper), JsonOptions)).Unwrap(Target);
-                }
-                return redirect;
-            } catch (Exception ex) {
-                DeserializationError?.Invoke(ex);
-                return null;
+            using (var document = JsonDocument.Parse(bytes)) {
+                var root = document.RootElement;
+                if (root.ValueKind != JsonValueKind.Object) throw InboundMessageSecurity.Denied();
+                var names = new HashSet<string>(StringComparer.Ordinal);
+                foreach (var field in root.EnumerateObject()) if (!names.Add(field.Name)) throw InboundMessageSecurity.Denied();
+                string typeName = root.GetProperty("Type").GetString();
+                var payload = root.GetProperty("Value");
+                Wrapper wrapper;
+                if (payload.ValueKind == JsonValueKind.Object && payload.TryGetProperty("Type", out var nested)) {
+                    var declared = Target.Options.Whitelist.Resolve(typeName);
+                    if (declared == null || declared != Target.Options.Whitelist.Resolve(nested.GetString()))
+                        throw new TypeNotAllowedException(typeName);
+                    wrapper = new Wrapper { Type = nested.GetString(), value = payload.GetProperty("value").Clone() };
+                } else wrapper = new Wrapper { Type = typeName, value = payload.Clone() };
+                // Check the route and payload type before any payload constructors/setters can execute.
+                wrapper.GetValueType(Target);
+                InboundMessageSecurity.RequireRedirect(Target, typeName, root.TryGetProperty("Recipient", out var recipient) ? recipient.GetString() : null);
+                object value = wrapper.Unwrap(Target);
+                return new PeerRedirect {
+                    Type = typeName, Value = value,
+                    Sender = root.TryGetProperty("Sender", out var from) ? from.GetString() : null,
+                    Recipient = root.TryGetProperty("Recipient", out var to) ? to.GetString() : null
+                };
             }
         }
 

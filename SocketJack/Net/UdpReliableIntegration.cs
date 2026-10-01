@@ -58,6 +58,7 @@ namespace SocketJack.Net {
         Task SendReliable(object value, bool wait, CancellationToken token) => UdpReliableObjects.Send(ReliablePeer, UdpConn, this, value, wait, token);
         async void ObserveReliable(Task task) { try { await task.ConfigureAwait(false); } catch (Exception ex) { InvokeOnError(Connection, ex); } }
         void ReliableReceive(UdpReliablePeer peer, byte[] data, byte kind) {
+            if (ReceiveSafeModeReply(data)) return;
             if (kind == 1) { peer.Transfers?.Receive(data); return; }
             DeserializeAndDispatch(data, data.Length, peer.Endpoint);
         }
@@ -85,11 +86,32 @@ namespace SocketJack.Net {
             if (Clients.TryGetValue(peer.Endpoint.ToString(), out var previous) && !ReferenceEquals(previous.ReliablePeer, peer))
                 RemoveClient(peer.Endpoint.ToString());
             peer.Transfers = new UdpReliableTransfers(peer, request => TransferRequested?.Invoke(request));
-            GetOrCreateClient(peer.Endpoint, peer);
+            if (!Options.SafeMode) GetOrCreateClient(peer.Endpoint, peer);
+            else _ = Task.Run(async () => {
+                await Task.Delay(5000);
+                if (!peer.SafeModeVerified) peer.Fail(SafeModeHandshake.Rejected());
+            });
         }
         void ReliableReceive(UdpReliablePeer peer, byte[] data, byte kind) {
+            if (Options.SafeMode && (!peer.SafeModeVerified || SafeModeHandshake.HasMagic(data))) {
+                try {
+                    if (kind != 0) throw SafeModeHandshake.Rejected();
+                    SafeModeHandshake.Validate(data, Options, null);
+                    peer.SafeModeVerified = true;
+                    ObserveReliable(peer.Send(SafeModeHandshake.Accepted, 0, false, false, CancellationToken.None));
+                    GetOrCreateClient(peer.Endpoint, peer);
+                } catch { peer.Fail(SafeModeHandshake.Rejected()); }
+                return;
+            }
             _clientLastActivity[peer.Endpoint.ToString()] = DateTime.UtcNow;
-            if (kind == 1) { peer.Transfers.Receive(data); return; }
+            if (kind == 1) {
+                try {
+                    _clientNetworkConnections.TryGetValue(peer.Endpoint.ToString(), out var connection);
+                    InboundMessageSecurity.RequireType(this, connection, typeof(UdpTransferRequest));
+                    peer.Transfers.Receive(data);
+                } catch { peer.Fail(InboundMessageSecurity.Denied()); }
+                return;
+            }
             DeserializeAndDispatch(data, data.Length, peer.Endpoint);
         }
         void ReliableFailed(UdpReliablePeer peer, Exception error) {

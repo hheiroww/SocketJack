@@ -167,7 +167,7 @@ namespace SocketJack.Net {
                 Stream stream = tcp.GetStream();
 
                 if (uri.Scheme == "https") {
-                    var ssl = new SslStream(stream, false, (sender, cert, chain, errors) => true);
+                    var ssl = new SslStream(stream, false);
                     await ssl.AuthenticateAsClientAsync(host);
                     stream = ssl;
                 }
@@ -176,6 +176,8 @@ namespace SocketJack.Net {
                 var sb = new StringBuilder();
                 sb.AppendFormat("{0} {1} HTTP/1.1\r\n", method ?? "GET", uri.PathAndQuery);
                 sb.AppendFormat("Host: {0}\r\n", host + (uri.IsDefaultPort ? "" : ":" + uri.Port.ToString()));
+                if (Options.SafeMode && SafeModeHandshake.LooksLikeWrapper(body))
+                    sb.AppendFormat("{0}: {1}\r\n", SafeModeHandshake.HeaderName, Convert.ToBase64String(SafeModeHandshake.Create(Options)));
                 // default headers
                 foreach (var kv in DefaultHeaders) sb.AppendFormat("{0}: {1}\r\n", kv.Key, kv.Value);
                 if (headers != null) {

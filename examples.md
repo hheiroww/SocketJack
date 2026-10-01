@@ -1,6 +1,6 @@
 # SocketJack Examples
 
-These examples are kept out of the main README so the overview stays quick to scan. The snippets cover the core transport APIs, HTTP hosting, WebSockets, mutable protocol routing, WPF sharing, heirowLLM, file transfer, embedded data, and payments.
+These examples are kept out of the main README so the overview stays quick to scan. The snippets cover the core transport APIs, HTTP hosting, WebSockets, mutable protocol routing, WPF sharing, file transfer, embedded data..
 
 ## Install
 
@@ -548,125 +548,6 @@ dataServer.Password = "YourStrong!Passw0rd";
 http.RegisterProtocol(tds);
 http.Http.Map("GET", "/", (connection, request, ct) => "<h1>SocketJack data server</h1>");
 http.Listen();
-```
-
-## heirowLLM Quick Start
-
-```cs
-using SocketJack.Net;
-
-var proxy = new heirowLLM("localhost", lmStudioPort: 1234, proxyPort: 11434);
-proxy.Start();
-
-if (!proxy.ChatServer.IsListening)
-{
-    proxy.ChatServer.Listen();
-}
-
-Console.WriteLine("Copilot bridge: http://localhost:11434/v1/chat/completions");
-Console.WriteLine("Web console:    " + proxy.ChatServerUrl);
-```
-
-## heirowLLM Server Browser Profile
-
-```cs
-using SocketJack.Net;
-
-var profile = new heirowLLMServerProfile
-{
-    ServerName = "Local RTX workstation",
-    PublicHost = "example.com",
-    AvailableResources = "Private LM Studio host with tool-gated browser access.",
-    AvailableModels = "qwen3-coder,llama-3.1",
-    ToolsAllowed = "chat,files,terminal-approved",
-    GpuName = "NVIDIA RTX",
-    MaxTokens = 32768,
-    CostFactor = 1.25,
-    RequiresPayment = true,
-    StripeCurrency = "usd",
-    StripeUnitAmountCents = 500
-};
-
-proxy.ConfigureServerBrowserProfile(profile);
-```
-
-## heirowLLM Remote Model Selection
-
-```cs
-using SocketJack.Net;
-
-proxy.ConfigureRemoteModelServerSelection(new heirowLLMRemoteModelServerSelection
-{
-    Enabled = true,
-    ServerId = "server-123",
-    ServerName = "Remote model host",
-    OpenAiBaseUrl = "https://model-host.example.com/v1",
-    SelectedModel = "qwen3-coder",
-    LeaseExpiresUtc = DateTimeOffset.UtcNow.AddHours(1).ToString("O")
-});
-```
-
-## heirowLLM Remote Session Clones
-
-```cs
-proxy.RemoteSessionFileCloneChanged += (sender, args) =>
-{
-    Console.WriteLine($"{args.Snapshot.FileName}: {args.Snapshot.Status}");
-};
-
-foreach (RemoteSessionFileCloneSnapshot clone in proxy.GetRemoteSessionFileClones())
-{
-    Console.WriteLine($"{clone.Id} {clone.Status} {clone.LocalPath}");
-}
-
-proxy.CancelAllRemoteSessionFileClones();
-proxy.ClearCompletedRemoteSessionFileClones();
-```
-
-## Terminal Approval Flow
-
-```cs
-proxy.TerminalPermissionRequested += (sender, args) =>
-{
-    Console.WriteLine(args.Request.Summary);
-    proxy.ApproveTerminalPermissionRequest(
-        args.Request.Id,
-        alwaysApprove: false,
-        foreverApprove: false);
-};
-```
-
-## Stripe Checkout Service
-
-```cs
-using SocketJack.Net.Payments;
-
-var payments = new StripePaymentService(new StripePaymentServiceOptions
-{
-    SecretKey = Environment.GetEnvironmentVariable("STRIPE_SECRET_KEY"),
-    SuccessUrl = "https://example.com/success",
-    CancelUrl = "https://example.com/cancel"
-});
-
-var request = new StripeCheckoutSessionRequest
-{
-    ClientReferenceId = "user-123",
-    IdempotencyKey = Guid.NewGuid().ToString("N")
-};
-
-request.LineItems.Add(new StripeCheckoutLineItem
-{
-    ProductName = "Remote model credits",
-    Currency = "usd",
-    UnitAmount = 500,
-    Quantity = 1
-});
-
-StripeCheckoutSessionResult result = await payments.CreateCheckoutSessionAsync(
-    request,
-    CancellationToken.None);
-
-Console.WriteLine(result.Url);
 ```
 
 ## WPF Share a Control

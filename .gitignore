@@ -366,9 +366,7 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 /Tests/TestControls/MultiTest.xaml.vb
-/.gitignore
 /Tests/TestControls/MultiTest.xaml
-/SocketJack.Tests
 
 # Local secrets
 .env
@@ -386,86 +384,11 @@ log_sess*.txt
 **/*activitylog*.xml
 **/[Aa]udit/*.jsonl
 
-# Local LLM model payloads and generated runtimes
-/[Mm]odels/
-/CompleteModels/
-*.gguf
-*.gguf.partial
-*.safetensors
-*.safetensors.partial
-*.onnx
-*.onnx.partial
-/tools/DirectML/
-
-# Local tool payloads and backup artifacts
-[Tt]ools/.secrets/
-**/[Tt]ools/.secrets/
-**/[Tt]ools/bin/
-**/[Tt]ools/**/*.exe
-**/[Tt]ools/**/*.dll
-/.vsix-bridge-backups/
-/build-check/heirowLLM
-/SocketJack/local_after_patch_probe2.txt containing exactly this single line
-/SocketJack/local_after_patch_probe.txt containing exactly this single line
-/tools/Deploy-heirowLLMWorkstationSable.ps1
-/tools/Package-heirowLLMWorkstationLinuxWindows.ps1
-/SocketJack-MagicMasterList/SocketJack-MagicMasterList.csproj
-/SocketJack-MagicMasterList/Program.AgentBuilder.cs
-/SocketJack-MagicMasterList/Program.cs
-/SocketJack-MagicMasterList/html/Builder.html
-/SocketJack-MagicMasterList/html/favicon.ico
-/SocketJack-MagicMasterList/html/heirowLLMWorkstationMainApplication.png
-/SocketJack-MagicMasterList/html/heirowLLMWorkstationMetadata.png
-/SocketJack-MagicMasterList/html/heirowLLMWorkstationMetadataCandidate.png
-/SocketJack-MagicMasterList/html/heirowLLMWorkstationModelsTab.png
-/SocketJack-MagicMasterList/html/SocketJackAutoMetadata.png
-/SocketJack-MagicMasterList/html/SocketJackHttpServerDefaultIndex.html
-/SocketJack-MagicMasterList/html/SocketJackLandingMetadataCandidate.png
-/SocketJack-MagicMasterList/html/SocketJackSiteIcon.png
-/SocketJack-MagicMasterList/html/SocketJackUserWebSession.png
-/SocketJack-MagicMasterList/html/SocketJackVisualStudioExtension.png
-/SocketJack-MagicMasterList/App.xaml
-/SocketJack-MagicMasterList/appsettings.json
-/SocketJack-MagicMasterList/MainWindow.xaml
-/SocketJack-MagicMasterList/MASTERLIST_PROXY_PERFORMANCE_FINDINGS.md
-/SocketJack-MagicMasterList/progress.md
-/SocketJack-MagicMasterList/README.md
-/SocketJack-MagicMasterList/MainWindow.xaml.cs
-/SocketJack-MagicMasterList/App.xaml.cs
-/SocketJack-MagicMasterList/
-!/SocketJack-MagicMasterList/
-/SocketJack-MagicMasterList/*
-!/SocketJack-MagicMasterList/Html/
-/SocketJack-MagicMasterList/Html/*
-!/SocketJack-MagicMasterList/Html/Builder.html
-*.py
-/LlmRuntime.VisualStudio2026/Build/RestrictVsixManifestToAmd64.ps1
-/build-check/heirowLLM-model-move/install/linux/install-heirowllm-cuda-pytorch.sh
-/build-check
-/tools/Publish-heirowLLMUpdate.ps1
-/SocketJack.Update/Fix-DeployedChannels.ps1
-/docs
-/heirowWebUI
-/heirowWebUI.Desktop
-/heirowWebUI.Host
-/heirowWebUI.Tests
-/SocketJack-MagicMasterList/html/Builder.html
-/SocketJack.LlmCore/Proxy/heirowLLM.AgentBuilder.Automation.cs
-/SocketJack.LlmCore/Proxy/heirowLLM.AgentBuilder.cs
-/SocketJack.LlmCore/Proxy/heirowLLM.cs
-/SocketJack.LlmCore/Proxy/heirowLLM.WebUI.cs
-/SocketJack.LlmCore/Proxy/heirowLLM.WebUIImport.cs
-/SocketJack.LlmCore/Proxy/heirowLLM.WebUISync.cs
-/SocketJack.LlmCore/SocketJack.LlmCore.csproj
-/SocketJack.MarketWatcher/HeirowForecastClient.cs
-/SocketJack.MarketWatcher/IntegratedHeirowStocks.cs
-/SocketJack.MarketWatcher/MarketEngine.cs
-/SocketJack.MarketWatcher/Models.cs
-/SocketJack.MarketWatcher/wwwroot/app.css
-/SocketJack.MarketWatcher/wwwroot/app.js
-/SocketJack.MarketWatcher/wwwroot/index.html
-/SocketJack.MarketWatcher.Tests/Program.cs
-/SocketJack.Sql.Tests/Program.cs
-/SocketJack.Sql.Tests/SocketJack.Sql.Tests.csproj
-/SocketJack.UdpReliable.Tests
-/tools/UdpReliable.Bench
+# Generated build and test outputs
+artifacts/
+TestResults/
+[Bb]in/
+[Oo]bj/
+.vs/
+*.nupkg
+*.snupkg

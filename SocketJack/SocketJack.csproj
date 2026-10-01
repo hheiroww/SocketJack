@@ -9,7 +9,6 @@
     <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
     <UseWindowsForms>false</UseWindowsForms>
     <ImportWindowsDesktopTargets>false</ImportWindowsDesktopTargets>
-    <DefaultItemExcludes>$(DefaultItemExcludes);$(ProjectDir)**\*.vb;$(ProjectDir)Net\Services\**\*.cs</DefaultItemExcludes>
     <LangVersion>latest</LangVersion>
    <SuppressNETCoreSdkPreviewMessage>true</SuppressNETCoreSdkPreviewMessage>
    <Platforms>AnyCPU;x64</Platforms>
@@ -19,14 +18,8 @@
     <NoWarn>42016,41999,42017,42018,42019,42032,42036,42020,42021,42022</NoWarn>
   </PropertyGroup>
   <ItemGroup>
-    <!-- Keep Net\Services opt-in until the legacy search service pair is refactored; only latency-safe chat services are source-included for SocketJack. -->
 
-    <Compile Remove="Net\Services\**\*.cs" />
 
-    <Compile Include="Net\Services\PromptIntellisense.cs" />
-    <Compile Include="Net\Services\ReflectionService.cs" />
-    <Compile Include="Net\Services\GitService.cs" />
-    <Compile Include="Net\Services\TerminalService.cs" />
   </ItemGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <DocumentationFile>SocketJack.xml</DocumentationFile>
@@ -50,7 +43,7 @@
     <Description>High-performance, fully managed .NET networking library for TCP, UDP, and WebSocket communication. Features built-in peer-to-peer with NAT traversal, pluggable System.Text.Json serialization, SslStream TLS encryption, GZip/Deflate compression, and bandwidth throttling. Targets .NET Standard 2.1.</Description>
     <IsPackable>True</IsPackable>
     <Company>JackOfFates</Company>
-    <Version>2026.13.1</Version>
+    <Version>2026.14.0</Version>
     <NuGetAudit>true</NuGetAudit>
     <NuGetAuditMode>all</NuGetAuditMode>
     <WarningsAsErrors>$(WarningsAsErrors);NU1900;NU1901;NU1902;NU1903;NU1904;NU1905</WarningsAsErrors>
@@ -59,7 +52,7 @@
     <NeutralLanguage>en-001</NeutralLanguage>
     <IncludeSymbols>False</IncludeSymbols>
     <ImportedNamespaces>System.Text.Json=False,System.Text.Json.Serialization=False,Microsoft.VisualBasic=True,System=True,System.Collections=True,System.Collections.Generic=True,System.Diagnostics=True,System.Linq=True,System.Xml.Linq=True,System.Threading.Tasks=True,SocketJack=True</ImportedNamespaces>
-    <PackageReleaseNotes>2026.13 refreshes feature documentation for reliable UDP, custom binary serialization, verified transfers, TypeScript client generation, and SSH.NET 2026.0.0 SFTP integration. Adds direct/transitive dependency audit gates and uses NuGet Trusted Publishing.</PackageReleaseNotes>
+    <PackageReleaseNotes>2026.14 separates application components from the networking library, requires authenticated authorization before remote commands, blocks administrative peer redirects and remote CLR reflection, and hardens type activation and segment reassembly.</PackageReleaseNotes>
     <PackageProjectUrl>https://www.nuget.org/packages/SocketJack/</PackageProjectUrl>
     <PackageIcon>SocketJackIcon.png</PackageIcon>
     <PackageReadmeFile>Readme.md</PackageReadmeFile>

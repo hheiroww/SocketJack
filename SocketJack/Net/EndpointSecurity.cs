@@ -26,6 +26,8 @@ namespace SocketJack.Net {
         private TuningProfile _tuningProfile = TuningProfile.Firm;
         private BotTuningProfile _botTuningProfile = BotTuningProfile.Firm;
 
+        internal EndpointSecurityOptions Copy() => (EndpointSecurityOptions)MemberwiseClone();
+
         public EndpointSecurityOptions() {
             ApplyTuningProfile(_tuningProfile);
             ApplyBotTuningProfile(_botTuningProfile);
@@ -597,7 +599,6 @@ namespace SocketJack.Net {
                 || p.IndexOf("developer-sdk", StringComparison.Ordinal) >= 0
                 || p.IndexOf("developer-project-workflow", StringComparison.Ordinal) >= 0
                 || p.IndexOf("model-runtime", StringComparison.Ordinal) >= 0
-                || p.IndexOf("copilot-duplicator", StringComparison.Ordinal) >= 0
                 || p.IndexOf("hardware-attestation", StringComparison.Ordinal) >= 0
                 || p.IndexOf("token-rate-request", StringComparison.Ordinal) >= 0
                 || p.IndexOf("web-auth", StringComparison.Ordinal) >= 0

@@ -213,9 +213,16 @@ namespace SocketJack.Net {
         /// <summary>
         /// Sends the remote client their remote Identity.
         /// </summary>
-        internal void SendLocalIdentity() {
+        internal async void SendLocalIdentity() {
             var identity = Identifier.Create(ID, true, EndPoint.Address.ToString());
             var parent = Parent;
+            if (parent.Options.UdpMode == UdpMode.UDP_Reliable) {
+                try {
+                    if (parent is UdpServer reliableServer) await reliableServer.SendToAsync(this, identity).ConfigureAwait(false);
+                    else if (parent is UdpClient reliableClient) await reliableClient.SendAsync(identity).ConfigureAwait(false);
+                } catch (Exception ex) { if (!Closed && !Closing) parent.InvokeOnError(parent.Connection, ex); }
+                return;
+            }
             if (parent is UdpServer server) {
                 server.SendTo(this, identity);
             } else if (parent is UdpClient client) {

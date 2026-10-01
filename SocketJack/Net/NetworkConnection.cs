@@ -22,7 +22,7 @@ using System.Windows;
 using System.Xml.Linq;
 
 namespace SocketJack.Net {
-    public class NetworkConnection : IDisposable {
+    public partial class NetworkConnection : IDisposable {
 
         #region Properties
 
@@ -50,6 +50,9 @@ namespace SocketJack.Net {
         public static readonly byte[] Terminator = new[] { (byte)192, (byte)128 };
         private static readonly TimeSpan OneSecond = TimeSpan.FromSeconds(1);
         private static readonly Type ByteArrayType = typeof(byte[]);
+        internal InboundSegmentBuffer InboundSegments { get; } = new InboundSegmentBuffer();
+        internal bool SafeModeVerified;
+        internal string[] SafeModeAllowedTypes;
         private static readonly char[] LengthTrimChars = { '\0', ' ', '\r', '\n' };
         internal SocketJackPatternCache PatternCache { get; } = new SocketJackPatternCache();
 
@@ -410,6 +413,8 @@ namespace SocketJack.Net {
         }
 
         public void Close(ISocket sender, DisconnectionReason Reason = DisconnectionReason.LocalSocketClosed) {
+            ClearAuthentication();
+            InboundSegments.Clear();
             DisconnectedEventArgs disconnectArgs = null;
             lock (_closeLock) {
                 if (!Closed && !Closing) {
@@ -999,8 +1004,10 @@ namespace SocketJack.Net {
         }
 
         private static void DeserializeAndDispatch(byte[] Bytes, int ByteLength, NetworkConnection Sender, ISocket Target) {
+          try {
+            SafeModeHandshake.RequireVerified(Sender, Target.Options);
             if (Target.Options.UseCompression) {
-                var decompressionResult = MethodExtensions.TryInvoke(Target.Options.CompressionAlgorithm.Decompress, ref Bytes);
+                var decompressionResult = MethodExtensions.TryInvoke(b => UdpReliableObjects.Decompress(b, Target.Options), ref Bytes);
                 if (decompressionResult.Success) {
                     Bytes = decompressionResult.Result;
                 } else {
@@ -1015,36 +1022,12 @@ namespace SocketJack.Net {
                     return;
                 }
             }
-            Wrapper wrapper = Target.Options.Serializer.Deserialize(Bytes);
-            if (wrapper == null) {
-                Target.InvokeOnError(Sender, new P2PException("Deserialized object returned null."));
-                return;
-            }
-            var valueType = wrapper.GetValueType();
-            if (wrapper.value != null || wrapper.Type != "") { //wrapper.Type != typeof(PingObject).AssemblyQualifiedName
-                if (valueType == typeof(PeerRedirect)) {
-                    Byte[] redirectBytes = null;
-                    object val = wrapper.value;
-                    Type type = wrapper.value.GetType();
-                    if (type == typeof(string)) {
-                        redirectBytes = System.Text.UTF8Encoding.UTF8.GetBytes((string)val);
-                    } else if (type == typeof(JsonElement)) {
-                        string json = ((JsonElement)val).GetRawText();
-                        redirectBytes = System.Text.UTF8Encoding.UTF8.GetBytes(json);
-                    }
-                    PeerRedirect redirect = Target.Options.Serializer is SocketJack.Serialization.BinarySerializer binary ? binary.UnwrapRedirect(Target, wrapper) : Target.Options.Serializer.DeserializeRedirect(Target, redirectBytes);
-                    Target.HandleReceive(Sender, redirect, valueType, ByteLength);
-                } else {
-                    object unwrapped = null;
-                    try {
-                        unwrapped = wrapper.Unwrap(Target);
-                    } catch (Exception ex) {
-                        Target.InvokeOnError(Sender, ex);
-                    }
-                    if (unwrapped != null)
-                        Target.HandleReceive(Sender, unwrapped, valueType, ByteLength);
-                }
-            }
+            object message = InboundMessageDecoder.Read(Target, Sender, Bytes);
+            if (message != null) Target.HandleReceive(Sender, message, message.GetType(), ByteLength);
+          } catch (Exception ex) {
+              if (Sender != null) Target.CloseConnection(Sender, DisconnectionReason.Unknown);
+              Target.InvokeOnError(Sender, ex);
+          }
         }
 
         private static void ParseBuffer(byte[] Bytes, NetworkConnection Sender, ISocket Target) {

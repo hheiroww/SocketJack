@@ -23,6 +23,9 @@
             Sets the compression level.
             </summary>
         </member>
+        <member name="M:SocketJack.Extensions.ByteExtensions.GetSegments(System.Byte[],System.Int32)">
+            <summary>Split an object into bounded chunks. Segment indexes restart at one for each legacy object envelope.</summary>
+        </member>
         <member name="M:SocketJack.Extensions.ByteExtensions.Remove(System.Byte[],System.Int32,System.Int32)">
             <summary>
             Remove bytes from source Array.
@@ -1007,6 +1010,9 @@
             Can be used as a pre-build event or MSBuild target.
             </summary>
         </member>
+        <member name="T:SocketJack.Net.Database.MySqlDataClient">
+            <summary>Managed MySQL classic-protocol connector. TLS is mandatory. Supports text queries and multiple results.</summary>
+        </member>
         <member name="T:SocketJack.Net.Database.MySqlProtocolServer">
             <summary>Opt-in MySQL classic-protocol listener over the managed DataServer.
             Uses caching_sha2_password full authentication over TLS; no plaintext password exchange is allowed.</summary>
@@ -1924,10 +1930,7 @@
             </summary>
         </member>
         <member name="M:SocketJack.Net.HttpServer.Map``1(System.String,System.String,SocketJack.Net.HttpServer.RouteHandler{``0})">
-            <summary>
-            Maps a route whose handler receives a deserialized body of type <typeparamref name="T"/>.
-            The request body is deserialized using the configured serializer before the handler is invoked.
-            </summary>
+            <summary>Maps a typed body route. SafeMode validates client DLL claims before deserialization or handler invocation.</summary>
         </member>
         <member name="M:SocketJack.Net.HttpServer.MapHost(System.String,System.String,System.String,SocketJack.Net.HttpServer.RouteHandler)">
             <summary>
@@ -2319,6 +2322,9 @@
             or the stream is complete.
             </summary>
         </member>
+        <member name="T:SocketJack.Net.InboundSegmentBuffer">
+            <summary>Per-connection, bounded legacy reassembly. A segment ID from another client never joins this buffer.</summary>
+        </member>
         <member name="T:SocketJack.Net.IProtocolHandler">
             <summary>
             Defines a protocol handler that can detect and process incoming data
@@ -2475,10 +2481,7 @@
             </summary>
         </member>
         <member name="M:SocketJack.Net.MutableTcpServer.InvokeWebSocketClientConnected(SocketJack.Net.NetworkConnection)">
-            <summary>
-            Invoked by <see cref="T:SocketJack.Net.WebSocketProtocolHandler"/> after a successful
-            WebSocket handshake to raise the <see cref="E:SocketJack.Net.MutableTcpServer.WebSocketClientConnected"/> event.
-            </summary>
+            <summary>Raises the typed WebSocket connected event after validation.</summary>
         </member>
         <member name="M:SocketJack.Net.MutableTcpServer.FindDataServer">
             <summary>
@@ -2753,141 +2756,43 @@
             (start with a known HTTP method keyword).
             </summary>
         </member>
-        <member name="T:SocketJack.Net.NetworkBase">
-            <summary>
-            Base class for a Client / Server.
-            </summary>
-            <remarks></remarks>
+        <member name="T:SocketJack.Net.AdministrativeMessageAttribute">
+            <summary>Marks a command DTO as administrative. It can never be delivered through a peer redirect.</summary>
         </member>
-        <member name="E:SocketJack.Net.NetworkBase.PeerConnected">
-            <summary>
-            Fired when a user connects to the server.
-            </summary>
-            <param name="sender"></param>
-            <param name="Peer"></param>
+        <member name="T:SocketJack.Net.NetworkAuthorizationOptions">
+            <summary>Server-owned policy. Register anonymous login DTOs explicitly; registering a callback does not grant access.</summary>
         </member>
-        <member name="E:SocketJack.Net.NetworkBase.PeerDisconnected">
-            <summary>
-            Fired when a user disconnects from the server.
-            </summary>
-            <param name="sender"></param>
-            <param name="Peer"></param>
+        <member name="P:SocketJack.Net.NetworkAuthorizationOptions.RequireAuthentication">
+            <summary>Require authentication for application messages. Default true. False allows ordinary data only;
+            administrative commands and peer operations still require authentication and explicit authorization.</summary>
         </member>
-        <member name="M:SocketJack.Net.NetworkBase.Invoke(System.Action)">
-            <summary>
-            Dispatches <paramref name="action"/> on the UI / main thread.
-            On WPF, verifies <see cref="!:Application.Current"/> is still alive;
-            if the application has already shut down, calls <see cref="M:SocketJack.ThreadManager.Shutdown"/> instead.
-            </summary>
+        <member name="P:SocketJack.Net.NetworkAuthorizationOptions.AnonymousMessageTypes">
+            <summary>Exact DTO types allowed before login. Keep login DTOs inert and authenticate credentials in their handler.</summary>
         </member>
-        <member name="P:SocketJack.Net.NetworkBase.Name">
-            <summary>
-            (Optional) Name used for logging purposes.
-            </summary>
-            <returns></returns>
+        <member name="P:SocketJack.Net.NetworkAuthorizationOptions.AdministrativeMessageTypes">
+            <summary>Application command types requiring the Administrator role plus AuthorizeMessage approval.</summary>
         </member>
-        <member name="P:SocketJack.Net.NetworkBase.RemoteIdentity">
-            <summary>
-            Remote identifier used for peer-to-peer interactions used to determine the server-side client ID.
-            </summary>
-            <returns><see langword="null"/> if accessed before the server identifies the client.
-            <para>To avoid problems please do not acccess this via OnConnected Event.</para></returns>
+        <member name="P:SocketJack.Net.NetworkAuthorizationOptions.AuthorizeMessage">
+            <summary>Additional per-message policy. Required for administrative commands; exceptions deny access.</summary>
         </member>
-        <member name="P:SocketJack.Net.NetworkBase.InternalID">
-            <summary>
-            Not to be confused with RemoteIdentity, InternalID is used for internally identifying the client.
-            </summary>
-            <returns></returns>
+        <member name="P:SocketJack.Net.NetworkAuthorizationOptions.AuthorizePeerRedirect">
+            <summary>Explicit recipient and payload policy for peer forwarding. Null denies all redirects, including broadcasts.</summary>
         </member>
-        <member name="P:SocketJack.Net.NetworkBase.Active">
-            <summary>
-            True if sending or receiving.
-            </summary>
+        <member name="P:SocketJack.Net.NetworkAuthorizationOptions.AuthorizePeerControl">
+            <summary>Explicit policy for client-originated peer identity, metadata, and connection-control messages. Null denies them.</summary>
         </member>
-        <member name="P:SocketJack.Net.NetworkBase.Connection">
-            <summary>
-            The base connection for identification.
-            </summary>
+        <member name="T:SocketJack.Net.NetworkAuthorizationContext">
+            <summary>Trusted connection context, not identity or roles supplied in a message body.</summary>
         </member>
-        <member name="P:SocketJack.Net.NetworkBase.Socket">
-            <summary>
-            The main socket that listens to all requests. Using the TCP protocol.
-            </summary>
-            <remarks>Uses AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp</remarks>
+        <member name="P:SocketJack.Net.NetworkConnection.AuthenticatedPrincipal">
+            <summary>A defensive copy of the locally verified identity. Wire metadata never sets this property.</summary>
         </member>
-        <member name="P:SocketJack.Net.NetworkBase.Port">
-            <summary>
-            The bound port.
-            </summary>
-            <value>Integer</value>
-            <returns></returns>
-            <remarks></remarks>
+        <member name="M:SocketJack.Net.NetworkConnection.SetAuthenticatedPrincipal(System.Security.Claims.ClaimsPrincipal,System.DateTimeOffset)">
+            <summary>Call only after the server has verified credentials or a client certificate. Requires encrypted TLS.
+            Never copy roles or an authentication flag from a DTO, peer metadata, or DLL claims. UDP has no authenticated channel.</summary>
         </member>
-        <member name="P:SocketJack.Net.NetworkBase.LocalIPEndPoint">
-            <summary>
-            Returns the bound IPEndPoint.
-            </summary>
-            <value>IPEndPoint</value>
-            <returns></returns>
-            <remarks></remarks>
-        </member>
-        <member name="P:SocketJack.Net.NetworkBase.Connected">
-            <summary>
-            Current connection State.
-            </summary>
-            <returns><see langword="true"/> if Socket.Connected or Socket.Listening; otherwise <see langword="false"/></returns>
-        </member>
-        <member name="P:SocketJack.Net.NetworkBase.PeerToPeerInstance">
-            <summary>
-            True if is Peer to Peer Client or Server instance.
-            </summary>
-            <returns></returns>
-        </member>
-        <member name="P:SocketJack.Net.NetworkBase.SslTargetHost">
-            <summary>
-            Host name for SSL connections.
-            <para>Required.</para>
-            </summary>
-        </member>
-        <member name="P:SocketJack.Net.NetworkBase.LatencyMs">
-            <summary>
-            Measured one-way latency in milliseconds (RTT / 2).
-            Updated automatically by the built-in ping loop.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.NetworkBase.SendPingInternal(System.Object)">
-            <summary>
-            Override in subclasses to route the ping datagram through the correct send path.
-            Default implementation uses TCP-style <see cref="M:SocketJack.Net.NetworkBase.Send(SocketJack.Net.NetworkConnection,System.Object)"/>.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.NetworkBase.StartPingLoop">
-            <summary>
-            Starts a background loop that sends a <see cref="T:SocketJack.Net.P2P.Ping"/> every 10 seconds
-            and registers a <see cref="T:SocketJack.Net.P2P.Pong"/> callback to measure latency.
-            Called automatically by client types after a successful connection.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.NetworkBase.StopPingLoop">
-            <summary>
-            Stops the background ping loop.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.NetworkBase.RegisterCallback``1(System.Action{SocketJack.Net.ReceivedEventArgs{``0}})">
-            <summary>
-            <para>Registers a type callback using generic types.</para>
-            <para>Action of type invoked when type is received.</para>
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.NetworkBase.RemoveCallback``1(System.Action{SocketJack.Net.ReceivedEventArgs{``0}})">
-            <summary>
-            Removes a type callback.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.NetworkBase.RemoveCallback``1">
-            <summary>
-            Removes all type callbacks of T and it's respective white-list entry.
-            </summary>
+        <member name="M:SocketJack.Net.NetworkConnection.ClearAuthentication">
+            <summary>Revoke local authentication on logout or credential invalidation.</summary>
         </member>
         <member name="P:SocketJack.Net.NetworkConnection.Socket">
             <summary>
@@ -3100,6 +3005,142 @@
             <returns>Value as string.</returns>
             </summary>
         </member>
+        <member name="T:SocketJack.Net.NetworkBase">
+            <summary>
+            Base class for a Client / Server.
+            </summary>
+            <remarks></remarks>
+        </member>
+        <member name="E:SocketJack.Net.NetworkBase.PeerConnected">
+            <summary>
+            Fired when a user connects to the server.
+            </summary>
+            <param name="sender"></param>
+            <param name="Peer"></param>
+        </member>
+        <member name="E:SocketJack.Net.NetworkBase.PeerDisconnected">
+            <summary>
+            Fired when a user disconnects from the server.
+            </summary>
+            <param name="sender"></param>
+            <param name="Peer"></param>
+        </member>
+        <member name="M:SocketJack.Net.NetworkBase.Invoke(System.Action)">
+            <summary>
+            Dispatches <paramref name="action"/> on the UI / main thread.
+            On WPF, verifies <see cref="!:Application.Current"/> is still alive;
+            if the application has already shut down, calls <see cref="M:SocketJack.ThreadManager.Shutdown"/> instead.
+            </summary>
+        </member>
+        <member name="P:SocketJack.Net.NetworkBase.Name">
+            <summary>
+            (Optional) Name used for logging purposes.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="P:SocketJack.Net.NetworkBase.RemoteIdentity">
+            <summary>
+            Remote identifier used for peer-to-peer interactions used to determine the server-side client ID.
+            </summary>
+            <returns><see langword="null"/> if accessed before the server identifies the client.
+            <para>To avoid problems please do not acccess this via OnConnected Event.</para></returns>
+        </member>
+        <member name="P:SocketJack.Net.NetworkBase.InternalID">
+            <summary>
+            Not to be confused with RemoteIdentity, InternalID is used for internally identifying the client.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="P:SocketJack.Net.NetworkBase.Active">
+            <summary>
+            True if sending or receiving.
+            </summary>
+        </member>
+        <member name="P:SocketJack.Net.NetworkBase.Connection">
+            <summary>
+            The base connection for identification.
+            </summary>
+        </member>
+        <member name="P:SocketJack.Net.NetworkBase.Socket">
+            <summary>
+            The main socket that listens to all requests. Using the TCP protocol.
+            </summary>
+            <remarks>Uses AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp</remarks>
+        </member>
+        <member name="P:SocketJack.Net.NetworkBase.Port">
+            <summary>
+            The bound port.
+            </summary>
+            <value>Integer</value>
+            <returns></returns>
+            <remarks></remarks>
+        </member>
+        <member name="P:SocketJack.Net.NetworkBase.LocalIPEndPoint">
+            <summary>
+            Returns the bound IPEndPoint.
+            </summary>
+            <value>IPEndPoint</value>
+            <returns></returns>
+            <remarks></remarks>
+        </member>
+        <member name="P:SocketJack.Net.NetworkBase.Connected">
+            <summary>
+            Current connection State.
+            </summary>
+            <returns><see langword="true"/> if Socket.Connected or Socket.Listening; otherwise <see langword="false"/></returns>
+        </member>
+        <member name="P:SocketJack.Net.NetworkBase.PeerToPeerInstance">
+            <summary>
+            True if is Peer to Peer Client or Server instance.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="P:SocketJack.Net.NetworkBase.SslTargetHost">
+            <summary>
+            Host name for SSL connections.
+            <para>Required.</para>
+            </summary>
+        </member>
+        <member name="P:SocketJack.Net.NetworkBase.LatencyMs">
+            <summary>
+            Measured one-way latency in milliseconds (RTT / 2).
+            Updated automatically by the built-in ping loop.
+            </summary>
+        </member>
+        <member name="M:SocketJack.Net.NetworkBase.SendPingInternal(System.Object)">
+            <summary>
+            Override in subclasses to route the ping datagram through the correct send path.
+            Default implementation uses TCP-style <see cref="M:SocketJack.Net.NetworkBase.Send(SocketJack.Net.NetworkConnection,System.Object)"/>.
+            </summary>
+        </member>
+        <member name="M:SocketJack.Net.NetworkBase.StartPingLoop">
+            <summary>
+            Starts a background loop that sends a <see cref="T:SocketJack.Net.P2P.Ping"/> every 10 seconds
+            and registers a <see cref="T:SocketJack.Net.P2P.Pong"/> callback to measure latency.
+            Called automatically by client types after a successful connection.
+            </summary>
+        </member>
+        <member name="M:SocketJack.Net.NetworkBase.StopPingLoop">
+            <summary>
+            Stops the background ping loop.
+            </summary>
+        </member>
+        <member name="M:SocketJack.Net.NetworkBase.RegisterCallback``1(System.Action{SocketJack.Net.ReceivedEventArgs{``0}})">
+            <summary>
+            <para>Registers a type callback using generic types.</para>
+            <para>Action of type invoked when type is received.</para>
+            </summary>
+        </member>
+        <member name="M:SocketJack.Net.NetworkBase.RemoveCallback``1(System.Action{SocketJack.Net.ReceivedEventArgs{``0}})">
+            <summary>
+            Removes a type callback.
+            </summary>
+        </member>
+        <member name="M:SocketJack.Net.NetworkBase.RemoveCallback``1">
+            <summary>
+            Removes all type callbacks of T and it's respective white-list entry.
+            </summary>
+        </member>
         <member name="T:SocketJack.Net.NetworkOptions">
             <summary>
             Default options for <see langword="TcpClient"/>, <see langword="TcpServer"/>, <see langword="UdpClient"/>, and <see langword="UdpServer"/>.
@@ -3111,11 +3152,23 @@
             </code>
             </summary>
         </member>
-        <member name="P:SocketJack.Net.NetworkOptions.Serializer">
+        <member name="P:SocketJack.Net.NetworkOptions.Authorization">
             <summary>
             Serializer for both <see langword="TcpClient"/> and <see langword="TcpServer"/>.
             <para>Default is System.Text.Json.</para>
             </summary>
+            <summary>Local receive authorization policy. Independent of SafeMode and never negotiated by a client.</summary>
+        </member>
+        <member name="P:SocketJack.Net.NetworkOptions.SafeMode">
+            <summary>Require a client DLL fingerprint handshake before typed network traffic. Default: true.</summary>
+            <remarks>WARNING: setting SafeMode = false disables the DLL handshake and verified-assembly requirement.
+            This is not a smart move on an untrusted network. Use only for an explicitly isolated legacy endpoint.
+            WARNING: client-reported MD5/SHA-256 values are compatibility claims, not remote attestation or authentication.
+            Use authenticated TLS and application authorization as well. Register callbacks and approved DLL pins before connecting.</remarks>
+        </member>
+        <member name="P:SocketJack.Net.NetworkOptions.VerifiedAssemblies">
+            <summary>Trusted local application DLL pins. Supply SHA-256 values from your trusted release process.
+            Never populate this registry from a network client. SafeMode requires every application message DLL to be approved.</summary>
         </member>
         <member name="P:SocketJack.Net.NetworkOptions.CompressionAlgorithm">
             <summary>
@@ -3921,7 +3974,7 @@
         </member>
         <member name="F:SocketJack.Net.TcpServer.DeferPeerInitialization">
             <summary>
-            When <see langword="true"/>, <see cref="M:SocketJack.Net.TcpServer.NewConnection(System.Net.Sockets.Socket@)"/> will not call
+            When <see langword="true"/>, <see cref="M:SocketJack.Net.TcpServer.NewConnection(System.Net.Sockets.Socket)"/> will not call
             <see cref="M:SocketJack.Net.TcpServer.InitializePeer(SocketJack.Net.NetworkConnection)"/> automatically.  Derived classes (e.g.
             <see cref="T:SocketJack.Net.MutableTcpServer"/>) set this so that peer initialization
             is deferred until the connection's protocol has been identified.
@@ -4871,7 +4924,10 @@
             <summary>Maximum concurrent independent object decoders/callbacks per peer.</summary>
         </member>
         <member name="P:SocketJack.Net.UdpReliableOptions.BufferSize">
-            <summary>Socket and reusable transport I/O buffers, at most 32 KiB. Object budgets are separate.</summary>
+            <summary>Individual reusable transport I/O buffers, at most 32 KiB. Aggregate queues are separate.</summary>
+        </member>
+        <member name="P:SocketJack.Net.UdpReliableOptions.SocketQueueBytes">
+            <summary>Aggregate operating-system socket queue capacity, shared by all peers. This is not a datagram or individual I/O buffer size.</summary>
         </member>
         <member name="T:SocketJack.Net.UdpReliableStatistics">
             <summary>Transport counters include retries and headers; payload counters exclude them.</summary>
@@ -4975,190 +5031,6 @@
             <para>Not case sensitive.</para>
             </summary>
         </member>
-        <member name="T:SocketJack.Net.Services.PromptIntellisense">
-            <summary>
-            Provides intellisense-style completions for the WinAgent prompt input.
-            Handles command completion, parameter completion, and file system browsing.
-            Supports dynamic registration — call <see cref="M:SocketJack.Net.Services.PromptIntellisense.AddCommand(SocketJack.Net.Services.PromptIntellisense.CompletionItem)"/> or <see cref="M:SocketJack.Net.Services.PromptIntellisense.AddFeature(System.String,System.String,System.String,System.String)"/>
-            at any time and completions update automatically.
-            </summary>
-        </member>
-        <member name="T:SocketJack.Net.Services.PromptIntellisense.CompletionItem">
-            <summary>A single completion item with display text, insert text, and description.</summary>
-        </member>
-        <member name="P:SocketJack.Net.Services.PromptIntellisense.CompletionItem.Writeup">
-            <summary>Extended writeup shown in expanded tooltips / help panels.</summary>
-        </member>
-        <member name="P:SocketJack.Net.Services.PromptIntellisense.CompletionItem.IsExecutable">
-            <summary>Whether this item can be executed directly from intellisense.</summary>
-        </member>
-        <member name="F:SocketJack.Net.Services.PromptIntellisense._commands">
-            <summary>All registered commands - dynamically extensible.</summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.PromptIntellisense.AddCommand(SocketJack.Net.Services.PromptIntellisense.CompletionItem)">
-            <summary>Register a single command into intellisense.</summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.PromptIntellisense.AddCommands(System.Collections.Generic.IEnumerable{SocketJack.Net.Services.PromptIntellisense.CompletionItem})">
-            <summary>Register multiple commands at once.</summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.PromptIntellisense.AddFeature(System.String,System.String,System.String,System.String)">
-            <summary>Register an LLM / AI feature that appears in intellisense and is executable.</summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.PromptIntellisense.AddAgentActions(System.Collections.Generic.IEnumerable{System.ValueTuple{System.String,System.String,System.Boolean}})">
-            <summary>Register agent slave actions so they appear in intellisense and can be invoked.</summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.PromptIntellisense.ClearCategory(System.String)">
-            <summary>Remove all commands in a given category (useful before re-registering).</summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.PromptIntellisense.GetAllCommands">
-            <summary>Get a snapshot of all registered commands (for help display, etc.).</summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.PromptIntellisense.SetSequenceProvider(System.Func{System.Collections.Generic.List{System.String}})">
-            <summary>
-            Register a callback that returns current sequence names (for play/delete completion).
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.PromptIntellisense.SetModelProvider(System.Func{System.Collections.Generic.List{System.String}})">
-            <summary>
-            Register a callback that returns available .gguf model file paths (for ai load completion).
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.PromptIntellisense.SetReflectionProvider(System.Func{System.Collections.Generic.List{SocketJack.Net.Services.ReflectionService.MemberInfo}},System.Func{System.String,SocketJack.Net.Services.ReflectionService.MemberInfo},System.Func{System.String,System.Collections.Generic.List{SocketJack.Net.Services.ReflectionService.MemberInfo}})">
-            <summary>
-            Register a callback that returns discoverable reflection members.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.PromptIntellisense.GetCompletions(System.String,System.Int32)">
-            <summary>
-            Get completion items for the current input text and caret position.
-            Returns an empty list if no completions are relevant.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.PromptIntellisense.ApplyCompletion(System.String,System.Int32,SocketJack.Net.Services.PromptIntellisense.CompletionItem)">
-            <summary>
-            Apply a completion item to the current input, returning the new text and caret position.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.PromptIntellisense.ExtractTrailingPath(System.String)">
-            <summary>
-            Extract a trailing file path from the input (e.g. "ai load C:\Users" ? "C:\Users").
-            Returns null if no path-like segment is found.
-            </summary>
-        </member>
-        <member name="T:SocketJack.Net.Services.ReflectionService">
-            <summary>
-            Provides reflection-based execution of properties, fields, and methods on a target object.
-            Results are serialized to JSON using SocketJack-compatible settings with safe fallback
-            for non-serializable types.
-            Supports scanning all loaded assemblies and parsing method parameters.
-            </summary>
-        </member>
-        <member name="T:SocketJack.Net.Services.ReflectionService.AssemblyInfo">
-            <summary>Describes a loaded assembly with its types.</summary>
-        </member>
-        <member name="T:SocketJack.Net.Services.ReflectionService.MemberInfo">
-            <summary>Describes a discoverable member on the target object.</summary>
-        </member>
-        <member name="T:SocketJack.Net.Services.ReflectionService.ParameterDetail">
-            <summary>Describes a parameter of a method.</summary>
-        </member>
-        <member name="T:SocketJack.Net.Services.ReflectionService.ExecutionResult">
-            <summary>Result of executing a reflection command.</summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.ReflectionService.GetLoadedAssemblies">
-            <summary>
-            Gets all loaded assemblies with their public types.
-            Includes framework and application assemblies so /reflect can inspect the full runtime.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.ReflectionService.CreateSocketJackJsonOptions">
-            <summary>
-            Creates the SocketJack JSON options used for safe reflection output.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.ReflectionService.TryResolveLoadedType(System.String,System.Predicate{System.Type},System.Type@,System.String@)">
-            <summary>
-            Resolve a type from loaded assemblies and optionally enforce an allowlist.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.ReflectionService.CreateInstance(System.Type,System.String[])">
-            <summary>
-            Creates an instance with string arguments converted to the constructor parameter types.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.ReflectionService.ExecuteStatic(System.String,System.String,System.String[],System.Predicate{System.Type})">
-            <summary>
-            Executes a static property, field, or method after resolving the type from loaded assemblies.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.ReflectionService.SerializeResultValue(System.Object,System.Type)">
-            <summary>
-            Serializes reflection output with SocketJack-compatible options and safe fallback.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.ReflectionService.NavigateTo(System.String)">
-            <summary>
-            Navigate a dot-separated member path and return a ReflectionService for the resolved object.
-            Returns null if any segment is null or not found.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.ReflectionService.ReadMember(System.String)">
-            <summary>
-            Read the current value of a member by name (property or field).
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.ReflectionService.DiscoverMembers">
-            <summary>
-            Discovers all accessible members (properties, fields, methods) on the target.
-            Excludes compiler-generated, WPF infrastructure, and common noise members.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.ReflectionService.GetMatchingMembers(System.String)">
-            <summary>
-            Get members filtered by a prefix for intellisense.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.ReflectionService.GetMethodInfo(System.String)">
-            <summary>
-            Get parameter info for a specific method by name.
-            Returns null if the method is not found.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.ReflectionService.ParseParameters(System.String)">
-            <summary>
-            Parse parameter string from /reflect command. 
-            Parameters are in format (param1, param2, ...) where strings are quoted and numerics are not.
-            Example: (123, "hello world", 45.6, "test")
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.ReflectionService.Execute(System.String,System.String[])">
-            <summary>
-            Execute a member by name, optionally with string arguments.
-            Properties/fields return their value; methods are invoked.
-            Supports parsing parameters from method call syntax: method(arg1, arg2, ...)
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.ReflectionService.SafeSerialize(System.Object,System.Type)">
-            <summary>
-            Safely serialize a value to JSON. Skips non-serializable objects gracefully.
-            Uses SocketJack-compatible serializer options.
-            </summary>
-        </member>
-        <member name="M:SocketJack.Net.Services.ReflectionService.IsFileType(System.Type)">
-            <summary>Returns true for types that represent file-like inputs (byte[], Stream, FileInfo, etc.).</summary>
-        </member>
-        <member name="T:SocketJack.Net.Services.GitService">
-            <summary>
-            Executes a narrow, Codex-style Git tool surface for HeirowLlm agent mode.
-            This service builds known git commands itself instead of accepting raw shell text.
-            </summary>
-        </member>
-        <member name="T:SocketJack.Net.Services.TerminalService">
-            <summary>
-            Executes local terminal commands for HeirowLlm after the caller has passed
-            the GUI-owned permission gate.
-            </summary>
-        </member>
         <member name="T:SocketJack.Examples.DataServerExample">
             <summary>
             Example usage of DataServer — standalone, MutableTcpServer integration, and MSSQL import.
@@ -5219,6 +5091,14 @@
             This property should be type of Int64.
             </summary>
             <returns></returns>
+        </member>
+        <member name="T:SocketJack.Serialization.VerifiedAssemblyRegistry">
+            <summary>Local, administrator-supplied SHA-256 pins for assemblies containing message types.
+            Pins are never sent to peers. Obtain pins from a trusted build/release, not from a client.</summary>
+        </member>
+        <member name="M:SocketJack.Serialization.VerifiedAssemblyRegistry.Add(System.Reflection.Assembly,System.String)">
+            <summary>Approve a DLL only if its bytes match the trusted SHA-256 pin.
+            This verifies the local DLL; it cannot attest what a remote process executes.</summary>
         </member>
         <member name="T:SocketJack.ThreadManager">
             <summary>

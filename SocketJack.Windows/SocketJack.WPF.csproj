@@ -33,7 +33,6 @@
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <PackageLicenseFile>License.txt</PackageLicenseFile>
     <Title>SocketJack</Title>
-    <Description>High-performance, fully managed .NET networking library for TCP, UDP, and WebSocket communication. LLM. Features built-in peer-to-peer with NAT traversal, pluggable System.Text.Json serialization, SslStream TLS 1.2 encryption, GZip/Deflate compression, bandwidth throttling, and live WPF control sharing. Send any object across a unified, transport-agnostic API. Targets .NET Standard 2.1, .NET 8</Description>
     <IsPackable>True</IsPackable>
     <Company>JackOfFates</Company>
     <Version>2026.12</Version>
@@ -41,7 +40,7 @@
     <NeutralLanguage>en-001</NeutralLanguage>
     <IncludeSymbols>False</IncludeSymbols>
     <ImportedNamespaces>System.Text.Json=False,System.Text.Json.Serialization=False,Microsoft.VisualBasic=True,System=True,System.Collections=True,System.Collections.Generic=True,System.Diagnostics=True,System.Linq=True,System.Xml.Linq=True,System.Threading.Tasks=True,SocketJack=True</ImportedNamespaces>
-    <PackageReleaseNotes>2026.7 aligns the WPF package line with SocketJack 2026.11 TypeScript client generation.</PackageReleaseNotes>
+    <PackageReleaseNotes>2026.14 separates application components from the networking library, requires authenticated authorization before remote commands, blocks administrative peer redirects and remote CLR reflection, and hardens type activation and segment reassembly.</PackageReleaseNotes>
     <PackageProjectUrl>https://www.nuget.org/packages/SocketJack.WPF/</PackageProjectUrl>
     <PackageIcon>SocketJackWpfIcon.png</PackageIcon>
     <PackageReadmeFile>Readme.md</PackageReadmeFile>
@@ -284,7 +283,6 @@
     <None Remove="SocketJackWpfIcon.png" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\SocketJack\Com\SocketJackComClient.cs" Link="Com\SocketJackComClient.cs" />
     <Compile Include="..\SocketJack\Compression\DeflateCompression.cs" Link="Compression\DeflateCompression.cs" />
     <Compile Include="..\SocketJack\Compression\GZip2Compression.cs" Link="Compression\GZip2Compression.cs" />
     <Compile Include="..\SocketJack\Compression\ICompression.cs" Link="Compression\ICompression.cs" />
@@ -309,6 +307,10 @@
     <Compile Include="..\SocketJack\Net\Database\DatabaseSnapshot.cs" Link="Net\Database\DatabaseSnapshot.cs" />
     <Compile Include="..\SocketJack\Net\Database\DataClient.cs" Link="Net\Database\DataClient.cs" />
     <Compile Include="..\SocketJack\Net\Database\DataServer.cs" Link="Net\Database\DataServer.cs" />
+    <Compile Include="..\SocketJack\Net\Database\DataServer.Transactions.cs" Link="Net\Database\DataServer.Transactions.cs" />
+    <Compile Include="..\SocketJack\Net\Database\SqlCommand.cs" Link="Net\Database\SqlCommand.cs" />
+    <Compile Include="..\SocketJack\Net\Database\ManagedSqlEngine.cs" Link="Net\Database\ManagedSqlEngine.cs" />
+    <Compile Include="..\SocketJack\Net\Database\TdsValueCodec.cs" Link="Net\Database\TdsValueCodec.cs" />
     <Compile Include="..\SocketJack\Net\Database\DataServerExample.cs" Link="Net\Database\DataServerExample.cs" />
     <Compile Include="..\SocketJack\Net\Database\DataServerStorageManifest.cs" Link="Net\Database\DataServerStorageManifest.cs" />
     <Compile Include="..\SocketJack\Net\Database\DataServerSnapshot.cs" Link="Net\Database\DataServerSnapshot.cs" />
@@ -316,7 +318,6 @@
     <Compile Include="..\SocketJack\Net\Database\DbContextGeneratorTool.cs" Link="Net\Database\DbContextGeneratorTool.cs" />
     <Compile Include="..\SocketJack\Net\Database\QueryResult.cs" Link="Net\Database\QueryResult.cs" />
     <Compile Include="..\SocketJack\Net\Database\AdminSuite.cs" Link="Net\Database\AdminSuite.cs" />
-    <Compile Include="..\SocketJack\Net\Database\AdminSuite.WebUiSync.cs" Link="Net\Database\AdminSuite.WebUiSync.cs" />
     <Compile Include="..\SocketJack\Net\Database\SqlAdminPanel.cs" Link="Net\Database\SqlAdminPanel.cs" />
     <Compile Include="..\SocketJack\Net\Database\SqlSession.cs" Link="Net\Database\SqlSession.cs" />
     <Compile Include="..\SocketJack\Net\Database\Table.cs" Link="Net\Database\Table.cs" />
@@ -337,6 +338,9 @@
     <Compile Include="..\SocketJack\Net\NetworkBase.cs" Link="Net\NetworkBase.cs" />
     <Compile Include="..\SocketJack\Net\NetworkConnection.cs" Link="Net\NetworkConnection.cs" />
     <Compile Include="..\SocketJack\Net\NetworkOptions.cs" Link="Net\NetworkOptions.cs" />
+    <Compile Include="..\SocketJack\Net\NetworkAuthorization.cs" Link="Net\NetworkAuthorization.cs" />
+    <Compile Include="..\SocketJack\Net\InboundMessageDecoder.cs" Link="Net\InboundMessageDecoder.cs" />
+    <Compile Include="..\SocketJack\Net\SafeModeHandshake.cs" Link="Net\SafeModeHandshake.cs" />
     <Compile Include="..\SocketJack\Net\NIC.cs" Link="Net\NIC.cs" />
     <Compile Include="..\SocketJack\Net\PublicIpResolver.cs" Link="Net\PublicIpResolver.cs" />
     <Compile Include="..\SocketJack\Net\P2P\ConnectionRefusedArgs.cs" Link="Net\P2P\ConnectionRefusedArgs.cs" />
@@ -352,12 +356,6 @@
     <Compile Include="..\SocketJack\Net\Segment.cs" Link="Net\Segment.cs" />
     <Compile Include="..\SocketJack\Net\SendQueueItem.cs" Link="Net\SendQueueItem.cs" />
     <Compile Include="..\SocketJack\Net\SocketJackPatternCache.cs" Link="Net\SocketJackPatternCache.cs" />
-    <Compile Include="..\SocketJack\Net\Services\GitService.cs" Link="Net\Services\GitService.cs" />
-    <Compile Include="..\SocketJack\Net\Services\PromptIntellisense.cs" Link="Net\Services\PromptIntellisense.cs" />
-    <Compile Include="..\SocketJack\Net\Services\ReflectionService.cs" Link="Net\Services\ReflectionService.cs" />
-    <Compile Include="..\SocketJack\Net\Services\SearchInternet.cs" Link="Net\Services\SearchInternet.cs" />
-    <Compile Include="..\SocketJack\Net\Services\SearchService.cs" Link="Net\Services\SearchService.cs" />
-    <Compile Include="..\SocketJack\Net\Services\TerminalService.cs" Link="Net\Services\TerminalService.cs" />
     <Compile Include="..\SocketJack\Net\TcpClient.cs" Link="Net\TcpClient.cs" />
     <Compile Include="..\SocketJack\Net\TcpDuplicator.cs" Link="Net\TcpDuplicator.cs" />
     <Compile Include="..\SocketJack\Net\ReverseTcpDuplicator.cs" Link="Net\ReverseTcpDuplicator.cs" />
@@ -379,11 +377,6 @@
     <Compile Include="..\SocketJack\Net\WebSocketFrameHelper.cs" Link="Net\WebSocketFrameHelper.cs" />
     <Compile Include="..\SocketJack\Net\WebSockets\WebSocketClient.cs" Link="Net\WebSockets\WebSocketClient.cs" />
     <Compile Include="..\SocketJack\Net\WebSockets\WebSocketServer.cs" Link="Net\WebSockets\WebSocketServer.cs" />
-    <Compile Include="..\SocketJack\Net\AgentBuilder\AgentBuilderJson.cs" Link="Net\AgentBuilder\AgentBuilderJson.cs" />
-    <Compile Include="..\SocketJack\Net\AgentBuilder\AgentBuilderApplicationModels.cs" Link="Net\AgentBuilder\AgentBuilderApplicationModels.cs" />
-    <Compile Include="..\SocketJack\Net\AgentBuilder\AgentBuilderModels.cs" Link="Net\AgentBuilder\AgentBuilderModels.cs" />
-    <Compile Include="..\SocketJack\Net\AgentBuilder\AgentBuilderReflectionExecutor.cs" Link="Net\AgentBuilder\AgentBuilderReflectionExecutor.cs" />
-    <Compile Include="..\SocketJack\Net\AgentBuilder\AgentBuilderWorkflowEngine.cs" Link="Net\AgentBuilder\AgentBuilderWorkflowEngine.cs" />
     <Compile Include="..\SocketJack\Serialization\BinarySerializer.cs" Link="Serialization\BinarySerializer.cs" />
     <Compile Include="..\SocketJack\Serialization\ISerializer.cs" Link="Serialization\ISerializer.cs" />
     <Compile Include="..\SocketJack\Serialization\Json\Converters\BitmapConverter.cs" Link="Serialization\Json\Converters\BitmapConverter.cs" />
@@ -394,14 +387,10 @@
     <Compile Include="..\SocketJack\Serialization\Json\Int32NotSupportedException.cs" Link="Serialization\Json\Int32NotSupportedException.cs" />
     <Compile Include="..\SocketJack\Serialization\Json\JsonSerializer.cs" Link="Serialization\Json\JsonSerializer.cs" />
     <Compile Include="..\SocketJack\Serialization\TypeList.cs" Link="Serialization\TypeList.cs" />
+    <Compile Include="..\SocketJack\Serialization\DeserializationTypePolicy.cs" Link="Serialization\DeserializationTypePolicy.cs" />
+    <Compile Include="..\SocketJack\Serialization\VerifiedAssemblyRegistry.cs" Link="Serialization\VerifiedAssemblyRegistry.cs" />
     <Compile Include="..\SocketJack\Serialization\TypeNotAllowedException.cs" Link="Serialization\TypeNotAllowedException.cs" />
     <Compile Include="..\SocketJack\Serialization\Wrapper.cs" Link="Serialization\Wrapper.cs" />
-    <Compile Include="..\SocketJack\Sandbox\SandboxOptions.cs" Link="Sandbox\SandboxOptions.cs" />
-    <Compile Include="..\SocketJack\Sandbox\SandboxContracts.cs" Link="Sandbox\SandboxContracts.cs" />
-    <Compile Include="..\SocketJack\Sandbox\InMemorySandboxAuditLog.cs" Link="Sandbox\InMemorySandboxAuditLog.cs" />
-    <Compile Include="..\SocketJack\Sandbox\InMemorySandboxFileSystem.cs" Link="Sandbox\InMemorySandboxFileSystem.cs" />
-    <Compile Include="..\SocketJack\Sandbox\InMemorySandboxRegistry.cs" Link="Sandbox\InMemorySandboxRegistry.cs" />
-    <Compile Include="..\SocketJack\Sandbox\SandboxSession.cs" Link="Sandbox\SandboxSession.cs" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="..\SocketJack\License.txt" Link="License.txt" />
@@ -446,16 +435,11 @@
     </ItemGroup>
     <ItemGroup>
       <Folder Include="Compression\" />
-      <Folder Include="Net\Services\" />
       <Folder Include="Torrent\" />
       <Folder Include="Net\P2P\" />
       <Folder Include="Serialization\Json\Converters\" />
     </ItemGroup>
     <ItemGroup>
-      <None Include="..\SocketJack\Sandbox\README.md" Link="Sandbox\README.md" />
-      <None Include="..\SocketJack\Sandbox\SandboxFeatureSetPlan.md" Link="Sandbox\SandboxFeatureSetPlan.md" />
-      <None Include="..\SocketJack\Sandbox\SandboxOptionsMatrix.md" Link="Sandbox\SandboxOptionsMatrix.md" />
-      <None Include="..\SocketJack\Sandbox\heirowLLMMigrationPlan.md" Link="Sandbox\heirowLLMMigrationPlan.md" />
     </ItemGroup>
     <ItemGroup>
       <None Include="Readme.md">
@@ -472,6 +456,5 @@
       </None>
     </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\SocketJack.LlmCore\SocketJack.LlmCore.csproj" PrivateAssets="all" />
   </ItemGroup>
 </Project>

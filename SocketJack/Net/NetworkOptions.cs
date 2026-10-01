@@ -24,14 +24,47 @@ namespace SocketJack.Net {
         public static NetworkOptions DefaultOptions = new NetworkOptions();
 
         public static NetworkOptions NewDefault() {
-            return DefaultOptions.Clone<NetworkOptions>();
+            var source = DefaultOptions;
+            var copy = source.Clone<NetworkOptions>();
+            copy.Whitelist = source.Whitelist.Copy();
+            copy.Blacklist = source.Blacklist.Copy();
+            copy.VerifiedAssemblies = source.VerifiedAssemblies.Copy();
+            source.Authorization.CopyTo(copy.Authorization);
+            copy.EndpointSecurity = source.EndpointSecurity?.Copy();
+            copy.UdpReliable = source.UdpReliable?.Snapshot();
+            return copy;
         }
 
         /// <summary>
         /// Serializer for both <see langword="TcpClient"/> and <see langword="TcpServer"/>.
         /// <para>Default is System.Text.Json.</para>
         /// </summary>
+        /// <summary>Local receive authorization policy. Independent of SafeMode and never negotiated by a client.</summary>
+        [System.Text.Json.Serialization.JsonIgnore]
+        public NetworkAuthorizationOptions Authorization { get; } = new NetworkAuthorizationOptions();
+
         public ISerializer Serializer { get; set; } = new JsonSerializer();
+
+        /// <summary>Require a client DLL fingerprint handshake before typed network traffic. Default: true.</summary>
+        /// <remarks>WARNING: setting SafeMode = false disables the DLL handshake and verified-assembly requirement.
+        /// This is not a smart move on an untrusted network. Use only for an explicitly isolated legacy endpoint.
+        /// WARNING: client-reported MD5/SHA-256 values are compatibility claims, not remote attestation or authentication.
+        /// Use authenticated TLS and application authorization as well. Register callbacks and approved DLL pins before connecting.</remarks>
+        public bool SafeMode {
+            get => safeMode;
+            set {
+                // WARNING: do not disable SafeMode to silently work around an invalid or unknown DLL.
+                if (!value && safeMode)
+                    System.Diagnostics.Trace.TraceWarning("SocketJack: SafeMode=false disables DLL verification. This is unsafe for untrusted clients.");
+                safeMode = value;
+            }
+        }
+        private bool safeMode = true;
+
+        /// <summary>Trusted local application DLL pins. Supply SHA-256 values from your trusted release process.
+        /// Never populate this registry from a network client. SafeMode requires every application message DLL to be approved.</summary>
+        [System.Text.Json.Serialization.JsonIgnore]
+        public VerifiedAssemblyRegistry VerifiedAssemblies { get; set; } = new VerifiedAssemblyRegistry();
 
         /// <summary>
         /// Compression algorithm for both <see langword="TcpClient"/> and <see langword="TcpServer"/>.

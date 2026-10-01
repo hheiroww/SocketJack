@@ -267,6 +267,8 @@ namespace SocketJack.Net {
             HandleReceive(connection, obj, objType, Length);
         }
         public void HandleReceive(NetworkConnection Connection, object obj, Type objType, int Length) {
+            if (!(this is HttpServer && obj is List<byte> && objType == typeof(byte[])))
+                InboundMessageSecurity.BeforeDispatch(this, Connection, obj, objType);
             switch (objType) {
                 case var @case when @case == typeof(Identifier): {
                         if (Options.UsePeerToPeer)
@@ -303,27 +305,8 @@ namespace SocketJack.Net {
                         break;
                     }
                 case var case3 when case3 == typeof(Segment): {
-                        Segment s = (Segment)obj;
-                        if (Segment.Cache.TryGetValue(s.SID, out var segmentList)) {
-                            segmentList.Add(s);
-                            if (Segment.SegmentComplete(s)) {
-                                byte[] RebuiltSegments = Segment.Rebuild(s);
-                                try {
-                                    var segObj = ((Wrapper)Options.Serializer.Deserialize(RebuiltSegments)).Unwrap(this);
-                                    var segObjType = segObj.GetType();
-                                    var e = new ReceivedEventArgs<Segment>(this, Connection, segObj, RebuiltSegments.Length);
-                                    InternalReceiveEvent?.Invoke(Connection, segObjType, segObj, RebuiltSegments.Length);
-                                    IReceivedEventArgs args = e;
-                                    OnReceive?.Invoke(ref args);
-                                    InvokeAllCallbacks(e);
-                                } catch (Exception) {
-                                    InvokeOnError(Connection, new Exception("Failed to deserialize segment."));
-                                }
-                            }
-                        } else {
-                            Segment.Cache.Add(s.SID, new List<Segment> { s });
-                        }
-
+                        object assembled = InboundMessageDecoder.ReadSegment(this, Connection, (Segment)obj);
+                        if (assembled != null) HandleReceive(Connection, assembled, assembled.GetType(), Length);
                         break;
                     }
                 case var case4 when case4 == typeof(PeerRedirect): {
@@ -334,21 +317,7 @@ namespace SocketJack.Net {
                         //var e = new ReceivedEventArgs<PeerRedirect>(this, Connection, redirect, Length);
 
                         if (this.Connection.IsServer) {
-                            Type redirectType = Wrapper.GetValueType(redirect.Type);
-                            if (redirectType == null) {
-                                // Inner type cannot be resolved — forward the redirect
-                                // without invoking typed callbacks.
-                                if (Connection.Identity == null || !Peers.TryGetValue(Connection.Identity.ID, out _)) break;
-                                bool allowUntyped = true;
-                                if (allowUntyped) {
-                                    if (redirect.Recipient == "#ALL#") {
-                                        SendBroadcast(redirect, Connection);
-                                    } else if (Peers.TryGetValue(redirect.Recipient, out Identifier rIDUntyped)) {
-                                        Send(rIDUntyped, redirect);
-                                    }
-                                }
-                                break;
-                            }
+                            Type redirectType = Options.Whitelist.Resolve(redirect.Type) ?? throw InboundMessageSecurity.Denied();
                             var genericType = typeof(ReceivedEventArgs<>).MakeGenericType(redirectType);
                             var receivedEventArgs = (IReceivedEventArgs)Activator.CreateInstance(genericType);
                             if (!Peers.TryGetValue(Connection.Identity.ID, out var from)) return;
@@ -829,11 +798,9 @@ namespace SocketJack.Net {
             Task.Run(() => {
                 byte[] SerializedBytes = Options.Serializer.Serialize(new Wrapper(Obj, this));
                 Segment[] SegmentedObject = SerializedBytes.GetSegments();
-                Parallel.ForEach(SegmentedObject, (s) => {
-                    //var state = new SendQueueItem(s, Client);
-
-                    Client.TryEnqueueSendBytes(Options.Serializer.Serialize(s));
-                });
+                // Use the normal wrapper/framing/compression path for each Segment.
+                // Keep admission sequential instead of scheduling a task per fragment.
+                foreach (var segment in SegmentedObject) Client.Send(segment);
             });
         }
 

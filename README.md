@@ -11,7 +11,7 @@
 [![Build & publish](https://github.com/hheiroww/SocketJack/actions/workflows/dotnet.yml/badge.svg)](https://github.com/hheiroww/SocketJack/actions/workflows/dotnet.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/hheiroww/SocketJack/blob/master/LICENSE)
 
-**📦 [Install](#-install) · ✨ [What's new](#-whats-new-in-202613) · 🧭 [Features](#-feature-explorer) · 📚 [Documentation](#-documentation)**
+**📦 [Install](#-install) · ✨ [What's new](#-whats-new-in-202614) · 🧭 [Features](#-feature-explorer) · 📚 [Documentation](#-documentation)**
 
 </div>
 
@@ -26,12 +26,12 @@ SocketJack is a .NET networking library for sending typed objects, hosting HTTP 
 ## 📦 Install
 
 ```powershell
-dotnet add package SocketJack --version 2026.13.1
+dotnet add package SocketJack --version 2026.14.0
 ```
 
 | Package | Target | Purpose |
 |---|---|---|
-| **[SocketJack](https://www.nuget.org/packages/SocketJack/2026.13.1)** | .NET Standard 2.1 | Core networking library; this release is **2026.13.1**. |
+| **[SocketJack](https://www.nuget.org/packages/SocketJack/2026.14.0)** | .NET Standard 2.1 | Core networking library; this release is **2026.14.0**. |
 | **[SocketJack.WPF](https://www.nuget.org/packages/SocketJack.WPF)** | Windows / WPF | Companion package for live control capture and remote input; versioned separately. |
 
 <details>
@@ -43,41 +43,50 @@ Register a callback before connecting. Run the server and client in separate app
 using System;
 using SocketJack.Net;
 
-var server = new TcpServer(port: 12345);
-server.RegisterCallback<ChatMessage>(e =>
+// This example deliberately accepts anonymous text, with peer routing disabled.
+var options = new NetworkOptions { UsePeerToPeer = false };
+options.Authorization.AnonymousMessageTypes.Add(typeof(string));
+using var server = new TcpServer(options, 12345);
+server.RegisterCallback<string>(e =>
 {
-    Console.WriteLine(e.Object.Text);
-    e.Connection.Send(new ChatMessage { Text = "Received ✓" });
+    Console.WriteLine(e.Object);
+    e.Connection.Send("Received ✓");
 });
 server.Listen();
 
-var client = new TcpClient();
-client.RegisterCallback<ChatMessage>(e => Console.WriteLine(e.Object.Text));
+using var client = new TcpClient(new NetworkOptions { UsePeerToPeer = false });
+client.RegisterCallback<string>(e => Console.WriteLine(e.Object));
 if (await client.Connect("127.0.0.1", 12345))
-    client.Send(new ChatMessage { Text = "Hello, SocketJack!" });
-
-public sealed class ChatMessage
-{
-    public string Text { get; set; }
-}
+    client.Send("Hello, SocketJack!");
+Console.ReadLine();
 ```
 
 Keep the host application running while connections are in use. Use matching serialization and compression settings on both endpoints.
 
 </details>
 
-## ✨ What's new in 2026.13
+## ✨ What's new in 2026.14
 
-This release refreshes the documentation and publishing checks for the recent networking updates. Expand each feature below for behavior, configuration, and limits.
+This release adds default-on authentication gates, verified contract DLLs, authorization before object activation, and connection-scoped segment reassembly. **Migration required:** register only explicitly anonymous DTOs, or authenticate over TLS before sending application messages. DLL matching does not authenticate a user. See the [security and migration guide](https://github.com/hheiroww/SocketJack/blob/master/docs/SAFEMODE.md).
 
 | Feature | What changed |
 |---|---|
+| 🛡️ **Authorization** | Default-deny peer control and redirects; administrative commands require a verified Administrator role and an explicit policy. |
+| 🔒 **SafeMode** | Approved DLL pins and a client manifest checked during handshaking, without exposing server fingerprints. |
 | 📡 **Reliable UDP** | Opt-in reliable sessions, indexed fragments, selective retransmission, and independent or ordered delivery. |
 | 🧩 **Binary serialization** | Custom `SB` format, compact integers, direct byte arrays, and type whitelist validation. |
 | 📂 **Verified transfers** | Chunked stream/file delivery with 64-bit offsets and SHA-256 verification. |
 | 🔐 **SSH.NET 2026.0.0** | Updated dependency powering SocketJack's SFTP client integration. |
 | 🟦 **TypeScript generation** | Generate a client from mapped HTTP routes and emit whitelisted WebSocket message types. |
 | ✅ **Trusted Publishing** | GitHub identity obtains a short-lived NuGet credential; no stored publish API key is required. |
+
+## 🛡️ Authentication and safe type activation
+
+SafeMode is enabled by default. Application contract DLLs require trusted SHA-256 pins on both sides; type names and client DLL fingerprints must match the server during handshaking. No server fingerprint is returned. Invalid clients are disconnected before typed messages are dispatched.
+
+Authentication is a separate step. A server verifies credentials, then calls `SetAuthenticatedPrincipal` over encrypted TLS. Peer redirects and control messages require explicit authorization callbacks. Administrative DTOs require the `Administrator` role plus an operation policy and cannot be redirected between peers. Remote CLR reflection endpoints reject invocation. Allowlisted constructors, setters, converters, and application handlers remain trusted code.
+
+[Configuration, login flow, limitations and migration](https://github.com/hheiroww/SocketJack/blob/master/docs/SAFEMODE.md)
 
 ## 🧭 Feature explorer
 
@@ -113,7 +122,7 @@ Configure a matching reliable server with its own options instance. `SendAsync` 
 
 **Limits:** reliability does not provide encryption. The recorded loopback benchmarks did **not** meet the goal of outperforming TCP on both throughput and latency. Choose this transport for its delivery behavior and measure your own workload.
 
-📖 [API, configuration & limits](https://github.com/hheiroww/SocketJack/blob/master/docs/UDP_Reliable.md) · 📊 [Measured results](https://github.com/hheiroww/SocketJack/blob/master/docs/UDP_Reliable-results.md)
+📖 [API, configuration & limits](https://github.com/hheiroww/SocketJack/blob/master/docs/UDP_Reliable.md)
 
 </details>
 
@@ -130,6 +139,7 @@ Configure a matching reliable server with its own options instance. `SendAsync` 
 | Type validation | Decoded wrappers continue through SocketJack's type whitelist checks. |
 
 This is a custom serializer, not `BinaryFormatter`. Register message callbacks or whitelist message types before sending, including nested types where required. Serializer and compression choices must agree between endpoints.
+
 
 </details>
 
@@ -265,8 +275,6 @@ Before packaging, restore audits direct and transitive dependencies. Known vulne
 |---|---|
 | 📘 [Examples](https://github.com/hheiroww/SocketJack/blob/master/examples.md) | Longer transport and utility examples. |
 | 📡 [Reliable UDP guide](https://github.com/hheiroww/SocketJack/blob/master/docs/UDP_Reliable.md) | Options, transfer APIs, limits, and acceptance semantics. |
-| 📊 [Reliable UDP results](https://github.com/hheiroww/SocketJack/blob/master/docs/UDP_Reliable-results.md) | Recorded correctness and performance evidence. |
-| 🔎 [Release audit](https://github.com/hheiroww/SocketJack/blob/master/docs/RELEASE-2026.13.md) | Dependency audit scope and release validation. |
 | 🧪 [GitHub Actions](https://github.com/hheiroww/SocketJack/actions) | Build and publishing results. |
 | 📦 [NuGet](https://www.nuget.org/packages/SocketJack) | Published versions and dependencies. |
 

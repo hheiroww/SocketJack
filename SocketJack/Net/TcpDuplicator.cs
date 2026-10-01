@@ -10,7 +10,6 @@ namespace SocketJack.Net {
     public class TcpDuplicator : IDisposable {
 
         // This class is basically a reverse VPN.
-        // I created it to serve as a way to connect Visual Studio Copilot to the SocketJack server, which is running on a different machine. It works by creating a TCP listener on the local machine, and then forwarding all incoming connections to a remote server.
 
         #region Fields
 

@@ -1,4 +1,4 @@
-﻿using SocketJack.Net;
+using SocketJack.Net;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,47 +7,46 @@ using System.Text;
 namespace SocketJack.Extensions {
     public static class ByteExtensions {
 
-        public static Segment[] GetSegments(this byte[] Bytes) {
-            int MTU = 4000;// NIC.MTU <= 0 ? 4096 : NIC.MTU;
-            var Segments = new List<Segment>();
-
-            double SegmentCountDbl = (double)((double)Bytes.Length / (double)MTU);
-            int SegmentCount = (int)Math.Round(Math.Floor(SegmentCountDbl));
-            bool AddExtra = SegmentCountDbl - SegmentCount > 0d;
-            if (AddExtra)
-                SegmentCount += 1;
-            string ID = Guid.NewGuid().ToString().ToUpper();
-            for (int i = 0, loopTo = SegmentCount - 1; i <= loopTo; i++) {
-                int ByteIndex = i * MTU;
-                int Length = ByteIndex + MTU > Bytes.Length ? Bytes.Length - ByteIndex : MTU;
-
-                byte[] CroppedData = new byte[Length];
-                Buffer.BlockCopy(Bytes, ByteIndex, CroppedData, 0, Length);
-                var s = new Segment(ID, CroppedData, i + 1, SegmentCount);
-                Segments.Add(s);
-            }
-            return Segments.ToArray();
+        private static readonly long firstSegmentId = CreateSegmentSeed();
+        private static long nextSegmentId = firstSegmentId;
+        private static long CreateSegmentSeed() {
+            byte[] seed = new byte[8];
+            using (var random = System.Security.Cryptography.RandomNumberGenerator.Create()) random.GetBytes(seed);
+            return BitConverter.ToInt64(seed, 0);
         }
-        public static Segment[] GetTerminatedSegments(this byte[] Bytes) {
-            int MTU = 4000;// NIC.MTU <= 0 ? 4096 : NIC.MTU;
-            var Segments = new List<Segment>();
-
-            double SegmentCountDbl = (double)((double)Bytes.Length / (double)MTU);
-            int SegmentCount = (int)Math.Round(Math.Floor(SegmentCountDbl));
-            bool AddExtra = SegmentCountDbl - SegmentCount > 0d;
-            if (AddExtra)
-                SegmentCount += 1;
-            string ID = Guid.NewGuid().ToString().ToUpper();
-            for (int i = 0, loopTo = SegmentCount - 1; i <= loopTo; i++) {
-                int ByteIndex = i * MTU;
-                int Length = ByteIndex + MTU > Bytes.Length ? Bytes.Length - ByteIndex : MTU;
-
-                byte[] CroppedData = new byte[Length].Terminate();
-                Buffer.BlockCopy(Bytes, ByteIndex, CroppedData, 0, Length);
-                var s = new Segment(ID, CroppedData, i + 1, SegmentCount);
-                Segments.Add(s);
+        private static string NextSegmentId() {
+            long next = System.Threading.Interlocked.Increment(ref nextSegmentId);
+            if (next == firstSegmentId) throw new InvalidOperationException("Segment object identifiers exhausted.");
+            return unchecked((ulong)next).ToString("x", System.Globalization.CultureInfo.InvariantCulture);
+        }
+        public static Segment[] GetSegments(this byte[] Bytes) => BuildSegments(Bytes, 4000, false);
+        /// <summary>Split an object into bounded chunks. Segment indexes restart at one for each legacy object envelope.</summary>
+        public static Segment[] GetSegments(this byte[] Bytes, int segmentSize) => BuildSegments(Bytes, segmentSize, false);
+        public static Segment[] GetTerminatedSegments(this byte[] Bytes) => BuildSegments(Bytes, 4000, true);
+        private static Segment[] BuildSegments(byte[] bytes, int size, bool terminated) {
+            if (bytes == null) throw new ArgumentNullException(nameof(bytes));
+            if (size < 1 || size > 32768) throw new ArgumentOutOfRangeException(nameof(size));
+            int count = bytes.Length == 0 ? 0 : 1 + (bytes.Length - 1) / size;
+            var segments = new Segment[count];
+            if (count == 0) return segments;
+            string id = NextSegmentId();
+            for (int i = 0; i < count; i++) {
+                int offset = i * size, length = Math.Min(size, bytes.Length - offset);
+                string data;
+                if (terminated) {
+                    byte[] framed = new byte[length + 15]; WriteLength(framed, length);
+                    Buffer.BlockCopy(bytes, offset, framed, 15, length);
+                    data = Convert.ToBase64String(framed);
+                } else data = Convert.ToBase64String(bytes, offset, length);
+                // Legacy envelopes are one-based; reliable UDP fragments are zero-based.
+                // Both counters restart for every object and never count across objects.
+                segments[i] = new Segment { SID = id, Data = data, Index = i + 1, Count = count };
             }
-            return Segments.ToArray();
+            return segments;
+        }
+        private static void WriteLength(byte[] target, int length) {
+            int position = 14;
+            do { target[position--] = (byte)('0' + length % 10); length /= 10; } while (length != 0);
         }
 
         public static Segment[] GetSegments<T>(this byte[] SerializedBytes) {
@@ -59,9 +58,10 @@ namespace SocketJack.Extensions {
         }
 
         public static byte[] Terminate(this byte[] Data) {
-            var length = Data.Length.ToString().PadLeft(15, (char)0);
-            return Encoding.UTF8.GetBytes(length).Concat(Data);
-            //return ByteExtensions.Concat(new[] { Data, NetworkConnection.Terminator });
+            if (Data == null) throw new ArgumentNullException(nameof(Data));
+            var framed = new byte[checked(Data.Length + 15)];
+            WriteLength(framed, Data.Length); Buffer.BlockCopy(Data, 0, framed, 15, Data.Length);
+            return framed;
         }
 
         /// <summary>

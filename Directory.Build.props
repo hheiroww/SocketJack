@@ -5,14 +5,11 @@
     <Configuration Condition="'$(Configuration)' == ''">Release</Configuration>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Remove="codex\**\*.cs" />
     <Compile Remove="artifacts\**\*.cs" />
-    <None Remove="codex\**\*" />
     <None Remove="artifacts\**\*" />
   </ItemGroup>
 
   <ItemGroup>
-    <Content Remove="codex\**\*" />
     <Content Remove="artifacts\**\*" />
   </ItemGroup>
 </Project>

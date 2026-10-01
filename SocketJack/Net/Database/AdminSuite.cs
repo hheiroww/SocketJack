@@ -51,12 +51,6 @@ namespace SocketJack.Net.Database {
             _server.Map("POST", basePath + "/api/pages/delete", (conn, req, ct) => ApiPagesDelete(req));
             _server.Map("GET", basePath + "/api/assets/list", (conn, req, ct) => ApiAssetsList(req));
             _server.Map("POST", basePath + "/api/assets/save", (conn, req, ct) => ApiAssetsSave(req));
-            _server.Map("POST", basePath + "/api/heirowwebui/link-code", (conn, req, ct) => ApiHeirowWebUiLinkCode(req));
-            _server.Map("POST", basePath + "/api/socketjack/connect", (conn, req, ct) => ApiHeirowWebUiConnect(req));
-            _server.Map("GET", basePath + "/api/socketjack/catalog", (conn, req, ct) => ApiHeirowWebUiCatalog(req));
-            _server.Map("GET", basePath + "/api/socketjack/content", (conn, req, ct) => ApiHeirowWebUiContent(req));
-            _server.Map("POST", basePath + "/api/socketjack/publish", (conn, req, ct) => ApiHeirowWebUiPublish(req));
-            _server.Map("POST", basePath + "/api/socketjack/revoke", (conn, req, ct) => ApiHeirowWebUiRevoke(req));
             _server.Map("GET", basePath + "/api/controls/list", (conn, req, ct) => ApiControlsList(req));
             _server.Map("POST", basePath + "/api/controls/save", (conn, req, ct) => ApiControlsSave(req));
             _server.Map("GET", basePath + "/api/crud/list", (conn, req, ct) => ApiCrudList(req));
@@ -79,7 +73,7 @@ namespace SocketJack.Net.Database {
                 basePath + "/api/settings/save", basePath + "/api/settings/override-all/preview",
                 basePath + "/api/settings/override-all/apply", basePath + "/api/pages/list",
                 basePath + "/api/pages/save", basePath + "/api/pages/delete", basePath + "/api/assets/list",
-                basePath + "/api/assets/save", basePath + "/api/heirowwebui/link-code", basePath + "/api/socketjack/connect", basePath + "/api/socketjack/catalog", basePath + "/api/socketjack/content", basePath + "/api/socketjack/publish", basePath + "/api/socketjack/revoke", basePath + "/api/controls/list", basePath + "/api/controls/save",
+                basePath + "/api/assets/save", basePath + "/api/controls/list", basePath + "/api/controls/save",
                 basePath + "/api/crud/list", basePath + "/api/crud/save", basePath + "/api/crud/delete",
                 basePath + "/api/crud/client/*", basePath + "/api/crud/run/*"
             }) {
@@ -243,8 +237,8 @@ namespace SocketJack.Net.Database {
                     string after = sourceHtml.GetString() ?? "";
                     if (before != after) {
                         var preamble = encoding.GetPreamble(); bool hadPreamble = preamble.Length > 0 && original.Take(preamble.Length).SequenceEqual(preamble);
-                        string temporary = target + ".heirow-" + Guid.NewGuid().ToString("N");
-                        try { File.WriteAllBytes(temporary, (hadPreamble ? preamble : Array.Empty<byte>()).Concat(encoding.GetBytes(after)).ToArray()); File.Copy(target, target + ".heirow-recovery", true); File.Copy(temporary, target, true); }
+                        string temporary = target + ".socketjack-" + Guid.NewGuid().ToString("N");
+                        try { File.WriteAllBytes(temporary, (hadPreamble ? preamble : Array.Empty<byte>()).Concat(encoding.GetBytes(after)).ToArray()); File.Copy(target, target + ".socketjack-recovery", true); File.Copy(temporary, target, true); }
                         finally { if (File.Exists(temporary)) File.Delete(temporary); }
                     }
                 }

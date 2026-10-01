@@ -17,8 +17,10 @@ namespace SocketJack.Net {
         }
         /// <summary>Maximum concurrent independent object decoders/callbacks per peer.</summary>
         public int ReceiveWorkers { get; set; } = 4;
-        /// <summary>Socket and reusable transport I/O buffers, at most 32 KiB. Object budgets are separate.</summary>
+        /// <summary>Individual reusable transport I/O buffers, at most 32 KiB. Aggregate queues are separate.</summary>
         public int BufferSize { get; set; } = 32 * 1024;
+        /// <summary>Aggregate operating-system socket queue capacity, shared by all peers. This is not a datagram or individual I/O buffer size.</summary>
+        public int SocketQueueBytes { get; set; } = 1024 * 1024;
         public int DatagramSize { get; set; } = 1200;
         public long SendQueueBytes { get; set; } = 128L * 1024 * 1024;
         public long ReceiveQueueBytes { get; set; } = 128L * 1024 * 1024;
@@ -29,7 +31,7 @@ namespace SocketJack.Net {
         public int MaximumFlightPackets { get; set; } = 512;
         public TimeSpan DeliveryTimeout { get; set; } = TimeSpan.FromSeconds(30);
         internal UdpReliableOptions Snapshot() {
-            if (BufferSize < 256 || BufferSize > 32768 || DatagramSize < 256 || DatagramSize > BufferSize || ReceiveWorkers < 1 || ReceiveWorkers > 64 || SendQueueBytes < 1 || ReceiveQueueBytes < 1 ||
+            if (BufferSize < 256 || BufferSize > 32768 || SocketQueueBytes < BufferSize || SocketQueueBytes > 64 * 1024 * 1024 || DatagramSize < 256 || DatagramSize > BufferSize || ReceiveWorkers < 1 || ReceiveWorkers > 64 || SendQueueBytes < 1 || ReceiveQueueBytes < 1 ||
                 GlobalReceiveQueueBytes < ReceiveQueueBytes || MaximumPeers < 1 || MaximumConcurrentMessages < 1 ||
                 MaximumConcurrentMessages > 64 || MaximumQueuedMessages < MaximumConcurrentMessages || MaximumQueuedMessages > 65536 || MaximumFlightPackets < 4 || MaximumFlightPackets > 65536 ||
                 DeliveryTimeout <= TimeSpan.Zero || DeliveryTimeout > TimeSpan.FromDays(1))

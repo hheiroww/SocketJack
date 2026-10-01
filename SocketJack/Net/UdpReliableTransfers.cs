@@ -80,7 +80,12 @@ namespace SocketJack.Net {
                 await SendFrame(Frame(1, id, total ?? -1, Encoding.UTF8.GetBytes(name ?? "stream"))).ConfigureAwait(false);
                 await Await(state.Accepted.Task, token).ConfigureAwait(false);
                 using (var hash = SHA256.Create()) {
-                    byte[] chunk = new byte[Math.Min(32768 - 13, peer.MaxMessage - 13)];
+                    // Fill whole transport payloads. In a 32 KiB LAN datagram a chunk now fits
+                    // INLINE, avoiding a tiny second fragment and an OPEN/GRANT round trip.
+                    int frameSize = Math.Min(32768, peer.MaxMessage);
+                    int payloadSize = peer.Mtu - UdpReliableTransport.Header;
+                    if (frameSize >= payloadSize) frameSize -= frameSize % payloadSize;
+                    byte[] chunk = new byte[Math.Max(0, frameSize - 13)];
                     if (chunk.Length < 1) throw new IOException("MaximumBufferSize is too small for stream frames.");
                     while (true) {
                         int read = await source.ReadAsync(chunk, 0, chunk.Length, token).ConfigureAwait(false);

@@ -416,6 +416,7 @@ namespace SocketJack.Net {
                     return false;
                 }
 
+                safeModeReady = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                 _RemoteEndPoint = new IPEndPoint(addresses[0], Port);
 
                 _Socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
@@ -444,6 +445,18 @@ namespace SocketJack.Net {
                 } else {
                     StartUdpReceiving();
                     StartUdpSending();
+                }
+                if (Options.SafeMode) {
+                    byte[] hello = SafeModeHandshake.Create(Options);
+                    var deadline = DateTime.UtcNow.AddSeconds(5);
+                    while (!Connection.SafeModeVerified && DateTime.UtcNow < deadline) {
+                        if (Options.UdpMode == UdpMode.UDP_Reliable)
+                            await ReliablePeer.Send(hello, 0, false, false, CancellationToken.None);
+                        else _Socket.SendTo(hello, _RemoteEndPoint);
+                        await Task.WhenAny(safeModeReady.Task, Task.Delay(300));
+                        if (safeModeReady.Task.IsFaulted) await safeModeReady.Task;
+                    }
+                    if (!Connection.SafeModeVerified) throw SafeModeHandshake.Rejected();
                 }
                 StartUdpHeartbeat();
 
@@ -599,6 +612,8 @@ namespace SocketJack.Net {
                                 ((ISocket)this).InvokeInternalReceivedByteCounter(Connection, bytesRead);
                             }
 
+                            if (!_RemoteEndPoint.Equals(senderEP)) continue;
+                            if (ReceiveSafeModeReply(data)) continue;
                             Task.Run(() => DeserializeAndDispatch(data, bytesRead, (IPEndPoint)senderEP));
                         }
                     } catch (SocketException) when (token.IsCancellationRequested || isDisposed || !_Connected) {
@@ -702,13 +717,29 @@ namespace SocketJack.Net {
             }, TaskCreationOptions.LongRunning);
         }
 
+        private TaskCompletionSource<bool> safeModeReady = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        private bool ReceiveSafeModeReply(byte[] data) {
+            if (!Options.SafeMode) return false;
+            if (data.SequenceEqual(SafeModeHandshake.Accepted)) {
+                SafeModeHandshake.MarkVerified(Connection, Options);
+                safeModeReady.TrySetResult(true);
+                return true;
+            }
+            if (!Connection.SafeModeVerified) {
+                safeModeReady.TrySetException(SafeModeHandshake.Rejected());
+                Disconnect();
+                return true;
+            }
+            return false;
+        }
+
         private void DeserializeAndDispatch(byte[] bytes, int byteLength, IPEndPoint sender) {
             try {
                 byte[] data = bytes;
                 if (Options.UseCompression && Options.UdpMode == UdpMode.UDP_Reliable) {
                     data = UdpReliableObjects.Decompress(data, Options);
                 } else if (Options.UseCompression) {
-                    var result = MethodExtensions.TryInvoke(Options.CompressionAlgorithm.Decompress, ref data);
+                    var result = MethodExtensions.TryInvoke(b => UdpReliableObjects.Decompress(b, Options), ref data);
                     if (result.Success) {
                         data = result.Result;
                     } else {
@@ -723,37 +754,8 @@ namespace SocketJack.Net {
                         return;
                     }
                 }
-                Wrapper wrapper = Options.Serializer.Deserialize(data);
-                if (wrapper == null) {
-                    InvokeOnError(Connection, new Exception("Deserialized object returned null."));
-                    return;
-                }
-
-                var valueType = wrapper.GetValueType();
-                if (wrapper.value != null || wrapper.Type != "") {
-                    if (valueType == typeof(PeerRedirect)) {
-                        byte[] redirectBytes = null;
-                        object val = wrapper.value;
-                        Type type = wrapper.value.GetType();
-                        if (type == typeof(string)) {
-                            redirectBytes = Encoding.UTF8.GetBytes((string)val);
-                        } else if (type == typeof(JsonElement)) {
-                            string json = ((JsonElement)val).GetRawText();
-                            redirectBytes = Encoding.UTF8.GetBytes(json);
-                        }
-                        PeerRedirect redirect = Options.Serializer is SocketJack.Serialization.BinarySerializer binary ? binary.UnwrapRedirect(this, wrapper) : Options.Serializer.DeserializeRedirect(this, redirectBytes);
-                        HandleReceive(Connection, redirect, valueType, byteLength);
-                    } else {
-                        object unwrapped = null;
-                        try {
-                            unwrapped = wrapper.Unwrap(this);
-                        } catch (Exception ex) {
-                            InvokeOnError(Connection, ex);
-                        }
-                        if (unwrapped != null)
-                            HandleReceive(Connection, unwrapped, valueType, byteLength);
-                    }
-                }
+                object message = InboundMessageDecoder.Read(this, Connection, data);
+                if (message != null) HandleReceive(Connection, message, message.GetType(), byteLength);
             } catch (Exception ex) {
                 InvokeOnError(Connection, ex);
             }

@@ -1,89 +1,46 @@
-name: "Deploy packages"
+name: Deploy packages
 on:
   push:
-    paths-ignore:
-      - "LlmRuntime/**"
-      - "LlmRuntime.Tests/**"
-      - "LlmRuntime.Wpf/**"
-      - "heirowLLMBridgeInstaller/**"
-      - "heirowLLM/**"
-      - "heirowLLMInstaller/**"
-      - "heirowLLMUpdater/**"
-      - "SocketJack-MagicMasterList/**"
-      - "artifacts/heirowLLM/**"
-
+    branches: [master]
+  workflow_dispatch:
 permissions:
   contents: read
-
 jobs:
- linux-build:
-    name: "Linux build"
+  validate:
+    name: Build and security checks
     runs-on: ubuntu-latest
     steps:
-    - name: "Checkout"
-      uses: actions/checkout@v4
-
-    - name: "Setup .NET"
-      uses: actions/setup-dotnet@v4
-      with:
-         dotnet-version: "10.0.x"
-
-    - name: "Restore SocketJack"
-      run: dotnet restore ./SocketJack/SocketJack.csproj
-
-    - name: "Build SocketJack"
-      run: dotnet build ./SocketJack/SocketJack.csproj --configuration Release --framework netstandard2.1 --no-restore -p:NoWarn=true
-
-#    - name: "Restore SocketJack.WPF"
-#      run: dotnet restore ./SocketJack.Windows/SocketJack.WPF.csproj
-
-#    - name: "Build SocketJack.WPF"
-#     run: dotnet build ./SocketJack.Windows/SocketJack.WPF.csproj --configuration Release --no-restore -p:NoWarn=true
-
-#    - name: "Publish Linux heirowLLM Workstation"
-#      run: dotnet publish ./heirowLLM.Workstation/heirowLLM.Workstation.csproj --configuration Release --runtime linux-x64 --self-contained false -p:NoWarn=true
-
- deploy:
-    name: "Deploy"
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            10.0.x
+            8.0.x
+      - name: Restore and audit dependencies
+        run: dotnet restore SocketJack/SocketJack.csproj
+      - name: Build library
+        run: dotnet build SocketJack/SocketJack.csproj -c Release --no-restore -p:BuildPackage=false
+      - name: Verify security and package boundaries
+        run: dotnet test SocketJack.Tests/SocketJack.Tests.csproj -c Release -p:BuildPackage=false
+      - name: Verify reliable transport and codec
+        run: dotnet test SocketJack.UdpReliable.Tests/SocketJack.UdpReliable.Tests.csproj -c Release -p:BuildPackage=false --filter "TestCategory!=LargeFile"
+  deploy:
+    name: Publish verified library
     runs-on: windows-latest
-    needs: linux-build
+    needs: validate
     permissions:
       contents: read
       packages: write
       id-token: write
     steps:
-    - name: "Checkout"
-      uses: actions/checkout@v4
-
-    - name: "Setup .NET"
-      uses: actions/setup-dotnet@v4
+    - uses: actions/checkout@v4
+    - uses: actions/setup-dotnet@v4
       with:
-         dotnet-version: "10.0.x"
-
-    - name: "Restore dependencies"
-      run: dotnet restore ./SocketJack/SocketJack.csproj
-
-    - name: "Build"
-      run: dotnet build ./SocketJack/SocketJack.csproj --configuration Release --no-restore -p:NoWarn=true
-
-    - name: "Pack Project"
-      run: dotnet pack ./SocketJack/SocketJack.csproj --configuration Release --no-build --include-symbols -o ./nupkg/SocketJack
-
-#    - name: "Restore WPF dependencies"
-#      run: dotnet restore ./SocketJack.Windows/SocketJack.WPF.csproj
-
-#    - name: "Build WPF"
-#      run: dotnet build ./SocketJack.Windows/SocketJack.WPF.csproj --configuration Release --no-restore -p:NoWarn=true
-
-#    - name: "Restore WPF sample app"
-#      run: dotnet restore ./SocketJack.WpfBasicGame/SocketJack.WpfBasicGame.csproj
-
-#    - name: "Build WPF sample app"
-#      run: dotnet build ./SocketJack.WpfBasicGame/SocketJack.WpfBasicGame.csproj --configuration Release --no-restore -p:NoWarn=true
-
-#    - name: "Pack WPF Project"
-#      run: dotnet pack ./SocketJack.Windows/SocketJack.WPF.csproj --configuration Release --no-build --include-symbols -o ./nupkg/SocketJack.WPF
-
+        dotnet-version: "10.0.x"
+    - name: Restore and audit dependencies
+      run: dotnet restore SocketJack/SocketJack.csproj
+    - name: Pack library
+      run: dotnet pack SocketJack/SocketJack.csproj -c Release -p:BuildPackage=false --no-restore -o ./nupkg/SocketJack
     - name: "Login to NuGet with Trusted Publishing"
       uses: NuGet/login@v1
       id: nuget-login
@@ -103,19 +60,6 @@ jobs:
         }
         dotnet nuget push $packages[0] --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate
 
-#    - name: "Push SocketJack.WPF to NuGet"
-#      shell: pwsh
-#      env:
-#        NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
-#      run: |
-#        $packages = @(Get-ChildItem -Path ./nupkg/SocketJack.WPF -Filter 'SocketJack.WPF*.nupkg' |
-#          Where-Object { $_.Name -notlike '*.symbols.nupkg' } |
-#          Select-Object -ExpandProperty FullName)
-#        if ($packages.Count -ne 1) {
-#          throw "Expected exactly one SocketJack.WPF package, found $($packages.Count)."
-#        }
-#        dotnet nuget push $packages[0] --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate
-
     - name: "Add GitHub Packages source"
       shell: pwsh
       env:
@@ -132,14 +76,3 @@ jobs:
           ForEach-Object {
             dotnet nuget push $_.FullName --source github --api-key $env:GITHUB_TOKEN --skip-duplicate
           }
-
-#    - name: "Push SocketJack.WPF to GitHub Packages"
-#      shell: pwsh
-#      env:
-#        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#      run: |
-#        Get-ChildItem -Path ./nupkg/SocketJack.WPF -Filter 'SocketJack.WPF*.nupkg' |
-#          Where-Object { $_.Name -notlike '*.symbols.nupkg' } |
-#          ForEach-Object {
-#            dotnet nuget push $_.FullName --source github --api-key $env:GITHUB_TOKEN --skip-duplicate
-#          }

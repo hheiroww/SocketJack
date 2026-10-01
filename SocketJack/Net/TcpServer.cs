@@ -433,7 +433,7 @@ namespace SocketJack.Net {
                 LogFormat("[{0}] Shutdown Complete *:{1}", new[] { Name, Port.ToString() });
             }, TaskCreationOptions.LongRunning);
         }
-        protected internal void AcceptCallback(IAsyncResult ar) {
+        protected internal async void AcceptCallback(IAsyncResult ar) {
             if (!IsListening)
                 return;
             var tryResult = MethodExtensions.TryInvoke(Socket.EndAccept, ref ar);
@@ -441,7 +441,7 @@ namespace SocketJack.Net {
             if (tryResult.Success) {
                 var newSocket = tryResult.Result;
                 if (newSocket.Connected) {
-                    var newConnection = NewConnection(ref newSocket);
+                    var newConnection = await NewConnection(newSocket);
                     if (newConnection == null)
                         return;
                     LogFormat("[{0}] Client Connected.", new[] { Name + @"\" + newConnection.Identity.ID.ToUpper(), Port.ToString() });
@@ -450,13 +450,15 @@ namespace SocketJack.Net {
             }
         }
 
-private NetworkConnection NewConnection(ref Socket handler) {
+private async Task<NetworkConnection> NewConnection(Socket handler) {
     handler.NoDelay = true;
     var newConnection = new NetworkConnection(this, handler);
     newConnection._Stream = new NetworkStream(newConnection.Socket);
             try {
                 if (Options.UseSsl)
                     newConnection.InitializeSslStream(SslCertificate, SslTargetHost, GetSslCertificateSelector());
+                if (!RawTcpMode && Options.UseTerminatedStreams)
+                    await SafeModeHandshake.Exchange(newConnection, Options, true);
             } catch (Exception ex) {
                 InvokeOnError(newConnection, ex);
                 CloseConnection(newConnection, DisconnectionReason.Unknown);

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -989,11 +989,8 @@ body.light-theme .status-bar{background:#0066b8}
       <button onclick="toggleDiagnosticsPanel()" style="background:none;border:none;color:#808080;cursor:pointer;font-size:14px">&#10005;</button>
      </div>
      <div class="diag-actions">
-      <input id="diagnosticsFocus" placeholder="Focus">
       <button onclick="loadDiagnosticsPanel()">Refresh</button>
-      <button class="primary" id="diagnosticsAnalyzeBtn" onclick="analyzeDiagnostics()">Analyze</button>
      </div>
-     <div class="diag-analysis" id="diagnosticsAnalysis">No diagnosis yet.</div>
      <div class="history-list" id="diagnosticsList"></div>
     </div>
    </div>
@@ -4291,30 +4288,6 @@ body.light-theme .status-bar{background:#0066b8}
             })
             .catch(function (err) {
                 list.innerHTML = '<div class="history-item">Error load failed: ' + escapeHtml(err && err.message ? err.message : String(err)) + '</div>';
-            });
-    }
-
-    function analyzeDiagnostics() {
-        var btn = document.getElementById('diagnosticsAnalyzeBtn');
-        var output = document.getElementById('diagnosticsAnalysis');
-        var focus = document.getElementById('diagnosticsFocus');
-        if (btn) btn.disabled = true;
-        if (output) output.textContent = 'Analyzing...';
-        fetch(BASE + '/api/errors/analyze', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-SqlAdmin-Csrf': SQL_ADMIN_CSRF },
-            body: JSON.stringify({ take: '100', focus: focus ? focus.value : '' })
-        })
-            .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status)); return d }) })
-            .then(function (d) {
-                if (output) output.textContent = d.analysis || 'No diagnosis returned.';
-                if (d.entries) loadDiagnosticsPanel();
-            })
-            .catch(function (err) {
-                if (output) output.textContent = 'Diagnosis failed: ' + (err && err.message ? err.message : String(err));
-            })
-            .finally(function () {
-                if (btn) btn.disabled = false;
             });
     }
 
