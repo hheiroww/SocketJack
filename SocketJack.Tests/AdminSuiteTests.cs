@@ -28,6 +28,8 @@ namespace SocketJack.Tests {
                 UseCompression = false,
                 Logging = false
             }, port, "AdminSuiteTests");
+            server.EnabledProtocols.Add(MutableTcpProtocols.Http);
+            server.EnabledProtocols.Add(MutableTcpProtocols.Tds);
             var ds = server.GetOrCreateDataServer();
             ds.DataPath = Path.Combine(tempRoot, "dataserver");
             ds.EnablePayloadEncryption = false;

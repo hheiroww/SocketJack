@@ -1,5 +1,11 @@
 # SocketJack changelog
 
+## 2026.15.0
+
+- Require explicit MutableTcpServer protocol enablement and default SQL access to local clients.
+- Add local assembly fingerprint discovery, including matching embedded DLL resources.
+- Preserve reliable UDP and binary serializer benchmark documentation.
+
 ## 2026.14.1
 
 - Restore reliable UDP and custom binary serializer benchmark documentation, historical results, and raw datasets.

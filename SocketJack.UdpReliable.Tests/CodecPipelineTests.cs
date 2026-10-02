@@ -7,7 +7,6 @@ using System.Globalization;
 using System.Net;
 using System.Reflection;
 using System.Security;
-using System.Security.Cryptography;
 using System.Text;
 
 namespace SocketJack.UdpReliable.Tests;
@@ -39,7 +38,7 @@ public sealed class CodecPipelineTests {
     static NetworkOptions Options(bool binary = true) {
         var options = new NetworkOptions { UsePeerToPeer = false, UseCompression = false, EnablePatternCache = false, Chunking = false, Fps = 0, AutoReconnect = false };
         if (binary) options.Serializer = new BinarySerializer();
-        options.VerifiedAssemblies.Add(typeof(Blob).Assembly, Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(typeof(Blob).Assembly.Location))));
+        options.VerifiedAssemblies.Add(typeof(Blob).Assembly);
         foreach (var type in new[] { typeof(Primitives), typeof(LargeEnum), typeof(int?), typeof(Blob), typeof(Nested), typeof(Node) }) options.Whitelist.Add(type);
         options.Authorization.AnonymousMessageTypes.Add(typeof(Blob));
         return options;

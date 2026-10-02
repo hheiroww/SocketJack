@@ -22,6 +22,74 @@ using System.Threading.Tasks;
 namespace SocketJack.Net {
 
     /// <summary>
+    /// Well-known protocol names used by <see cref="MutableTcpServer.EnabledProtocols"/>.
+    /// Custom protocol handlers use their <see cref="IProtocolHandler.Name"/> value.
+    /// </summary>
+    public static class MutableTcpProtocols {
+        public const string Http = "HTTP";
+        public const string SocketJack = "SocketJack";
+        public const string WebSocket = "WebSocket";
+        public const string Rtmp = "RTMP";
+        public const string Tds = "TDS";
+    }
+
+    /// <summary>
+    /// Controls which remote clients may use an enabled SQL/TDS protocol handler.
+    /// </summary>
+    public enum SqlRemoteAccessMode {
+        /// <summary>Only loopback clients, including localhost, 127.0.0.1, and ::1.</summary>
+        LocalOnly,
+        /// <summary>Loopback and private/link-local network clients.</summary>
+        LocalNetwork,
+        /// <summary>Clients from any address. SQL authentication and IP allowlists still apply.</summary>
+        Any
+    }
+
+    /// <summary>
+    /// Access controls for SQL/TDS connections routed by a <see cref="MutableTcpServer"/>.
+    /// </summary>
+    public sealed class MutableTcpServerSqlOptions {
+        /// <summary>
+        /// Gets or sets the remote access level. The default is
+        /// <see cref="SqlRemoteAccessMode.LocalOnly"/>.
+        /// </summary>
+        public SqlRemoteAccessMode RemoteAccess { get; set; } = SqlRemoteAccessMode.LocalOnly;
+
+        /// <summary>
+        /// Gets the case-insensitive whitelist of individual remote IP addresses that
+        /// may connect in addition to the addresses allowed by <see cref="RemoteAccess"/>.
+        /// </summary>
+        public ISet<string> AllowedRemoteIpAddresses { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        internal bool IsClientAllowed(System.Net.IPAddress address) {
+            if (address == null)
+                return false;
+            if (address.IsIPv4MappedToIPv6)
+                address = address.MapToIPv4();
+            if (System.Net.IPAddress.IsLoopback(address))
+                return true;
+
+            if (AllowedRemoteIpAddresses.Any(value => System.Net.IPAddress.TryParse(value, out var allowed)
+                && (allowed.IsIPv4MappedToIPv6 ? allowed.MapToIPv4() : allowed).Equals(address)))
+                return true;
+            if (RemoteAccess == SqlRemoteAccessMode.Any)
+                return true;
+            if (RemoteAccess != SqlRemoteAccessMode.LocalNetwork)
+                return false;
+
+            byte[] bytes = address.IsIPv4MappedToIPv6 ? address.MapToIPv4().GetAddressBytes() : address.GetAddressBytes();
+            if (bytes.Length == 4) {
+                return bytes[0] == 10
+                    || (bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31)
+                    || (bytes[0] == 192 && bytes[1] == 168)
+                    || (bytes[0] == 169 && bytes[1] == 254);
+            }
+
+            return bytes.Length == 16 && ((bytes[0] & 0xfe) == 0xfc || (bytes[0] == 0xfe && (bytes[1] & 0xc0) == 0x80));
+        }
+    }
+
+    /// <summary>
     /// Defines a protocol handler that can detect and process incoming data
     /// on a <see cref="MutableTcpServer"/>.
     /// </summary>
@@ -55,10 +123,16 @@ namespace SocketJack.Net {
     /// <see cref="IProtocolHandler"/>. This allows a single listening port to serve
     /// multiple protocols simultaneously.
     /// <para>
-    /// By default a <see cref="SocketJackProtocolHandler"/> and an
-    /// <see cref="HttpProtocolHandler"/> are registered. Additional handlers can be
-    /// added via <see cref="RegisterProtocol"/>; they are evaluated in registration
-    /// order, with built-in handlers checked last.
+    /// <b>All protocols are disabled by default.</b> Add each required built-in or
+    /// custom handler name to <see cref="EnabledProtocols"/> before calling
+    /// <see cref="TcpServer.Listen"/>. This property is an explicit whitelist.
+    /// Registered custom handlers are evaluated in registration order, with enabled
+    /// built-in handlers checked last.
+    /// </para>
+    /// <para>
+    /// SQL/TDS access is local-machine only by default, even after TDS is added to
+    /// <see cref="EnabledProtocols"/>. Configure <see cref="SqlOptions"/> to allow
+    /// private-network, public, or individually whitelisted remote IP addresses.
     /// </para>
     /// </summary>
     public class MutableTcpServer : HttpServer {
@@ -126,6 +200,27 @@ namespace SocketJack.Net {
         #endregion
 
         #region Protocol Registration
+
+        /// <summary>
+        /// Gets the case-insensitive whitelist of protocol names this server may route.
+        /// <b>The whitelist is empty and every protocol is disabled by default.</b>
+        /// Use the constants in <see cref="MutableTcpProtocols"/> for built-in protocols,
+        /// or an <see cref="IProtocolHandler.Name"/> for a custom handler.
+        /// </summary>
+        /// <remarks>
+        /// Registering or configuring a handler does not enable it. Add its name here
+        /// explicitly, for example <c>server.EnabledProtocols.Add(MutableTcpProtocols.Http)</c>.
+        /// Configure before listening; stop the listener and disconnect clients before
+        /// changing this collection or SQL options. SQL handlers can take ownership of
+        /// an established connection's stream, so changes are not live revocation.
+        /// </remarks>
+        public ISet<string> EnabledProtocols { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Gets SQL/TDS-specific remote access options. TDS remains disabled until
+        /// <see cref="MutableTcpProtocols.Tds"/> is added to <see cref="EnabledProtocols"/>.
+        /// </summary>
+        public MutableTcpServerSqlOptions SqlOptions { get; } = new MutableTcpServerSqlOptions();
 
         /// <summary>
         /// Registers a custom protocol handler. Custom handlers are evaluated before
@@ -248,6 +343,10 @@ namespace SocketJack.Net {
 
             // Fast path: connection already assigned to a handler.
             if (_connectionHandlers.TryGetValue(connId, out var assigned)) {
+                if (!IsProtocolEnabled(assigned)) {
+                    e.Connection.CloseConnection();
+                    return;
+                }
                 // SocketJack and WebSocket connections: only intercept raw byte data
                 // from the network. Deserialized objects dispatched through HandleReceive
                 // flow through the normal OnReceive/callback pipeline, acting like a
@@ -275,6 +374,14 @@ namespace SocketJack.Net {
             // Check custom handlers first (in registration order).
             for (int i = 0; i < _handlers.Count; i++) {
                 if (_handlers[i].CanHandle(probe)) {
+                    if (!IsProtocolEnabled(_handlers[i])) {
+                        e.Connection.CloseConnection();
+                        return;
+                    }
+                    if (_handlers[i] is TdsProtocolHandler && !SqlOptions.IsClientAllowed(e.Connection.EndPoint?.Address)) {
+                        e.Connection.CloseConnection();
+                        return;
+                    }
                     var customDecision = RecordEndpointSecurityProtocolEvent(e.Connection, _handlers[i].Name, probe.Length, IsAdministrativeProtocol(_handlers[i]), 0.5, "protocol probe");
                     if (!customDecision.Allowed) {
                         CloseEndpointSecurityBlockedConnection(e.Connection, customDecision);
@@ -290,6 +397,10 @@ namespace SocketJack.Net {
             // Check built-in WebSocket handler before HTTP — a WebSocket upgrade
             // starts as an HTTP GET request, so the HTTP handler would also match.
             if (_webSocketHandler.CanHandle(probe)) {
+                if (!IsProtocolEnabled(_webSocketHandler)) {
+                    e.Connection.CloseConnection();
+                    return;
+                }
                 _connectionHandlers.TryAdd(connId, _webSocketHandler);
                 e.Connection._Protocol = TcpProtocol.WebSocket;
                 _webSocketHandler.ProcessReceive(this, e.Connection, ref e);
@@ -299,7 +410,7 @@ namespace SocketJack.Net {
             // Check built-in HTTP handler — HTTP requests are short-lived
             // and must be answered promptly.  SocketJack is checked after so that
             // an HTTP client connecting to the same port is never misrouted.
-            if (_httpHandler.CanHandle(probe)) {
+            if (IsProtocolEnabled(_httpHandler) && _httpHandler.CanHandle(probe)) {
                 _connectionHandlers.TryAdd(connId, _httpHandler);
                 e.Connection._Protocol = TcpProtocol.Http;
                 _httpHandler.ProcessReceive(this, e.Connection, ref e);
@@ -307,7 +418,7 @@ namespace SocketJack.Net {
             }
 
             // Check built-in SocketJack handler.
-            if (_socketJackHandler.CanHandle(probe)) {
+            if (IsProtocolEnabled(_socketJackHandler) && _socketJackHandler.CanHandle(probe)) {
                 _connectionHandlers.TryAdd(connId, _socketJackHandler);
                 e.Connection._Protocol = TcpProtocol.SocketJack;
                 _socketJackHandler.ProcessReceive(this, e.Connection, ref e);
@@ -320,7 +431,7 @@ namespace SocketJack.Net {
             // 4-7, so requiring those bytes to be zero rejects valid publishers.
             // Delegate to the base HttpServer's GetRequestAsync which has full RTMP
             // handshake, session management, and publish route support built in.
-            if (probe.Length >= 9 && probe[0] == 0x03) {
+            if (IsProtocolEnabled(_rtmpDelegateHandler) && probe.Length >= 9 && probe[0] == 0x03) {
                 _connectionHandlers.TryAdd(connId, _rtmpDelegateHandler);
                 e.Connection._Protocol = TcpProtocol.Rtmp;
                 e.Connection.SuppressConnectionTest = true;
@@ -351,6 +462,12 @@ namespace SocketJack.Net {
                 || name.IndexOf("admin", StringComparison.OrdinalIgnoreCase) >= 0
                 || name.IndexOf("sql", StringComparison.OrdinalIgnoreCase) >= 0
                 || name.IndexOf("database", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private bool IsProtocolEnabled(IProtocolHandler handler) {
+            return handler != null
+                && !string.IsNullOrWhiteSpace(handler.Name)
+                && EnabledProtocols.Contains(handler.Name);
         }
 
         #endregion
@@ -589,6 +706,7 @@ namespace SocketJack.Net {
         /// <example>
         /// <code>
         /// var mutable = new MutableTcpServer(1433, "MultiServer");
+        /// mutable.EnabledProtocols.Add(MutableTcpProtocols.Tds);
         /// mutable.Listen();
         ///
         /// var conn = new SqlConnection("Server=.;Database=MyDb;Trusted_Connection=True;TrustServerCertificate=True;");

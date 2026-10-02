@@ -26,12 +26,12 @@ SocketJack is a .NET networking library for sending typed objects, hosting HTTP 
 ## 📦 Install
 
 ```powershell
-dotnet add package SocketJack --version 2026.14.1
+dotnet add package SocketJack --version 2026.15.0
 ```
 
 | Package | Target | Purpose |
 |---|---|---|
-| **[SocketJack](https://www.nuget.org/packages/SocketJack/2026.14.1)** | .NET Standard 2.1 | Core networking library; this release is **2026.14.1**. |
+| **[SocketJack](https://www.nuget.org/packages/SocketJack/2026.15.0)** | .NET Standard 2.1 | Core networking library; this release is **2026.15.0**. |
 | **[SocketJack.WPF](https://www.nuget.org/packages/SocketJack.WPF)** | Windows / WPF | Companion package for live control capture and remote input; versioned separately. |
 
 <details>
@@ -72,7 +72,7 @@ This release adds default-on authentication gates, verified contract DLLs, autho
 | Feature | What changed |
 |---|---|
 | 🛡️ **Authorization** | Default-deny peer control and redirects; administrative commands require a verified Administrator role and an explicit policy. |
-| 🔒 **SafeMode** | Approved DLL pins and a client manifest checked during handshaking, without exposing server fingerprints. |
+| 🔒 **SafeMode** | Automatically fingerprinted DLLs and a client manifest checked during handshaking, without exposing server fingerprints. |
 | 📡 **Reliable UDP** | Opt-in reliable sessions, indexed fragments, selective retransmission, and independent or ordered delivery. |
 | 🧩 **Binary serialization** | Custom `SB` format, compact integers, direct byte arrays, and type whitelist validation. |
 | 📂 **Verified transfers** | Chunked stream/file delivery with 64-bit offsets and SHA-256 verification. |
@@ -82,7 +82,7 @@ This release adds default-on authentication gates, verified contract DLLs, autho
 
 ## 🛡️ Authentication and safe type activation
 
-SafeMode is enabled by default. Application contract DLLs require trusted SHA-256 pins on both sides; type names and client DLL fingerprints must match the server during handshaking. No server fingerprint is returned. Invalid clients are disconnected before typed messages are dispatched.
+SafeMode is enabled by default. Register each application contract assembly and SocketJack automatically SHA-256 hashes its reflected DLL location (or matching embedded DLL resource). Type names and client DLL fingerprints must match the server during handshaking. No server fingerprint is returned. Invalid clients are disconnected before typed messages are dispatched.
 
 Authentication is a separate step. A server verifies credentials, then calls `SetAuthenticatedPrincipal` over encrypted TLS. Peer redirects and control messages require explicit authorization callbacks. Administrative DTOs require the `Administrator` role plus an operation policy and cannot be redirected between peers. Remote CLR reflection endpoints reject invocation. Allowlisted constructors, setters, converters, and application handlers remain trusted code.
 
@@ -224,7 +224,16 @@ server.Listen();
 
 `MutableTcpServer` detects and dispatches supported protocol traffic on one listening port. The repository includes HTTP, WebSocket, native SocketJack, RTMP, SQL/TDS, and FTP surfaces, with custom protocol handlers for extensions.
 
-Enable the handlers required by your application. SFTP runs over SSH and needs the separate backend described above; it is not supplied by ordinary TCP protocol detection.
+Every protocol is disabled by default. Add only the required names to the server's `EnabledProtocols` whitelist before listening:
+
+```csharp
+var server = new MutableTcpServer(8080);
+server.EnabledProtocols.Add(MutableTcpProtocols.Http);
+server.EnabledProtocols.Add(MutableTcpProtocols.WebSocket);
+server.Listen();
+```
+
+SQL/TDS additionally defaults to loopback-only access. Use `server.SqlOptions.RemoteAccess` to explicitly allow private-network or public clients, or add individual addresses to `AllowedRemoteIpAddresses`. SFTP runs over SSH and needs the separate backend described above; it is not supplied by ordinary TCP protocol detection.
 
 </details>
 

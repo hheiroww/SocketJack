@@ -28,7 +28,7 @@ public sealed class AuthorizationTests {
     static NetworkOptions Options(bool binary = false) {
         var options = new NetworkOptions { UsePeerToPeer = false, AutoReconnect = false, EnablePatternCache = false };
         if (binary) options.Serializer = new BinarySerializer();
-        options.VerifiedAssemblies.Add(typeof(Login).Assembly, Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(typeof(Login).Assembly.Location))));
+        options.VerifiedAssemblies.Add(typeof(Login).Assembly);
         foreach (var type in new[] { typeof(Login), typeof(Data), typeof(Admin), typeof(NestedAdmin), typeof(TypeHolder), typeof(ReadOnlyGadget) }) options.Whitelist.Add(type);
         options.Authorization.AnonymousMessageTypes.Add(typeof(Login));
         return options;

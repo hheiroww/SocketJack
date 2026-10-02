@@ -22,6 +22,7 @@ namespace SocketJack.Net.Database {
     /// <code>
     /// var mutable = new MutableTcpServer(1433, "MultiServer");
     /// mutable.RegisterProtocol(new TdsProtocolHandler());
+    /// mutable.EnabledProtocols.Add(MutableTcpProtocols.Tds);
     /// mutable.Listen();
     /// </code>
     /// </example>

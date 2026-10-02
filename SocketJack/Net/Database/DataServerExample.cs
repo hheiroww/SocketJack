@@ -6,12 +6,12 @@ using SocketJack.Net.Database;
 namespace SocketJack.Examples {
 
     /// <summary>
-    /// Example usage of DataServer — standalone, MutableTcpServer integration, and MSSQL import.
+    /// Example usage of DataServer â€” standalone, MutableTcpServer integration, and MSSQL import.
     /// </summary>
     public class DataServerExample {
 
         /// <summary>
-        /// Standalone mode — DataServer owns the TCP listener on port 1433.
+        /// Standalone mode â€” DataServer owns the TCP listener on port 1433.
         /// </summary>
         public static void StandaloneExample() {
             var server = new DataServer(1433, "MyDataServer");
@@ -59,14 +59,15 @@ namespace SocketJack.Examples {
         }
 
         /// <summary>
-        /// MutableTcpServer mode — TDS/MSSQL shares a port with HTTP, WebSocket, and SocketJack.
+        /// MutableTcpServer mode â€” TDS/MSSQL shares a port with HTTP, WebSocket, and SocketJack.
         /// </summary>
         public static void MutableTcpServerExample() {
             // Create a MutableTcpServer that serves multiple protocols on one port
             var mutable = new MutableTcpServer(1433, "MultiServer");
+            mutable.EnabledProtocols.UnionWith(new[] { MutableTcpProtocols.Http, MutableTcpProtocols.WebSocket, MutableTcpProtocols.Tds });
 
             // Create TDS handler with a hosted-mode DataServer (no standalone listener).
-            // The MutableTcpServer owns the TCP listener — DataServer only provides
+            // The MutableTcpServer owns the TCP listener â€” DataServer only provides
             // the in-memory database engine, persistence, and import capabilities.
             var tds = new TdsProtocolHandler();
             var dataServer = tds.Server;
@@ -134,7 +135,7 @@ namespace SocketJack.Examples {
             //   server.Save();
             // -------------------------------------------------------------------
 
-            Console.WriteLine("Import example — uncomment the SqlConnection lines above to use.");
+            Console.WriteLine("Import example â€” uncomment the SqlConnection lines above to use.");
         }
 
         private static void HandleQuery(DataServer server, SqlSession session, string query, ref QueryResult result) {

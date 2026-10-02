@@ -49,7 +49,7 @@ internal static class Program {
         Chunking = false, Fps = 0, MaximumUploadMbps = 0, MaximumDownloadMbps = 0,
         ConnectionTimeout = TimeSpan.FromSeconds(8), UdpReliable = new() { DeliveryTimeout = TimeSpan.FromSeconds(30) } };
         var assembly = typeof(Message).Assembly;
-        options.VerifiedAssemblies.Add(assembly, Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(assembly.Location))));
+        options.VerifiedAssemblies.Add(assembly);
         options.Authorization.AnonymousMessageTypes.Add(typeof(Message));
         return options;
     }

@@ -641,6 +641,7 @@ Public Class TorrentClientTest
             If useMutable Then
                 Log(String.Format("[MutableServer] Starting on port {0}...", _trackerPort))
                 _mutableServer = New MutableTcpServer(_trackerPort, "TorrentMutableServer")
+                _mutableServer.EnabledProtocols.UnionWith({MutableTcpProtocols.Http, MutableTcpProtocols.SocketJack})
                 _mutableServer.Listen()
 
                 _metadata.Trackers.Clear()

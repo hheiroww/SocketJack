@@ -1054,6 +1054,7 @@
             <code>
             var mutable = new MutableTcpServer(1433, "MultiServer");
             mutable.RegisterProtocol(new TdsProtocolHandler());
+            mutable.EnabledProtocols.Add(MutableTcpProtocols.Tds);
             mutable.Listen();
             </code>
             </example>
@@ -2163,6 +2164,43 @@
         <member name="P:SocketJack.Net.TypeScriptClientOptions.IncludeWebSocketTypes">
             <summary>When true, emit interfaces for resolvable custom types in the server whitelist.</summary>
         </member>
+        <member name="T:SocketJack.Net.MutableTcpProtocols">
+            <summary>
+            Well-known protocol names used by <see cref="P:SocketJack.Net.MutableTcpServer.EnabledProtocols"/>.
+            Custom protocol handlers use their <see cref="P:SocketJack.Net.IProtocolHandler.Name"/> value.
+            </summary>
+        </member>
+        <member name="T:SocketJack.Net.SqlRemoteAccessMode">
+            <summary>
+            Controls which remote clients may use an enabled SQL/TDS protocol handler.
+            </summary>
+        </member>
+        <member name="F:SocketJack.Net.SqlRemoteAccessMode.LocalOnly">
+            <summary>Only loopback clients, including localhost, 127.0.0.1, and ::1.</summary>
+        </member>
+        <member name="F:SocketJack.Net.SqlRemoteAccessMode.LocalNetwork">
+            <summary>Loopback and private/link-local network clients.</summary>
+        </member>
+        <member name="F:SocketJack.Net.SqlRemoteAccessMode.Any">
+            <summary>Clients from any address. SQL authentication and IP allowlists still apply.</summary>
+        </member>
+        <member name="T:SocketJack.Net.MutableTcpServerSqlOptions">
+            <summary>
+            Access controls for SQL/TDS connections routed by a <see cref="T:SocketJack.Net.MutableTcpServer"/>.
+            </summary>
+        </member>
+        <member name="P:SocketJack.Net.MutableTcpServerSqlOptions.RemoteAccess">
+            <summary>
+            Gets or sets the remote access level. The default is
+            <see cref="F:SocketJack.Net.SqlRemoteAccessMode.LocalOnly"/>.
+            </summary>
+        </member>
+        <member name="P:SocketJack.Net.MutableTcpServerSqlOptions.AllowedRemoteIpAddresses">
+            <summary>
+            Gets the case-insensitive whitelist of individual remote IP addresses that
+            may connect in addition to the addresses allowed by <see cref="P:SocketJack.Net.MutableTcpServerSqlOptions.RemoteAccess"/>.
+            </summary>
+        </member>
         <member name="T:SocketJack.Net.IProtocolHandler">
             <summary>
             Defines a protocol handler that can detect and process incoming data
@@ -2197,10 +2235,16 @@
             <see cref="T:SocketJack.Net.IProtocolHandler"/>. This allows a single listening port to serve
             multiple protocols simultaneously.
             <para>
-            By default a <see cref="T:SocketJack.Net.SocketJackProtocolHandler"/> and an
-            <see cref="T:SocketJack.Net.HttpProtocolHandler"/> are registered. Additional handlers can be
-            added via <see cref="M:SocketJack.Net.MutableTcpServer.RegisterProtocol(SocketJack.Net.IProtocolHandler)"/>; they are evaluated in registration
-            order, with built-in handlers checked last.
+            <b>All protocols are disabled by default.</b> Add each required built-in or
+            custom handler name to <see cref="P:SocketJack.Net.MutableTcpServer.EnabledProtocols"/> before calling
+            <see cref="M:SocketJack.Net.TcpServer.Listen"/>. This property is an explicit whitelist.
+            Registered custom handlers are evaluated in registration order, with enabled
+            built-in handlers checked last.
+            </para>
+            <para>
+            SQL/TDS access is local-machine only by default, even after TDS is added to
+            <see cref="P:SocketJack.Net.MutableTcpServer.EnabledProtocols"/>. Configure <see cref="P:SocketJack.Net.MutableTcpServer.SqlOptions"/> to allow
+            private-network, public, or individually whitelisted remote IP addresses.
             </para>
             </summary>
         </member>
@@ -2212,6 +2256,27 @@
         <member name="M:SocketJack.Net.MutableTcpServer.#ctor(SocketJack.Net.NetworkOptions,System.Int32,System.String)">
             <summary>
             Initializes a new <see cref="T:SocketJack.Net.MutableTcpServer"/> with explicit options.
+            </summary>
+        </member>
+        <member name="P:SocketJack.Net.MutableTcpServer.EnabledProtocols">
+            <summary>
+            Gets the case-insensitive whitelist of protocol names this server may route.
+            <b>The whitelist is empty and every protocol is disabled by default.</b>
+            Use the constants in <see cref="T:SocketJack.Net.MutableTcpProtocols"/> for built-in protocols,
+            or an <see cref="P:SocketJack.Net.IProtocolHandler.Name"/> for a custom handler.
+            </summary>
+            <remarks>
+            Registering or configuring a handler does not enable it. Add its name here
+            explicitly, for example <c>server.EnabledProtocols.Add(MutableTcpProtocols.Http)</c>.
+            Configure before listening; stop the listener and disconnect clients before
+            changing this collection or SQL options. SQL handlers can take ownership of
+            an established connection's stream, so changes are not live revocation.
+            </remarks>
+        </member>
+        <member name="P:SocketJack.Net.MutableTcpServer.SqlOptions">
+            <summary>
+            Gets SQL/TDS-specific remote access options. TDS remains disabled until
+            <see cref="F:SocketJack.Net.MutableTcpProtocols.Tds"/> is added to <see cref="P:SocketJack.Net.MutableTcpServer.EnabledProtocols"/>.
             </summary>
         </member>
         <member name="M:SocketJack.Net.MutableTcpServer.RegisterProtocol(SocketJack.Net.IProtocolHandler)">
@@ -2343,6 +2408,7 @@
              <example>
              <code>
              var mutable = new MutableTcpServer(1433, "MultiServer");
+             mutable.EnabledProtocols.Add(MutableTcpProtocols.Tds);
              mutable.Listen();
             
              var conn = new SqlConnection("Server=.;Database=MyDb;Trusted_Connection=True;TrustServerCertificate=True;");
@@ -2981,10 +3047,10 @@
             <remarks>WARNING: setting SafeMode = false disables the DLL handshake and verified-assembly requirement.
             This is not a smart move on an untrusted network. Use only for an explicitly isolated legacy endpoint.
             WARNING: client-reported MD5/SHA-256 values are compatibility claims, not remote attestation or authentication.
-            Use authenticated TLS and application authorization as well. Register callbacks and approved DLL pins before connecting.</remarks>
+            Use authenticated TLS and application authorization as well. Register callbacks and approved assemblies before connecting.</remarks>
         </member>
         <member name="P:SocketJack.Net.NetworkOptions.VerifiedAssemblies">
-            <summary>Trusted local application DLL pins. Supply SHA-256 values from your trusted release process.
+            <summary>Approved local application assemblies. SHA-256 fingerprints are read automatically from each reflected DLL.
             Never populate this registry from a network client. SafeMode requires every application message DLL to be approved.</summary>
         </member>
         <member name="P:SocketJack.Net.NetworkOptions.CompressionAlgorithm">
@@ -4183,6 +4249,7 @@
              <b>Example — registered on MutableTcpServer:</b>
              <code>
              var server = new MutableTcpServer(8080, "MultiServer");
+             server.EnabledProtocols.UnionWith(new[] { MutableTcpProtocols.Http, MutableTcpProtocols.SocketJack });
              var client = new TorrentClient(metadata, downloadPath: "./downloads");
              client.Register(server);
              client.Seed("myfile.zip");
@@ -4313,6 +4380,7 @@
             <example>
             <code>
             var server = new MutableTcpServer(8080, "MultiServer");
+            server.EnabledProtocols.UnionWith(new[] { MutableTcpProtocols.Http, MutableTcpProtocols.SocketJack });
             var metadata = TorrentMetadata.FromFile("patch.zip", new List&lt;string&gt; { "localhost:8080" });
             var client = new TorrentClient(metadata, downloadPath: "./downloads");
             client.Register(server);
@@ -4617,6 +4685,7 @@
             <b>MutableTcpServer mode:</b>
             <code>
             var server = new MutableTcpServer(8080, "MultiServer");
+            server.EnabledProtocols.UnionWith(new[] { MutableTcpProtocols.Http, MutableTcpProtocols.SocketJack });
             var tracker = new TorrentTracker(server);
             tracker.RegisterTorrent(metadata, category: "software");
             server.Listen();
@@ -5158,12 +5227,16 @@
             <returns></returns>
         </member>
         <member name="T:SocketJack.Serialization.VerifiedAssemblyRegistry">
-            <summary>Local, administrator-supplied SHA-256 pins for assemblies containing message types.
-            Pins are never sent to peers. Obtain pins from a trusted build/release, not from a client.</summary>
+            <summary>Local SHA-256 fingerprints for assemblies containing message types.
+            Fingerprints are never sent to peers.</summary>
+        </member>
+        <member name="M:SocketJack.Serialization.VerifiedAssemblyRegistry.Add(System.Reflection.Assembly)">
+            <summary>Approve an assembly and automatically SHA-256 hash its reflected DLL location.
+            If the assembly was loaded from an embedded DLL, a matching loaded manifest resource is used.</summary>
         </member>
         <member name="M:SocketJack.Serialization.VerifiedAssemblyRegistry.Add(System.Reflection.Assembly,System.String)">
             <summary>Approve a DLL only if its bytes match the trusted SHA-256 pin.
-            This verifies the local DLL; it cannot attest what a remote process executes.</summary>
+            This optional overload verifies the automatically discovered DLL against an external release pin.</summary>
         </member>
     </members>
 </doc>

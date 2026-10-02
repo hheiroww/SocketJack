@@ -49,7 +49,7 @@ namespace SocketJack.Net {
         /// <remarks>WARNING: setting SafeMode = false disables the DLL handshake and verified-assembly requirement.
         /// This is not a smart move on an untrusted network. Use only for an explicitly isolated legacy endpoint.
         /// WARNING: client-reported MD5/SHA-256 values are compatibility claims, not remote attestation or authentication.
-        /// Use authenticated TLS and application authorization as well. Register callbacks and approved DLL pins before connecting.</remarks>
+        /// Use authenticated TLS and application authorization as well. Register callbacks and approved assemblies before connecting.</remarks>
         public bool SafeMode {
             get => safeMode;
             set {
@@ -61,7 +61,7 @@ namespace SocketJack.Net {
         }
         private bool safeMode = true;
 
-        /// <summary>Trusted local application DLL pins. Supply SHA-256 values from your trusted release process.
+        /// <summary>Approved local application assemblies. SHA-256 fingerprints are read automatically from each reflected DLL.
         /// Never populate this registry from a network client. SafeMode requires every application message DLL to be approved.</summary>
         [System.Text.Json.Serialization.JsonIgnore]
         public VerifiedAssemblyRegistry VerifiedAssemblies { get; set; } = new VerifiedAssemblyRegistry();

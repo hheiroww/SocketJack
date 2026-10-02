@@ -14,22 +14,21 @@ public sealed class Update {
     public byte[] Data { get; set; }
 }
 
-NetworkOptions Options(string trustedMessageDllSha256) {
+NetworkOptions Options() {
     var options = new NetworkOptions {
         Serializer = new BinarySerializer(), UsePeerToPeer = false,
         UdpReliable = new UdpReliableOptions { Ordering = false, BufferSize = 32768 }
     };
-    options.VerifiedAssemblies.Add(typeof(Update).Assembly, trustedMessageDllSha256);
+    options.VerifiedAssemblies.Add(typeof(Update).Assembly);
     options.Authorization.AnonymousMessageTypes.Add(typeof(Update));
     return options;
 }
-// Obtain this SHA-256 pin from your trusted build/release configuration.
-var server = UDP_Reliable.CreateServer(9000, Options(trustedMessageDllSha256));
+var server = UDP_Reliable.CreateServer(9000, Options());
 server.RegisterCallback<Update>(e => e.Connection.Send(e.Object));
 server.OnError += e => Console.WriteLine(e.Exception);
 server.Listen();
 
-var client = UDP_Reliable.CreateClient(Options(trustedMessageDllSha256));
+var client = UDP_Reliable.CreateClient(Options());
 client.RegisterCallback<Update>(e => Console.WriteLine(e.Object.Index));
 client.OnError += e => Console.WriteLine(e.Exception);
 if (await client.Connect("127.0.0.1", 9000)) {

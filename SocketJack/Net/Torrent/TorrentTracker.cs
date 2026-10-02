@@ -24,6 +24,7 @@ namespace SocketJack.Net.Torrent {
     /// <b>MutableTcpServer mode:</b>
     /// <code>
     /// var server = new MutableTcpServer(8080, "MultiServer");
+    /// server.EnabledProtocols.UnionWith(new[] { MutableTcpProtocols.Http, MutableTcpProtocols.SocketJack });
     /// var tracker = new TorrentTracker(server);
     /// tracker.RegisterTorrent(metadata, category: "software");
     /// server.Listen();

@@ -52,6 +52,10 @@ namespace SocketJack.Tests {
             };
             opts.Authorization.RequireAuthentication = false;
             var server = new MutableTcpServer(opts, port, "TestMutableServer");
+            server.EnabledProtocols.Add(MutableTcpProtocols.Http);
+            server.EnabledProtocols.Add(MutableTcpProtocols.SocketJack);
+            server.EnabledProtocols.Add(MutableTcpProtocols.WebSocket);
+            server.EnabledProtocols.Add(MutableTcpProtocols.Rtmp);
             server.OnError += e => Console.WriteLine("SERVER ERROR: " + e.Exception);
             return server;
         }
@@ -1012,6 +1016,65 @@ namespace SocketJack.Tests {
         #region Protocol Registration Tests
 
         [TestMethod]
+        public void EnabledProtocols_IsEmptyByDefault() {
+            using var server = new MutableTcpServer(NextPort());
+            Assert.AreEqual(0, server.EnabledProtocols.Count);
+            Assert.AreEqual(SqlRemoteAccessMode.LocalOnly, server.SqlOptions.RemoteAccess);
+        }
+
+        [TestMethod]
+        public void SqlOptions_DefaultToLoopbackOnly() {
+            using var server = new MutableTcpServer(NextPort());
+            Assert.IsTrue(server.SqlOptions.IsClientAllowed(IPAddress.Loopback));
+            Assert.IsTrue(server.SqlOptions.IsClientAllowed(IPAddress.IPv6Loopback));
+            Assert.IsTrue(server.SqlOptions.IsClientAllowed(IPAddress.Parse("::ffff:127.0.0.1")));
+            Assert.IsFalse(server.SqlOptions.IsClientAllowed(IPAddress.Parse("192.168.1.25")));
+            Assert.IsFalse(server.SqlOptions.IsClientAllowed(IPAddress.Parse("203.0.113.25")));
+
+            server.SqlOptions.RemoteAccess = SqlRemoteAccessMode.LocalNetwork;
+            Assert.IsTrue(server.SqlOptions.IsClientAllowed(IPAddress.Parse("192.168.1.25")));
+            Assert.IsFalse(server.SqlOptions.IsClientAllowed(IPAddress.Parse("203.0.113.25")));
+
+            server.SqlOptions.AllowedRemoteIpAddresses.Add("203.0.113.25");
+            Assert.IsTrue(server.SqlOptions.IsClientAllowed(IPAddress.Parse("203.0.113.25")));
+            Assert.IsTrue(server.SqlOptions.IsClientAllowed(IPAddress.Parse("::ffff:203.0.113.25")));
+            server.SqlOptions.RemoteAccess = SqlRemoteAccessMode.Any;
+            Assert.IsTrue(server.SqlOptions.IsClientAllowed(IPAddress.Parse("198.51.100.5")));
+            Assert.IsFalse(server.SqlOptions.IsClientAllowed(null));
+        }
+
+        [TestMethod]
+        public async Task Http_DefaultDisabled_ThenExplicitOptInServesRequests() {
+            int port = NextPort();
+            using var server = CreateServer(port);
+            server.EnabledProtocols.Clear();
+            server.Http.IndexPageHtml = "protocol-opt-in";
+            Assert.IsTrue(server.Listen());
+            using (var tcp = RawConnect(port)) {
+                var bytes = Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n");
+                await tcp.GetStream().WriteAsync(bytes, 0, bytes.Length);
+                Assert.AreEqual(0, await ReadWithTimeout(tcp.GetStream(), new byte[4096], 300));
+            }
+            server.StopListening();
+            server.EnabledProtocols.Add("http");
+            Assert.IsTrue(server.Listen());
+            using var client = new System.Net.Http.HttpClient();
+            Assert.AreEqual("protocol-opt-in", await client.GetStringAsync($"http://127.0.0.1:{port}/"));
+        }
+
+        [TestMethod]
+        public async Task DisabledWebSocket_DoesNotFallBackToEnabledHttp() {
+            int port = NextPort();
+            using var server = CreateServer(port);
+            server.EnabledProtocols.Remove(MutableTcpProtocols.WebSocket);
+            Assert.IsTrue(server.Listen());
+            using var tcp = RawConnect(port);
+            byte[] request = Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n");
+            await tcp.GetStream().WriteAsync(request, 0, request.Length);
+            Assert.AreEqual(0, await ReadWithTimeout(tcp.GetStream(), new byte[4096], 1000));
+        }
+
+        [TestMethod]
         public void RegisterProtocol_AddsCustomHandler() {
             using var server = CreateServer(NextPort());
             var custom = new DummyProtocolHandler("Custom1", match: false);
@@ -1048,6 +1111,7 @@ namespace SocketJack.Tests {
             var handled = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             var custom = new DummyProtocolHandler("MAGIC", match: true, onProcess: () => handled.TrySetResult(true));
             server.RegisterProtocol(custom);
+            server.EnabledProtocols.Add(custom.Name);
 
             Assert.IsTrue(server.Listen());
 
@@ -1062,6 +1126,22 @@ namespace SocketJack.Tests {
             Assert.IsTrue(ok, "Custom protocol handler should process the data before built-in handlers.");
 
             tcp.Close();
+            server.StopListening();
+        }
+
+        [TestMethod]
+        public async Task RegisterProtocol_DoesNotEnableCustomHandler() {
+            int port = NextPort();
+            using var server = CreateServer(port);
+            var handled = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            server.RegisterProtocol(new DummyProtocolHandler("DISABLED", match: true, onProcess: () => handled.TrySetResult(true)));
+            Assert.IsTrue(server.Listen());
+
+            using var tcp = RawConnect(port);
+            byte[] data = Encoding.UTF8.GetBytes("DISABLED-PROTOCOL\r\n\r\n");
+            await tcp.GetStream().WriteAsync(data, 0, data.Length);
+
+            Assert.AreNotEqual(handled.Task, await Task.WhenAny(handled.Task, Task.Delay(300)));
             server.StopListening();
         }
 

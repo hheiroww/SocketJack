@@ -1091,6 +1091,7 @@ Public Class MutableTcpServerTest
             .Logging = True
         }
         Server = New MutableTcpServer(opts, ServerPort, "TestMutableServer")
+        Server.EnabledProtocols.UnionWith({MutableTcpProtocols.Http, MutableTcpProtocols.SocketJack, MutableTcpProtocols.WebSocket, MutableTcpProtocols.Rtmp})
         AddHandler Server.LogOutput, AddressOf ServerLog
 
         Server.RegisterCallback(Of MutableTestMessage)(Sub(e)
@@ -1154,6 +1155,7 @@ Public Class MutableTcpServerTest
             Dim handled As New TaskCompletionSource(Of Boolean)()
             Dim custom As New DummyProtocolHandler("MAGIC", True, Sub() handled.TrySetResult(True))
             s.RegisterProtocol(custom)
+            s.EnabledProtocols.Add(custom.Name)
 
             Assert(s.Listen(), "Server should start listening")
 

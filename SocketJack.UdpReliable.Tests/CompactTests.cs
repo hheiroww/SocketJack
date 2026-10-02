@@ -15,7 +15,7 @@ public sealed class CompactTests {
 
     static NetworkOptions Approve(NetworkOptions options) {
         var assembly = typeof(Payload).Assembly;
-        options.VerifiedAssemblies.Add(assembly, Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(assembly.Location))));
+        options.VerifiedAssemblies.Add(assembly);
         options.Authorization.RequireAuthentication = false; // This fixture exercises anonymous data transport, not login.
         return options;
     }

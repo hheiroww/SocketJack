@@ -12,13 +12,11 @@ The server never sends its expected DLL fingerprints, its manifest, or approved 
 
 ## Approving application DLLs
 
-Register an expected SHA-256 obtained from your trusted release pipeline, signed manifest, or administrator-controlled configuration:
+Register the reflected assembly. SocketJack resolves its DLL location and computes the SHA-256 automatically:
 
 ```csharp
 var options = new NetworkOptions(); // SafeMode = true
-options.VerifiedAssemblies.Add(
-    typeof(ChatMessage).Assembly,
-    trustedReleaseManifest.ChatContractsSha256);
+options.VerifiedAssemblies.Add(typeof(ChatMessage).Assembly);
 options.Whitelist.Add(typeof(ChatMessage));
 
 var server = new SocketJack.Net.TcpServer(options, 12345);
@@ -26,9 +24,9 @@ server.RegisterCallback<ChatMessage>(e => HandleAuthorizedMessage(e));
 server.Listen();
 ```
 
-Configure the client with its approved copy of the same contracts DLL and the same allowed types before `Connect`. `VerifiedAssemblies.Add` rejects a wrong pin. Unapproved application DLLs are rejected even when a type was registered for callbacks. SocketJack's own protocol assembly and the local core/collection runtime assemblies are trusted runtime dependencies; their bytes are still compared during handshaking. The registry does not automatically trust other assemblies, and is excluded from JSON serialization.
+Configure the client with its approved copy of the same contracts DLL and the same allowed types before `Connect`. Unapproved application DLLs are rejected even when a type was registered for callbacks. SocketJack's own protocol assembly and the local core/collection runtime assemblies are trusted runtime dependencies; their bytes are still compared during handshaking. The registry does not automatically trust other assemblies, and is excluded from JSON serialization.
 
-**Do not obtain trusted pins from connecting clients.** Computing a hash of an unknown DLL and immediately accepting it is not provenance verification. Assemblies loaded without a physical file (dynamic assemblies, some single-file/AOT deployments) fail closed. This API verifies message contract DLL files; it does not sandbox code, block arbitrary assembly loading elsewhere in the host application, or attest a remote process.
+`Add(assembly, expectedSha256)` remains available when a signed release manifest or administrator-controlled pin is required. The automatic overload approves the local DLL selected by the application; it is integrity and peer-version matching, not provenance verification. Assemblies loaded from an uncompressed embedded `.dll` resource are supported when a loaded owner contains a resource matching the DLL name and module ID. Dynamic assemblies and assemblies with no discoverable DLL image fail closed. This API does not sandbox code, block arbitrary assembly loading elsewhere in the host application, or attest a remote process.
 
 ## Transports
 

@@ -2,7 +2,6 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SocketJack.Net;
 using SocketJack.Serialization;
 using System.Net;
-using System.Security.Cryptography;
 
 namespace SocketJack.UdpReliable.Tests;
 
@@ -24,7 +23,7 @@ public sealed class OptimizationTests {
     static NetworkOptions Options() {
         var options = new NetworkOptions { Serializer = new BinarySerializer(), UsePeerToPeer = false, EnablePatternCache = false };
         var assembly = typeof(Scalars).Assembly;
-        options.VerifiedAssemblies.Add(assembly, Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(assembly.Location))));
+        options.VerifiedAssemblies.Add(assembly);
         options.Authorization.AnonymousMessageTypes.Add(typeof(Payload));
         return options;
     }

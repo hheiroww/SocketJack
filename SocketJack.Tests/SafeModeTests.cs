@@ -3,7 +3,6 @@ using SocketJack.Net;
 using SocketJack.Serialization;
 using System.Net;
 using System.Security;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
 using JsonWire = SocketJack.Serialization.Json.JsonSerializer;
@@ -18,7 +17,7 @@ public sealed class SafeModeTests {
     static NetworkOptions Options(bool binary = false) {
         var options = new NetworkOptions { UsePeerToPeer = false, Logging = false, EnablePatternCache = false, AutoReconnect = false };
         if (binary) options.Serializer = new BinarySerializer();
-        options.VerifiedAssemblies.Add(typeof(Message).Assembly, Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(typeof(Message).Assembly.Location))));
+        options.VerifiedAssemblies.Add(typeof(Message).Assembly);
         options.Authorization.AnonymousMessageTypes.Add(typeof(Message));
         options.Authorization.AnonymousMessageTypes.Add(typeof(int));
         options.Authorization.AnonymousMessageTypes.Add(typeof(string));
@@ -48,12 +47,19 @@ public sealed class SafeModeTests {
     }
 
     [TestMethod]
-    public void SafeModeDefaultsOnAndRequiresTrustedLocalDllPin() {
+    public void SafeModeDefaultsOnAndRequiresApprovedLocalDll() {
         Assert.IsTrue(new NetworkOptions().SafeMode);
         var options = new NetworkOptions(); options.Whitelist.Add(typeof(Message));
         Assert.ThrowsException<SecurityException>(() => SafeModeHandshake.Create(options));
         Assert.ThrowsException<SecurityException>(() => options.VerifiedAssemblies.Add(typeof(Message).Assembly, new string('0', 64)));
         Assert.IsFalse(new TypeList(new[] { typeof(Dictionary<string, string>) }).Contains(typeof(Dictionary<string, Unapproved>)));
+    }
+
+    [TestMethod]
+    public void ReflectedAssemblyLocationIsHashedAutomatically() {
+        var registry = new VerifiedAssemblyRegistry();
+        registry.Add(typeof(Message).Assembly);
+        registry.Verify(typeof(Message).Assembly);
     }
     [DataTestMethod][DataRow(false)][DataRow(true)]
     public async Task MatchingTcpHandshakeAllowsTypedMessages(bool binary) {
@@ -136,6 +142,7 @@ public sealed class SafeModeTests {
     [TestMethod]
     public async Task MatchingMutableTcpHandshakeAllowsMessages() {
         int port = Port(); using var server = new MutableTcpServer(Options(), port); using var client = new SocketJack.Net.TcpClient(Options());
+        server.EnabledProtocols.Add(MutableTcpProtocols.SocketJack);
         var got = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
         server.RegisterCallback<int>(e => got.TrySetResult(e.Object)); Assert.IsTrue(server.Listen());
         Assert.IsTrue(await client.Connect("127.0.0.1", port)); client.Send(35);

@@ -16,8 +16,7 @@ public sealed class ReliableTests {
         UdpReliable = new() { Profile = UdpReliableProfile.FastLan, Delivery = delivery, DeliveryTimeout = TimeSpan.FromSeconds(12) }
     });
     static NetworkOptions Approve(NetworkOptions options) {
-        var assembly = typeof(Payload).Assembly;
-        options.VerifiedAssemblies.Add(assembly, Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(assembly.Location))));
+        options.VerifiedAssemblies.Add(typeof(Payload).Assembly);
         options.Authorization.RequireAuthentication = false; // This fixture exercises anonymous data transport, not login.
         return options;
     }

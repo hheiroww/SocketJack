@@ -25,7 +25,7 @@ namespace SocketJack.Net.Torrent {
     /// </para>
     /// </summary>
     /// <remarks>
-    /// <b>Example — standalone seeding:</b>
+    /// <b>Example â€” standalone seeding:</b>
     /// <code>
     /// var metadata = TorrentMetadata.FromFile("myfile.zip", new List&lt;string&gt; { "localhost:6969" });
     /// var client = new TorrentClient(metadata, listenPort: 6881, downloadPath: "./downloads");
@@ -33,9 +33,10 @@ namespace SocketJack.Net.Torrent {
     /// await client.StartAsync();
     /// </code>
     ///
-    /// <b>Example — registered on MutableTcpServer:</b>
+    /// <b>Example â€” registered on MutableTcpServer:</b>
     /// <code>
     /// var server = new MutableTcpServer(8080, "MultiServer");
+    /// server.EnabledProtocols.UnionWith(new[] { MutableTcpProtocols.Http, MutableTcpProtocols.SocketJack });
     /// var client = new TorrentClient(metadata, downloadPath: "./downloads");
     /// client.Register(server);
     /// client.Seed("myfile.zip");
@@ -43,7 +44,7 @@ namespace SocketJack.Net.Torrent {
     /// await client.StartAsync();
     /// </code>
     ///
-    /// <b>Example — searching for torrents:</b>
+    /// <b>Example â€” searching for torrents:</b>
     /// <code>
     /// var client = new TorrentClient(metadata, listenPort: 6883, downloadPath: "./downloads");
     /// var results = await client.SearchAsync("linux iso", category: "software");
@@ -242,7 +243,7 @@ namespace SocketJack.Net.Torrent {
         }
 
         /// <summary>
-        /// Download progress as a percentage (0–100).
+        /// Download progress as a percentage (0â€“100).
         /// </summary>
         public double Progress {
             get {
@@ -296,10 +297,10 @@ namespace SocketJack.Net.Torrent {
         private readonly byte[][] _pieces;
         private readonly bool[] _requested;
 
-        // Incoming connections (standalone mode — null when registered)
+        // Incoming connections (standalone mode â€” null when registered)
         private TcpServer _peerServer;
 
-        // MutableTcpServer (registered mode — null when standalone)
+        // MutableTcpServer (registered mode â€” null when standalone)
         private MutableTcpServer _mutableServer;
 
         // Tracker connection
@@ -361,6 +362,7 @@ namespace SocketJack.Net.Torrent {
         /// <example>
         /// <code>
         /// var server = new MutableTcpServer(8080, "MultiServer");
+        /// server.EnabledProtocols.UnionWith(new[] { MutableTcpProtocols.Http, MutableTcpProtocols.SocketJack });
         /// var metadata = TorrentMetadata.FromFile("patch.zip", new List&lt;string&gt; { "localhost:8080" });
         /// var client = new TorrentClient(metadata, downloadPath: "./downloads");
         /// client.Register(server);
@@ -377,7 +379,7 @@ namespace SocketJack.Net.Torrent {
             _mutableServer = server;
             ListenPort = server.Port;
 
-            // Dispose the standalone peer server — we won't need it
+            // Dispose the standalone peer server â€” we won't need it
             if (_peerServer != null) {
                 _peerServer.Dispose();
                 _peerServer = null;
@@ -590,7 +592,7 @@ namespace SocketJack.Net.Torrent {
         }
 
         /// <summary>
-        /// Process the tracker's announce response — connect to discovered peers.
+        /// Process the tracker's announce response â€” connect to discovered peers.
         /// </summary>
         private void OnAnnounceResponse(ReceivedEventArgs<AnnounceResponse> e) {
             var response = e.Object;
@@ -656,7 +658,7 @@ namespace SocketJack.Net.Torrent {
             var hs = e.Object;
             if (hs == null) return;
             if (hs.InfoHash != Metadata.InfoHash) {
-                // InfoHash mismatch — reject
+                // InfoHash mismatch â€” reject
                 e.Connection.Dispose();
                 return;
             }
@@ -708,7 +710,7 @@ namespace SocketJack.Net.Torrent {
             var hs = e.Object;
             if (hs == null) return;
             if (hs.InfoHash != Metadata.InfoHash) {
-                // Mismatch — disconnect
+                // Mismatch â€” disconnect
                 foreach (var kvp in _peers) {
                     if (ReferenceEquals(kvp.Value.Client, e.sender)) {
                         kvp.Value.Client.Dispose();
@@ -794,7 +796,7 @@ namespace SocketJack.Net.Torrent {
                         DownloadCompleted?.Invoke();
                     }
                 } else {
-                    // Hash mismatch — mark as not requested so we try again
+                    // Hash mismatch â€” mark as not requested so we try again
                     _requested[idx] = false;
                 }
             }
