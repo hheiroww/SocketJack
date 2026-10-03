@@ -26,12 +26,12 @@ SocketJack is a .NET networking library for sending typed objects, hosting HTTP 
 ## 📦 Install
 
 ```powershell
-dotnet add package SocketJack --version 2026.15.0
+dotnet add package SocketJack --version 2026.15.1
 ```
 
 | Package | Target | Purpose |
 |---|---|---|
-| **[SocketJack](https://www.nuget.org/packages/SocketJack/2026.15.0)** | .NET Standard 2.1 | Core networking library; this release is **2026.15.0**. |
+| **[SocketJack](https://www.nuget.org/packages/SocketJack/2026.15.1)** | .NET Standard 2.1 | Core networking library; this release is **2026.15.1**. |
 | **[SocketJack.WPF](https://www.nuget.org/packages/SocketJack.WPF)** | Windows / WPF | Companion package for live control capture and remote input; versioned separately. |
 
 <details>
