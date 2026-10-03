@@ -11,7 +11,7 @@
 [![Build & publish](https://github.com/hheiroww/SocketJack/actions/workflows/dotnet.yml/badge.svg)](https://github.com/hheiroww/SocketJack/actions/workflows/dotnet.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/hheiroww/SocketJack/blob/master/LICENSE)
 
-**📦 [Install](#-install) · ✨ [What's new](#-whats-new-in-202614) · 🧭 [Features](#-feature-explorer) · 📚 [Documentation](#-documentation)**
+**📦 [Install](#-install) · ✨ [What's new](#-whats-new-in-202615) · 🧭 [Features](#-feature-explorer) · 📚 [Documentation](#-documentation)**
 
 </div>
 
@@ -65,24 +65,24 @@ Keep the host application running while connections are in use. Use matching ser
 
 </details>
 
-## ✨ What's new in 2026.14
+## ✨ What's new in 2026.15
 
-This release adds default-on authentication gates, verified contract DLLs, authorization before object activation, and connection-scoped segment reassembly. **Migration required:** register only explicitly anonymous DTOs, or authenticate over TLS before sending application messages. DLL matching does not authenticate a user. See the [security and migration guide](https://github.com/hheiroww/SocketJack/blob/master/docs/SAFEMODE.md).
+This update gives you more control over what a server accepts. You choose which services to open, SQL connections stay on the same machine unless you allow remote access, and approving a local message DLL no longer requires copying its hash by hand.
 
-| Feature | What changed |
+| Update | What it means for your application |
 |---|---|
-| 🛡️ **Authorization** | Default-deny peer control and redirects; administrative commands require a verified Administrator role and an explicit policy. |
-| 🔒 **SafeMode** | Automatically fingerprinted DLLs and a client manifest checked during handshaking, without exposing server fingerprints. |
-| 📡 **Reliable UDP** | Opt-in reliable sessions, indexed fragments, selective retransmission, and independent or ordered delivery. |
-| 🧩 **Binary serialization** | Custom `SB` format, compact integers, direct byte arrays, and type whitelist validation. |
-| 📂 **Verified transfers** | Chunked stream/file delivery with 64-bit offsets and SHA-256 verification. |
-| 🔐 **SSH.NET 2026.0.0** | Updated dependency powering SocketJack's SFTP client integration. |
-| 🟦 **TypeScript generation** | Generate a client from mapped HTTP routes and emit whitelisted WebSocket message types. |
-| ✅ **Trusted Publishing** | GitHub identity obtains a short-lived NuGet credential; no stored publish API key is required. |
+| 🔀 **Choose your protocols** | A `MutableTcpServer` starts with every protocol disabled. Enable only the services you need, such as HTTP or SocketJack messages. |
+| 🗄️ **Control SQL access** | SQL/TDS connections are local-only by default. You can allow your private network or specific remote IP addresses. Database login rules still apply. |
+| 🔒 **Easier DLL approval** | Approve your local message assembly and SocketJack calculates its fingerprint. A trusted release hash is still an option when you need stricter control. |
+| 📦 **Embedded DLL support** | SafeMode can locate a matching DLL stored as an embedded resource, as well as a normal file on disk. |
+
+**Upgrading an existing server?** Add its required protocols to `EnabledProtocols` before calling `Listen()`. See the [2026.15 setup and upgrade guide](https://github.com/hheiroww/SocketJack/blob/master/docs/UPGRADING-2026.15.md) for examples.
+
+The earlier 2026.14 protections remain: SafeMode is on by default, application messages require authentication unless explicitly allowed anonymously, and administrative actions need separate permission. Reliable UDP, verified file transfers, the custom binary serializer, and SSH.NET 2026.0.0 remain available.
 
 ## 🛡️ Authentication and safe type activation
 
-SafeMode is enabled by default. Register each application contract assembly and SocketJack automatically SHA-256 hashes its reflected DLL location (or matching embedded DLL resource). Type names and client DLL fingerprints must match the server during handshaking. No server fingerprint is returned. Invalid clients are disconnected before typed messages are dispatched.
+SafeMode is enabled by default. Approve the local DLLs that define your messages. SocketJack checks the client’s message types and DLL fingerprints when it connects, without sending the server’s fingerprints back. A mismatch disconnects the client before application messages are handled.
 
 Authentication is a separate step. A server verifies credentials, then calls `SetAuthenticatedPrincipal` over encrypted TLS. Peer redirects and control messages require explicit authorization callbacks. Administrative DTOs require the `Administrator` role plus an operation policy and cannot be redirected between peers. Remote CLR reflection endpoints reject invocation. Allowlisted constructors, setters, converters, and application handlers remain trusted code.
 
@@ -146,7 +146,7 @@ This is a custom serializer, not `BinaryFormatter`. Register message callbacks o
 <details>
 <summary><strong>📂 Stream & file transfer — bounded chunks and verified completion</strong></summary>
 
-Reliable UDP supports stream/file transfers without materializing an entire file as one message. Transfer frames use bounded chunks, **64-bit byte offsets**, SHA-256 verification, and explicit destination acceptance.
+Reliable UDP sends large files and streams in small pieces instead of loading the whole file into memory. It tracks each piece, verifies the completed file with SHA-256, and lets the receiver decide whether to accept it.
 
 The per-I/O buffer cap is **32 KiB**, not a total-file size limit. Whole-object messages still have separate memory budgets. Configure delivery timeouts and destination handling for your workload; transport acceptance alone does not establish successful storage.
 
@@ -222,7 +222,7 @@ server.Listen();
 <details>
 <summary><strong>🔀 Protocol multiplexing — multiple protocols on one listener</strong></summary>
 
-`MutableTcpServer` detects and dispatches supported protocol traffic on one listening port. The repository includes HTTP, WebSocket, native SocketJack, RTMP, SQL/TDS, and FTP surfaces, with custom protocol handlers for extensions.
+`MutableTcpServer` lets several services share one port and sends each connection to the right handler. The repository includes HTTP, WebSocket, native SocketJack, RTMP, SQL/TDS, and FTP surfaces, with custom protocol handlers for extensions.
 
 Every protocol is disabled by default. Add only the required names to the server's `EnabledProtocols` whitelist before listening:
 
@@ -272,7 +272,7 @@ This fragment assumes an existing WPF application, connection, and peer referenc
 <details>
 <summary><strong>✅ Publishing & dependency checks — short-lived credentials</strong></summary>
 
-The release workflow builds on Linux and Windows, packs SocketJack, and publishes to NuGet and GitHub Packages. NuGet Trusted Publishing exchanges GitHub's workflow identity for a temporary credential using `NuGet/login`.
+Release builds are checked on Linux and Windows before the package is published.
 
 Before packaging, restore audits direct and transitive dependencies. Known vulnerability warnings and audit-feed failures block the core release. Package audits report known advisories at the time of the check; they do not prove the absence of all security defects.
 
@@ -286,6 +286,7 @@ Before packaging, restore audits direct and transitive dependencies. Known vulne
 | 📡 [Reliable UDP guide](https://github.com/hheiroww/SocketJack/blob/master/docs/UDP_Reliable.md) | Options, transfer APIs, limits, and acceptance semantics. |
 | 📊 [Reliable UDP benchmark results](https://github.com/hheiroww/SocketJack/blob/master/docs/UDP_Reliable-results.md) | TCP comparison, confidence intervals, acceptance limits, and raw measurements. |
 | 🧩 [Binary serializer benchmark results](https://github.com/hheiroww/SocketJack/blob/master/docs/encoder-testing/README.md) | Custom SB encoding/decoding, JSON comparison, allocations, wrapping, and reproduction commands. |
+| 🆕 [2026.15 upgrade guide](https://github.com/hheiroww/SocketJack/blob/master/docs/UPGRADING-2026.15.md) | Enable services, choose SQL access, and approve message DLLs. |
 | 🧪 [GitHub Actions](https://github.com/hheiroww/SocketJack/actions) | Build and publishing results. |
 | 📦 [NuGet](https://www.nuget.org/packages/SocketJack) | Published versions and dependencies. |
 
