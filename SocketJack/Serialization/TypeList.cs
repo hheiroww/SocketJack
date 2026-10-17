@@ -1,10 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Text.RegularExpressions;
 
 namespace SocketJack.Serialization
 {
     public class TypeList : List<string> {
+        internal Action<Type> RegisterAssembly { get; set; }
+        private static readonly Regex AssemblyIdentity = new Regex(@", [^,\[\]]+, Version=[^,\[\]]+, Culture=[^,\[\]]+, PublicKeyToken=[^,\[\]]+", RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100));
+        private static string ContractName(string name) => name.Length <= 8192 ? AssemblyIdentity.Replace(name, "") : name;
         private readonly Dictionary<string, Type> registered = new Dictionary<string, Type>(StringComparer.Ordinal);
         private readonly object resolveGate = new object();
         private string[] indexedEntries = Array.Empty<string>();
@@ -19,7 +23,11 @@ namespace SocketJack.Serialization
                 // take effect immediately. Only locally configured names populate this index.
                 bool changed = index == null || unresolved || indexedEntries.Length != Count;
                 for (int i = 0; !changed && i < Count; i++) changed = indexedEntries[i] != this[i];
-                if (!changed) return index.TryGetValue(name, out var cached) ? (cached.Array ? cached.Type.MakeArrayType() : cached.Type) : null;
+                if (!changed) {
+                    if (!index.TryGetValue(name, out var cached) && !index.TryGetValue(ContractName(name), out cached)) return null;
+                    RegisterAssembly?.Invoke(cached.Type);
+                    return cached.Array ? cached.Type.MakeArrayType() : cached.Type;
+                }
                 var rebuilt = new Dictionary<string, (Type Type, bool Array)>(StringComparer.Ordinal);
                 var entries = ToArray(); unresolved = false;
                 foreach (string allowed in entries) {
@@ -34,15 +42,18 @@ namespace SocketJack.Serialization
                         }
                     }
                     if (type == null) { unresolved = true; continue; }
+                    RegisterAssembly?.Invoke(type);
                     // Preserve first-match semantics for ambiguous locally registered names.
                     if (type.FullName != null) {
                         rebuilt.TryAdd(type.FullName, (type, false));
                         rebuilt.TryAdd(type.FullName + "[]", (type, true));
+                        rebuilt.TryAdd(ContractName(type.FullName), (type, false));
+                        rebuilt.TryAdd(ContractName(type.FullName) + "[]", (type, true));
                     }
                     if (type.AssemblyQualifiedName != null) rebuilt.TryAdd(type.AssemblyQualifiedName, (type, false));
                 }
                 indexedEntries = entries; index = rebuilt;
-                return index.TryGetValue(name, out var found) ? (found.Array ? found.Type.MakeArrayType() : found.Type) : null;
+                return (index.TryGetValue(name, out var found) || index.TryGetValue(ContractName(name), out found)) ? (found.Array ? found.Type.MakeArrayType() : found.Type) : null;
             }
         }
 
@@ -83,6 +94,7 @@ namespace SocketJack.Serialization
         public void Add(Type Type) {
             if (Type == null) return;
             lock (resolveGate) {
+                RegisterAssembly?.Invoke(Type);
                 registered[Type.FullName] = Type;
                 index = null;
                 if (!base.Contains(Type.FullName))

@@ -126,11 +126,13 @@ namespace SocketJack.Net.WebSockets {
                 "Upgrade: websocket\r\n" +
                 "Connection: Upgrade\r\n" +
                 $"Sec-WebSocket-Accept: {acceptKey}\r\n" +
+                SafeModeHandshake.ReplyHeader(Options, connection) +
                 "\r\n";
             byte[] responseBytes = Encoding.UTF8.GetBytes(response);
             await connection.Stream.WriteAsync(responseBytes, 0, responseBytes.Length);
 
             handshakeTimeout.CancelAfter(Timeout.Infinite);
+            BinaryNetworkCompression.Synchronize(this, connection);
             ClientConnected?.Invoke(new ConnectedEventArgs(this, connection));
             InitializePeer(connection);
             await HandleWebSocketFrames(connection);
@@ -299,7 +301,7 @@ private NetworkConnection NewConnection(ref Socket handler) {
             return Application.Current.Dispatcher.InvokeAsync(action).Task;
 #endif
 #if !UNITY && !WINDOWS
-           return action.BeginInvoke(null, null);
+           return Task.Run(action);
 #endif
         }
 
@@ -855,7 +857,7 @@ private NetworkConnection NewConnection(ref Socket handler) {
 #endif
             if (Client.Stream == null) Client._Stream = new NetworkStream(Client.Socket, ownsSocket: false);
             try {
-                if (Obj == null) return;
+                if (Obj == null || !Client.CanSend(Obj)) return;
                 Type objType = Obj.GetType();
                 if (Options.Blacklist.Contains(objType)) {
                     if (Options.Logging) {
@@ -870,8 +872,9 @@ private NetworkConnection NewConnection(ref Socket handler) {
                     await SendSegmentedAsync(Client, payload, objType, Obj);
                 } else {
                     Client.IsSending = true;
-                    bool useBinaryFrame = Options.UseCompression;
-                    if (useBinaryFrame) {
+                    payload = BinaryNetworkCompression.Encode(this, Client, payload);
+                    bool useBinaryFrame = Options.UseCompression || Options.Serializer is BinarySerializer;
+                    if (Options.UseCompression) {
                         payload = Options.CompressionAlgorithm.Compress(payload);
                     }
                     if (Client.Stream == null) return;
@@ -936,6 +939,7 @@ private NetworkConnection NewConnection(ref Socket handler) {
         }
 
         public async Task SendSegmentedAsync(NetworkConnection Client, object Obj) {
+            if (Client != null && !Client.CanSend(Obj)) return;
             byte[] SerializedBytes = Options.Serializer.Serialize(new Wrapper(Obj, this));
             Segment[] SegmentedObject = SerializedBytes.GetSegments();
             foreach (var s in SegmentedObject) {

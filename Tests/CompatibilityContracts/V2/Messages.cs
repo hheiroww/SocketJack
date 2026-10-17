@@ -1,0 +1,1 @@
+namespace Versioned { public enum ActionKind { Text, NewAction } public class Message { public int Number { get; set; } public string Note { get; set; } public ActionKind Kind { get; set; } } public class NewFeature { public int Value { get; set; } } }

@@ -25,7 +25,7 @@ namespace SocketJack.Net {
         private readonly ConcurrentDictionary<string, string> _streamKeys = new ConcurrentDictionary<string, string>(StringComparer.Ordinal);
         private readonly ConcurrentDictionary<string, UserStreamContext> _userStreams = new ConcurrentDictionary<string, UserStreamContext>(StringComparer.OrdinalIgnoreCase);
         private string _activePublisherName = "";
-        private static readonly string KeysDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SocketJack", "Keys");
+        private static readonly string KeysDirectory = Environment.GetEnvironmentVariable("SOCKETJACK_KEYS_DIRECTORY") ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SocketJack", "Keys");
         private static readonly string KeysFilePath = Path.Combine(KeysDirectory, "streamkeys.txt");
         private readonly object _keysFileLock = new object();
 
@@ -382,6 +382,10 @@ namespace SocketJack.Net {
             server.MapRtmpPublish("*", HandleRtmpPublish);
         }
 
+        /// <summary>Optional per-request playback lease. A null/false lease denies access;
+        /// the returned predicate is checked throughout playback to support revocation.</summary>
+        public Func<HttpRequest, string, Func<bool>> AuthorizeViewer { get; set; }
+
         private void RegisterMutable() {
             var http = _mutableServer.Http;
 
@@ -414,6 +418,16 @@ namespace SocketJack.Net {
             http.MapStream("GET", "/stream/data", async (conn, req, chunked, ct) => {
                 await Task.Run(async () => {
                     var user = GetQueryParam(req.QueryString, "user");
+                    Func<bool> lease = null;
+                    if (AuthorizeViewer != null) {
+                        try { lease = AuthorizeViewer(req, user); } catch { }
+                        if (lease == null || !lease()) {
+                            req.Context.Response.StatusCodeNumber = 403;
+                            chunked.ContentType = "text/plain";
+                            chunked.Write("Stream access required.");
+                            return;
+                        }
+                    }
                     UserStreamContext ctx = null;
                     ConcurrentDictionary<Guid, BlockingCollection<byte[]>> targetQueues;
                     if (!string.IsNullOrEmpty(user)) {
@@ -425,7 +439,10 @@ namespace SocketJack.Net {
 
                     chunked.ContentType = "video/x-flv";
                     var viewerQueue = new BlockingCollection<byte[]>(ViewerQueueCapacity);
-                    targetQueues.TryAdd(conn.ID, viewerQueue);
+                    // A hosted request has no accepted TCP connection ID. Each
+                    // viewer/probe needs its own queue and independent cleanup.
+                    var viewerId = Guid.NewGuid();
+                    targetQueues.TryAdd(viewerId, viewerQueue);
                     Log("Stream viewer connected" + (ctx != null ? " for " + user : "") + ": " + conn.EndPoint.ToString());
                     chunked.Write(FlvHeader, 0, FlvHeader.Length);
 
@@ -442,7 +459,9 @@ namespace SocketJack.Net {
                     try {
                         var writeBuf = new byte[ViewerWriteBufferSize];
                         int bufPos = 0;
-                        while (conn.Socket != null && conn.Socket.Connected) {
+                        // In-process HTTP hosts supply response callbacks and a cancellation
+                        // token instead of a Socket. Keep their relay alive until disconnect.
+                        while (!conn.Closed && (conn.Socket == null || conn.Socket.Connected) && !ct.IsCancellationRequested && (lease == null || lease())) {
                             byte[] data;
                             if (viewerQueue.TryTake(out data, 100)) {
                                 if (data.Length > writeBuf.Length) {
@@ -461,7 +480,7 @@ namespace SocketJack.Net {
                         }
                     } finally {
                         BlockingCollection<byte[]> removed;
-                        targetQueues.TryRemove(conn.ID, out removed);
+                        targetQueues.TryRemove(viewerId, out removed);
                         viewerQueue.Dispose();
                         Log("Stream viewer disconnected" + (ctx != null ? " from " + user : "") + ".");
                     }
@@ -617,6 +636,7 @@ namespace SocketJack.Net {
                 userCtx = GetOrCreateUserStream(publisher);
                 userCtx.Publishing = true;
             }
+            var publicationId = userCtx?.BroadcastId ?? Guid.Empty;
 
             _rtmpActive = true;
             _rtmpApp = app ?? "";
@@ -710,7 +730,7 @@ namespace SocketJack.Net {
 
             _rtmpActive = false;
             _activePublisherName = "";
-            if (userCtx != null) {
+            if (userCtx != null && userCtx.BroadcastId == publicationId) {
                 userCtx.Publishing = false;
                 lock (userCtx.HeaderLock) {
                     userCtx.CachedMetadataTag = null;
@@ -927,7 +947,14 @@ namespace SocketJack.Net {
             /// <summary>User-settable stream title displayed in the stream directory.</summary>
             public string Title { get; set; } = "";
 
-            internal volatile bool Publishing;
+            private volatile bool _publishing;
+            private Guid _broadcastId;
+            /// <summary>Unique identifier of the current publication; empty when stopped.</summary>
+            public Guid BroadcastId { get { lock (HeaderLock) return _broadcastId; } }
+            internal bool Publishing {
+                get => _publishing;
+                set { lock (HeaderLock) { _broadcastId = value ? Guid.NewGuid() : Guid.Empty; _publishing = value; } }
+            }
             private readonly int _queueCapacity;
 
             internal UserStreamContext(string username, int queueCapacity) {

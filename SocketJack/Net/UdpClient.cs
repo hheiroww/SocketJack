@@ -531,12 +531,14 @@ namespace SocketJack.Net {
         /// </summary>
         /// <param name="Obj">An object.</param>
         public void Send(object Obj) {
+            if (Connection != null && !Connection.CanSend(Obj)) return;
             if (Options.UdpMode == UdpMode.UDP_Reliable) { ObserveReliable(SendReliable(Obj, false, CancellationToken.None)); return; }
             if (!_Connected || _Socket == null || _RemoteEndPoint == null) return;
 
             var wrapped = new Wrapper(Obj, this);
             byte[] bytes = Options.Serializer.Serialize(wrapped);
-            if (UdpConn != null) {
+            bytes = BinaryNetworkCompression.Encode(this, Connection, bytes);
+            if (UdpConn != null && !(Options.Serializer is BinarySerializer)) {
                 bytes = UdpConn.PatternCache.PrepareSend(bytes, Options, frame => {
                     byte[] candidate = Options.UseCompression ? Options.CompressionAlgorithm.Compress(frame) : frame;
                     return candidate.Length <= Options.MaxDatagramSize;
@@ -720,12 +722,15 @@ namespace SocketJack.Net {
         private TaskCompletionSource<bool> safeModeReady = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         private bool ReceiveSafeModeReply(byte[] data) {
             if (!Options.SafeMode) return false;
-            if (data.SequenceEqual(SafeModeHandshake.Accepted)) {
-                SafeModeHandshake.MarkVerified(Connection, Options);
+            if (data.SequenceEqual(SafeModeHandshake.Accepted) || SafeModeHandshake.IsCompatibility(data)) {
+                SafeModeHandshake.AcceptReply(data, Options, Connection);
+                BinaryNetworkCompression.Synchronize(this, Connection);
                 safeModeReady.TrySetResult(true);
                 return true;
             }
             if (!Connection.SafeModeVerified) {
+                // A reordered dictionary update must wait for negotiated support.
+                if (BinaryCompressionCodec.HasMagic(data)) return true;
                 safeModeReady.TrySetException(SafeModeHandshake.Rejected());
                 Disconnect();
                 return true;

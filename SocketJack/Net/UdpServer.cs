@@ -194,6 +194,11 @@ namespace SocketJack.Net {
         /// Map from client endpoint key to their NetworkConnection (for HandleReceive compatibility).
         /// </summary>
         private ConcurrentDictionary<string, NetworkConnection> _clientNetworkConnections = new ConcurrentDictionary<string, NetworkConnection>();
+        readonly object compressionHandshakeSync = new object();
+
+        internal IEnumerable<NetworkConnection> CompressionConnections => _clientNetworkConnections.Values;
+        internal NetworkConnection CompressionConnection(IPEndPoint endpoint) => endpoint != null &&
+            _clientNetworkConnections.TryGetValue(endpoint.ToString(), out var connection) ? connection : null;
 
         private async void Init(int Port, string Name = "UdpServer") {
             try {
@@ -211,10 +216,17 @@ namespace SocketJack.Net {
             }
         }
 
-        private UdpConnection GetOrCreateClient(IPEndPoint remoteEP, UdpReliablePeer reliablePeer = null) {
+        internal void ValidateCompressionScope(IPEndPoint endpoint, NetworkCompatibility compatibility) {
+            // Validate before a reply can include a dictionary from the newly requested scope.
+            if (compatibility != null && _clientNetworkConnections.TryGetValue(endpoint.ToString(), out var previous) &&
+                previous.Compatibility?.BinaryCompressionPerClient != compatibility.BinaryCompressionPerClient) throw SafeModeHandshake.Rejected();
+        }
+        private UdpConnection GetOrCreateClient(IPEndPoint remoteEP, UdpReliablePeer reliablePeer = null, NetworkCompatibility compatibility = null, NetworkConnection compressionHandshake = null) {
             string key = remoteEP.ToString();
             _clientLastActivity.AddOrUpdate(key, DateTime.UtcNow);
+            ValidateCompressionScope(remoteEP, compatibility);
 
+            bool created = false;
             if (!Clients.ContainsKey(key)) {
                 var conn = new UdpConnection(this, Socket, remoteEP);
                 conn.ID = Guid.NewGuid();
@@ -227,8 +239,12 @@ namespace SocketJack.Net {
                 tcpConn.ID = conn.ID;
                 tcpConn._Identity = conn._Identity;
                 tcpConn.EndPoint = remoteEP;
+                tcpConn.Compatibility = compatibility;
                 if (Options.SafeMode) SafeModeHandshake.MarkVerified(tcpConn, Options);
                 _clientNetworkConnections.TryAdd(key, tcpConn);
+                if (Options.Serializer is BinarySerializer binary) binary.TransferCompressionCache(compressionHandshake, tcpConn);
+                BinaryNetworkCompression.Synchronize(this, tcpConn);
+                created = true;
 
                 LogFormat("[{0}] Client Connected.", new[] { Name + @"\" + conn.Identity.ID.ToUpper(), Port.ToString() });
 
@@ -238,6 +254,11 @@ namespace SocketJack.Net {
                 ClientConnected?.Invoke(new ConnectedEventArgs(this, tcpConn));
 
                 conn.SendLocalIdentity();
+            }
+            if (!created && compressionHandshake != null && Options.Serializer is BinarySerializer existingBinary &&
+                _clientNetworkConnections.TryGetValue(key, out var existing)) {
+                existingBinary.TransferCompressionCache(compressionHandshake, existing);
+                BinaryNetworkCompression.Synchronize(this, existing);
             }
             return Clients[key];
         }
@@ -255,6 +276,7 @@ namespace SocketJack.Net {
 
                 NetworkConnection tcpConn = null;
                 _clientNetworkConnections.TryRemove(key, out tcpConn);
+                if (Options.Serializer is BinarySerializer binary) binary.ReleaseCompressionCache(tcpConn);
                 Clients.TryRemove(key, out _);
                 _clientLastActivity.TryRemove(key, out _);
 
@@ -441,15 +463,19 @@ namespace SocketJack.Net {
         /// <param name="Client">The UdpConnection representing the client.</param>
         /// <param name="Obj">Object to send.</param>
         public void SendTo(UdpConnection Client, object Obj) {
+            if (Client?.EndPoint != null && _clientNetworkConnections.TryGetValue(Client.EndPoint.ToString(), out var target) && !target.CanSend(Obj)) return;
             if (Options.UdpMode == UdpMode.UDP_Reliable) { ObserveReliable(SendReliable(Client, Obj, false, CancellationToken.None)); return; }
             if (Client == null || Client.Closed || Client.EndPoint == null) return;
 
             var wrapped = new Wrapper(Obj, this);
             byte[] bytes = Options.Serializer.Serialize(wrapped);
-            bytes = Client.PatternCache.PrepareSend(bytes, Options, frame => {
-                byte[] candidate = Options.UseCompression ? Options.CompressionAlgorithm.Compress(frame) : frame;
-                return candidate.Length <= Options.MaxDatagramSize;
-            });
+            bytes = BinaryNetworkCompression.Encode(this, CompressionConnection(Client.EndPoint), bytes);
+            if (!(Options.Serializer is BinarySerializer)) {
+                bytes = Client.PatternCache.PrepareSend(bytes, Options, frame => {
+                    byte[] candidate = Options.UseCompression ? Options.CompressionAlgorithm.Compress(frame) : frame;
+                    return candidate.Length <= Options.MaxDatagramSize;
+                });
+            }
             byte[] processedBytes = Options.UseCompression ? Options.CompressionAlgorithm.Compress(bytes) : bytes;
 
             if (processedBytes.Length > Options.MaxDatagramSize) {
@@ -525,10 +551,14 @@ namespace SocketJack.Net {
             foreach (var kvp in Clients.ToArray()) {
                 if (Except != null && ReferenceEquals(kvp.Value, Except)) continue;
                 if (kvp.Value != null && !kvp.Value.Closed && kvp.Value.EndPoint != null) {
-                    byte[] clientBytes = kvp.Value.PatternCache.PrepareSend(bytes, Options, frame => {
-                        byte[] candidate = Options.UseCompression ? Options.CompressionAlgorithm.Compress(frame) : frame;
-                        return candidate.Length <= Options.MaxDatagramSize;
-                    });
+                    if (_clientNetworkConnections.TryGetValue(kvp.Key, out var target) && !target.CanSend(Obj)) continue;
+                    byte[] clientBytes = BinaryNetworkCompression.Encode(this, target, bytes);
+                    if (!(Options.Serializer is BinarySerializer)) {
+                        clientBytes = kvp.Value.PatternCache.PrepareSend(clientBytes, Options, frame => {
+                            byte[] candidate = Options.UseCompression ? Options.CompressionAlgorithm.Compress(frame) : frame;
+                            return candidate.Length <= Options.MaxDatagramSize;
+                        });
+                    }
                     byte[] processedBytes = Options.UseCompression ? Options.CompressionAlgorithm.Compress(clientBytes) : clientBytes;
                     if (processedBytes.Length > Options.MaxDatagramSize) {
                         InvokeOnError(Connection, new InvalidOperationException(
@@ -562,13 +592,19 @@ namespace SocketJack.Net {
 
                             IPEndPoint remoteEP = (IPEndPoint)senderEP;
                             if (Options.SafeMode && (SafeModeHandshake.HasMagic(data) || !Clients.ContainsKey(remoteEP.ToString()))) {
+                                var handshake = new NetworkConnection(this, null) { EndPoint = remoteEP };
                                 try {
-                                    SafeModeHandshake.Validate(data, Options, null);
-                                    Socket.SendTo(SafeModeHandshake.Accepted, remoteEP);
-                                    GetOrCreateClient(remoteEP);
+                                    lock (compressionHandshakeSync) {
+                                        SafeModeHandshake.Validate(data, Options, handshake);
+                                        ValidateCompressionScope(remoteEP, handshake.Compatibility);
+                                        Socket.SendTo(SafeModeHandshake.Reply(Options, handshake), remoteEP);
+                                        GetOrCreateClient(remoteEP, compatibility: handshake.Compatibility, compressionHandshake: handshake);
+                                    }
                                 } catch {
                                     RemoveClient(remoteEP.ToString());
                                     Socket.SendTo(Encoding.ASCII.GetBytes("SJNO1"), remoteEP);
+                                } finally {
+                                    if (Options.Serializer is BinarySerializer binary) binary.ReleaseCompressionCache(handshake);
                                 }
                                 continue;
                             }

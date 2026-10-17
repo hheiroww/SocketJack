@@ -340,6 +340,7 @@
     <Compile Include="..\SocketJack\Net\NetworkOptions.cs" Link="Net\NetworkOptions.cs" />
     <Compile Include="..\SocketJack\Net\NetworkAuthorization.cs" Link="Net\NetworkAuthorization.cs" />
     <Compile Include="..\SocketJack\Net\InboundMessageDecoder.cs" Link="Net\InboundMessageDecoder.cs" />
+    <Compile Include="..\SocketJack\Net\NetworkCompatibility.cs" Link="Net\NetworkCompatibility.cs" />
     <Compile Include="..\SocketJack\Net\SafeModeHandshake.cs" Link="Net\SafeModeHandshake.cs" />
     <Compile Include="..\SocketJack\Net\NIC.cs" Link="Net\NIC.cs" />
     <Compile Include="..\SocketJack\Net\PublicIpResolver.cs" Link="Net\PublicIpResolver.cs" />
@@ -378,6 +379,9 @@
     <Compile Include="..\SocketJack\Net\WebSockets\WebSocketClient.cs" Link="Net\WebSockets\WebSocketClient.cs" />
     <Compile Include="..\SocketJack\Net\WebSockets\WebSocketServer.cs" Link="Net\WebSockets\WebSocketServer.cs" />
     <Compile Include="..\SocketJack\Serialization\BinarySerializer.cs" Link="Serialization\BinarySerializer.cs" />
+    <Compile Include="..\SocketJack\Serialization\BinaryCompressionCodec.cs" Link="Serialization\BinaryCompressionCodec.cs" />
+    <Compile Include="..\SocketJack\Serialization\BinaryCompressionSession.cs" Link="Serialization\BinaryCompressionSession.cs" />
+    <Compile Include="..\SocketJack\Net\BinaryNetworkCompression.cs" Link="Net\BinaryNetworkCompression.cs" />
     <Compile Include="..\SocketJack\Serialization\ISerializer.cs" Link="Serialization\ISerializer.cs" />
     <Compile Include="..\SocketJack\Serialization\Json\Converters\BitmapConverter.cs" Link="Serialization\Json\Converters\BitmapConverter.cs" />
     <Compile Include="..\SocketJack\Serialization\Json\Converters\ByteArrayConverter.cs" Link="Serialization\Json\Converters\ByteArrayConverter.cs" />

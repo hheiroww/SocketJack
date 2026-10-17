@@ -15,9 +15,8 @@ public sealed class SafeModeTests {
     public sealed class Unapproved { public static int Created; public Unapproved() { Interlocked.Increment(ref Created); } public string Value { get; set; } }
     public sealed class Container { public Unapproved Child { get; set; } }
     static NetworkOptions Options(bool binary = false) {
-        var options = new NetworkOptions { UsePeerToPeer = false, Logging = false, EnablePatternCache = false, AutoReconnect = false };
+        var options = new NetworkOptions { EnableCompatibilityNegotiation = false, UsePeerToPeer = false, Logging = false, EnablePatternCache = false, AutoReconnect = false };
         if (binary) options.Serializer = new BinarySerializer();
-        options.VerifiedAssemblies.Add(typeof(Message).Assembly);
         options.Authorization.AnonymousMessageTypes.Add(typeof(Message));
         options.Authorization.AnonymousMessageTypes.Add(typeof(int));
         options.Authorization.AnonymousMessageTypes.Add(typeof(string));
@@ -42,17 +41,41 @@ public sealed class SafeModeTests {
             Assert.IsTrue(second.EndpointSecurity.Enabled);
             Assert.AreNotSame(first.VerifiedAssemblies, second.VerifiedAssemblies);
             Assert.IsNotNull(second.Authorization.AuthorizeMessage);
-            second.VerifiedAssemblies.Verify(typeof(Message).Assembly);
+            first.VerifiedAssemblies.Verify(typeof(Message).Assembly);
+            Assert.ThrowsException<SecurityException>(() => second.VerifiedAssemblies.Verify(typeof(Message).Assembly));
         } finally { NetworkOptions.DefaultOptions = original; }
     }
 
     [TestMethod]
-    public void SafeModeDefaultsOnAndRequiresApprovedLocalDll() {
+    public void SafeModeDefaultsOnAndAutomaticallyRegistersLocalTypeAssembly() {
         Assert.IsTrue(new NetworkOptions().SafeMode);
         var options = new NetworkOptions(); options.Whitelist.Add(typeof(Message));
-        Assert.ThrowsException<SecurityException>(() => SafeModeHandshake.Create(options));
+        options.VerifiedAssemblies.Verify(typeof(Message).Assembly);
+        Assert.IsNotNull(SafeModeHandshake.Create(options));
+        Assert.IsFalse(options.Whitelist.Contains(typeof(Unapproved)));
         Assert.ThrowsException<SecurityException>(() => options.VerifiedAssemblies.Add(typeof(Message).Assembly, new string('0', 64)));
         Assert.IsFalse(new TypeList(new[] { typeof(Dictionary<string, string>) }).Contains(typeof(Dictionary<string, Unapproved>)));
+    }
+
+    [TestMethod]
+    public void LocallyConfiguredStringTypeAutomaticallyRegistersAssembly() {
+        var options = new NetworkOptions();
+        options.Whitelist.Add(typeof(Message).FullName);
+        Assert.IsNotNull(SafeModeHandshake.Create(options));
+        options.VerifiedAssemblies.Verify(typeof(Message).Assembly);
+    }
+
+    [TestMethod]
+    public void AutomaticRegistrationPreservesExistingPin() {
+        var options = new NetworkOptions();
+        options.Whitelist.Add(typeof(Message));
+        var pins = (System.Collections.Concurrent.ConcurrentDictionary<System.Reflection.Assembly, string>)
+            typeof(VerifiedAssemblyRegistry).GetField("pins", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                .GetValue(options.VerifiedAssemblies);
+        pins[typeof(Message).Assembly] = new string('0', 64);
+        options.Whitelist.Add(typeof(Container));
+        Assert.ThrowsException<SecurityException>(() => SafeModeHandshake.Create(options));
+        Assert.AreEqual(new string('0', 64), pins[typeof(Message).Assembly]);
     }
 
     [TestMethod]

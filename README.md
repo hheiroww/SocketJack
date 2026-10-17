@@ -65,6 +65,20 @@ Keep the host application running while connections are in use. Use matching ser
 
 </details>
 
+## 🆕 Current source changes
+
+The repository includes changes beyond the published **2026.15.1** package. Build from source to use the features below; the install command above selects the published release.
+
+| Feature | What changed |
+|---|---|
+| Adaptive binary compression | Default-on compression for the custom SB1 `BinarySerializer`, with verified reusable encoding plans, dictionary acknowledgements and retained state capped at physical RAM / 16. Set `EnableCompression = false` to disable it. |
+| Private connection caches | Set `ShareCompressionDictionary = false` for independent client data. Shared definitions contain exact payload bytes, so use sharing only when every participating peer may receive that data. |
+| Protocol compatibility | Wire contracts and optional features are negotiated independently of assembly fingerprints. Unsupported features raise `NetworkOptions.FeatureDisabled`; installations predating negotiation need an endpoint update. |
+| HTTP caching | Static disk mappings use content-based ETags and conditional requests. Dynamic routes, templates and streams use `no-store`. |
+| Durable data storage | Incremental persistence and recovery checks cover interrupted writes and restart behavior. |
+
+See the [compression guide](docs/Binary-network-compression.md), [measured TCP results](docs/binary-compression-benchmark/2026-10-15-tcp-direct-plans/README.md), and [HTTP caching guide](docs/HTTP-caching.md). Compression can reduce transferred bytes while adding CPU work; the benchmark reports both byte savings and throughput.
+
 ## ✨ What's new in 2026.15
 
 This update gives you more control over what a server accepts. You choose which services to open, SQL connections stay on the same machine unless you allow remote access, and approving a local message DLL no longer requires copying its hash by hand.
@@ -82,7 +96,7 @@ The earlier 2026.14 protections remain: SafeMode is on by default, application m
 
 ## 🛡️ Authentication and safe type activation
 
-SafeMode is enabled by default. Approve the local DLLs that define your messages. SocketJack checks the client’s message types and DLL fingerprints when it connects, without sending the server’s fingerprints back. A mismatch disconnects the client before application messages are handled.
+SafeMode is enabled by default. Register message callbacks or add message types to the whitelist; SocketJack automatically registers their assemblies and SHA-256 hashes each reflected DLL location (or matching embedded DLL resource), preserving existing pins. Wire contracts are negotiated independently of DLL hashes: compatible older builds can exchange messages, while unsupported features raise `NetworkOptions.FeatureDisabled`. No server fingerprint is returned. Pre-negotiation installations need a one-time endpoint update; malformed handshakes are rejected.
 
 Authentication is a separate step. A server verifies credentials, then calls `SetAuthenticatedPrincipal` over encrypted TLS. Peer redirects and control messages require explicit authorization callbacks. Administrative DTOs require the `Administrator` role plus an operation policy and cannot be redirected between peers. Remote CLR reflection endpoints reject invocation. Allowlisted constructors, setters, converters, and application handlers remain trusted code.
 
@@ -130,6 +144,8 @@ Configure a matching reliable server with its own options instance. `SendAsync` 
 <summary><strong>🧩 Serialization — JSON by default, compact binary when selected</strong></summary>
 
 `System.Text.Json` remains the default. Select `SocketJack.Serialization.BinarySerializer` through `NetworkOptions.Serializer` on both peers to use SocketJack's versioned **SB** wire format.
+
+Binary network compression is enabled by default and learns repeated segments within a bounded memory budget. Use `EnableCompression = false` to disable it. For independent client data, set `ShareCompressionDictionary = false`. See [configuration](docs/Binary-network-compression.md) and the [TCP transfer benchmark](docs/binary-compression-benchmark/2026-10-15-tcp-direct-plans/README.md), including cold starts, partially changing objects and sustained transfers.
 
 | Encoding feature | Behavior |
 |---|---|
@@ -210,6 +226,8 @@ TCP suits ordered streams and general application traffic. Ordinary UDP suits di
 
 `HttpServer` maps methods and paths to handlers, supports typed request bodies, and serves files, directories, redirects, uploads, and streaming responses. WebSocket clients and servers connect browser applications and native peers to typed callbacks and peer metadata.
 
+Static disk mappings use content-based ETags and conditional browser caching; file edits invalidate cached bytes. Dynamic routes, templates, generated responses and streams use `no-store`. See [HTTP caching](docs/HTTP-caching.md).
+
 ```csharp
 var server = new SocketJack.Net.HttpServer(port: 8080);
 server.Map("GET", "/health", (connection, request, ct) => new { status = "ok" });
@@ -278,6 +296,18 @@ Before packaging, restore audits direct and transitive dependencies. Known vulne
 
 </details>
 
+## 🛠️ Build and validate from source
+
+Use the .NET 10 SDK, with the .NET 8 runtime installed for the test projects. From the repository root:
+
+```powershell
+dotnet build SocketJack/SocketJack.csproj -c Release -p:BuildPackage=false
+dotnet test SocketJack.Tests/SocketJack.Tests.csproj -c Release -p:BuildPackage=false
+dotnet test SocketJack.UdpReliable.Tests/SocketJack.UdpReliable.Tests.csproj -c Release -p:BuildPackage=false --filter "TestCategory!=LargeFile"
+```
+
+The core targets .NET Standard 2.1. The WPF companion and WPF examples require Windows.
+
 ## 📚 Documentation
 
 | Resource | What you'll find |
@@ -287,6 +317,9 @@ Before packaging, restore audits direct and transitive dependencies. Known vulne
 | 📊 [Reliable UDP benchmark results](https://github.com/hheiroww/SocketJack/blob/master/docs/UDP_Reliable-results.md) | TCP comparison, confidence intervals, acceptance limits, and raw measurements. |
 | 🧩 [Binary serializer benchmark results](https://github.com/hheiroww/SocketJack/blob/master/docs/encoder-testing/README.md) | Custom SB encoding/decoding, JSON comparison, allocations, wrapping, and reproduction commands. |
 | 🆕 [2026.15 upgrade guide](https://github.com/hheiroww/SocketJack/blob/master/docs/UPGRADING-2026.15.md) | Enable services, choose SQL access, and approve message DLLs. |
+| 🗜️ [Binary network compression](docs/Binary-network-compression.md) | Negotiation, private caches, memory limits, and browser consent. |
+| 📈 [TCP compression measurements](docs/binary-compression-benchmark/2026-10-15-tcp-direct-plans/README.md) | Cold starts, changing objects, sustained transfers, complete socket bytes, and CPU tradeoffs. |
+| 🌐 [HTTP caching](docs/HTTP-caching.md) | Static ETags, conditional requests, and dynamic response policy. |
 | 🧪 [GitHub Actions](https://github.com/hheiroww/SocketJack/actions) | Build and publishing results. |
 | 📦 [NuGet](https://www.nuget.org/packages/SocketJack) | Published versions and dependencies. |
 

@@ -151,6 +151,8 @@ namespace SocketJack.Serialization {
 
         public Wrapper(object Obj, ISocket sender) {
             if (Obj == null) return;
+            // Local protocol controls have no remotely activatable CLR message type.
+            if (Obj is BinaryCompressionControl && sender.Options.Serializer is BinarySerializer) { value = Obj; return; }
             Type T = Obj.GetType();
             Type = GetTypeName(T);
             if (IsTypeAllowed(Obj, sender)) {

@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Linq;
 using System.IO;
+using System.Globalization;
 using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Security;
@@ -242,6 +243,9 @@ namespace SocketJack.Net.Database {
         public int AutoSaveDebounceMs { get; set; } = 500;
 
         private readonly SemaphoreSlim _persistenceLock = new SemaphoreSlim(1, 1);
+        // Guarded by _persistenceLock. Retain only hashes, never plaintext data.
+        private readonly Dictionary<string, (string PayloadHash, string FileHash, bool Encrypted, string DataPath)> _persistedTableHashes =
+            new Dictionary<string, (string, string, bool, string)>(StringComparer.OrdinalIgnoreCase);
         private readonly RandomNumberGenerator _rng = RandomNumberGenerator.Create();
         private Timer _debounceTimer;
         private readonly object _saveTimerGate = new object();
@@ -1091,6 +1095,16 @@ namespace SocketJack.Net.Database {
                             TableSnapshot tableSnapshot = await ReadPersistedJsonAsync<TableSnapshot>(tableFile, cancellationToken, expectedHash).ConfigureAwait(false);
                             if (tableSnapshot == null) throw new InvalidDataException("A persisted database table is empty: " + tableFile);
                             dbSnapshot.Tables[tableKvp.Key] = tableSnapshot;
+                            // A recovered backup may differ from the current file. Cache
+                            // only the exact file accepted by the committed manifest.
+                            string persistedText = await File.ReadAllTextAsync(tableFile, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
+                            string persistedHash = ComputeTextHash(persistedText);
+                            if (!string.IsNullOrWhiteSpace(expectedHash) && HashesEqual(persistedHash, expectedHash)) {
+                                string persistedPayload = persistedText.StartsWith(DurablePayloadHeader, StringComparison.Ordinal)
+                                    ? persistedText.Substring(persistedText.IndexOf('\n') + 1) : persistedText;
+                                _persistedTableHashes[Path.GetFullPath(tableFile)] = (ComputePayloadHash(tableSnapshot), persistedHash,
+                                    persistedPayload.StartsWith(EncryptedPayloadHeader, StringComparison.Ordinal), DataPath);
+                            }
                         }
                     }
 
@@ -1156,7 +1170,7 @@ namespace SocketJack.Net.Database {
                         foreach (var row in tkvp.Value.Rows) {
                             if (row == null)
                                 continue;
-                            tblSnap.Rows.Add(row.Select(v => v?.ToString()).ToArray());
+                            tblSnap.Rows.Add(row.Select(EncodeSnapshotValue).ToArray());
                         }
                     }
 
@@ -1175,6 +1189,35 @@ namespace SocketJack.Net.Database {
                 return null;
 
             return JsonSerializer.Deserialize<T>(text, _jsonOptions);
+        }
+
+        // Keep the string-cell snapshot format compatible with existing databases,
+        // but preserve binary payloads and materialize values using the saved schema.
+        private const string SnapshotBinaryPrefix = "SJDBBIN1:";
+        private static string EncodeSnapshotValue(object value) {
+            if (value == null || value == DBNull.Value) return null;
+            if (value is byte[] bytes) return SnapshotBinaryPrefix + Convert.ToBase64String(bytes);
+            if (value is DateTime date) return date.ToString("O", CultureInfo.InvariantCulture);
+            if (value is DateTimeOffset offset) return offset.ToString("O", CultureInfo.InvariantCulture);
+            return value is IFormattable formatted ? formatted.ToString(null, CultureInfo.InvariantCulture) : value.ToString();
+        }
+        private static object DecodeSnapshotValue(string value, Type type) {
+            if (value == null) return null;
+            if (type == typeof(string) || type == null) return value;
+            if (type == typeof(byte[])) {
+                // Older snapshots contain this type name instead of the lost bytes.
+                if (value == "System.Byte[]") return null;
+                try { return Convert.FromBase64String(value.StartsWith(SnapshotBinaryPrefix, StringComparison.Ordinal) ? value.Substring(SnapshotBinaryPrefix.Length) : value); }
+                catch (FormatException ex) { throw new InvalidDataException("Invalid binary database cell.", ex); }
+            }
+            if (type == typeof(Guid) && Guid.TryParse(value, out var guid)) return guid;
+            if (type == typeof(DateTime) && DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var date)) return date;
+            if (type == typeof(DateTimeOffset) && DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.None, out var offset)) return offset;
+            try { return Convert.ChangeType(value, type, CultureInfo.InvariantCulture); }
+            catch (Exception ex) when (ex is FormatException || ex is InvalidCastException || ex is OverflowException) {
+                // Preserve historical culture-formatted values rather than discarding them.
+                try { return Convert.ChangeType(value, type, CultureInfo.CurrentCulture); } catch { return value; }
+            }
         }
 
         private async Task<string> ReadPersistedTextAsync(string path, CancellationToken cancellationToken, string expectedPersistedHash = null) {
@@ -1264,9 +1307,13 @@ namespace SocketJack.Net.Database {
                 if ((string.IsNullOrWhiteSpace(expectedHash) || HashesEqual(actualHash, expectedHash))
                     && TryReadDurablePayload(text, out string payload))
                     return payload;
-                // Table hashes belong to one committed manifest; never substitute another generation.
-                if (!string.IsNullOrWhiteSpace(expectedHash))
+                // An interrupted split save may have replaced a table before the manifest.
+                // Recover only the backup whose full hash matches that committed manifest.
+                if (!string.IsNullOrWhiteSpace(expectedHash)) {
+                    string committedBackup = await TryReadVerifiedBackupTextAsync(normalizedPath, cancellationToken, expectedHash).ConfigureAwait(false);
+                    if (committedBackup != null) return committedBackup;
                     throw new IOException("Persisted table hash mismatch for " + normalizedPath + ".");
+                }
                 string recovered = await TryReadVerifiedBackupTextAsync(normalizedPath, cancellationToken).ConfigureAwait(false);
                 if (recovered != null) return recovered;
                 throw new IOException("Persisted data checksum mismatch for " + normalizedPath + ".");
@@ -1433,7 +1480,20 @@ namespace SocketJack.Net.Database {
                     string tablePath = Path.Combine(tablesPath, fileName);
 
                     dbManifest.Tables[tableKvp.Key] = fileName;
-                    string tableHash = await WritePersistedJsonAsync(tablePath, tableKvp.Value, cancellationToken).ConfigureAwait(false);
+                    string normalizedTablePath = Path.GetFullPath(tablePath);
+                    string tablePayloadHash = ComputePayloadHash(tableKvp.Value);
+                    string tableHash;
+                    if (_persistedTableHashes.TryGetValue(normalizedTablePath, out var previous)
+                        && previous.PayloadHash == tablePayloadHash && previous.Encrypted == EnablePayloadEncryption
+                        && previous.DataPath == DataPath && File.Exists(tablePath)
+                        && HashesEqual(await ReadTextHashAsync(tablePath, cancellationToken).ConfigureAwait(false), previous.FileHash)) {
+                        // Unchanged tables need no fresh PBKDF2/encryption or durable
+                        // replacement. Keep their verified hashes in the new manifest.
+                        tableHash = previous.FileHash;
+                    } else {
+                        tableHash = await WritePersistedJsonAsync(tablePath, tableKvp.Value, cancellationToken).ConfigureAwait(false);
+                        _persistedTableHashes[normalizedTablePath] = (tablePayloadHash, tableHash, EnablePayloadEncryption, DataPath);
+                    }
                     dbManifest.TableHashes[tableKvp.Key] = tableHash;
                 }
 
@@ -1477,7 +1537,7 @@ namespace SocketJack.Net.Database {
 
                         if (tableKvp.Value.Rows != null) {
                             table.Rows = tableKvp.Value.Rows
-                                .Select(r => r?.Select(v => (object)v).ToArray())
+                                .Select(r => r?.Select((v, index) => DecodeSnapshotValue(v, index < table.Columns.Count ? table.Columns[index].DataType : typeof(string))).ToArray())
                                 .ToList();
                         }
 

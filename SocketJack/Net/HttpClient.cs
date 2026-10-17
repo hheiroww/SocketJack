@@ -249,6 +249,12 @@ namespace SocketJack.Net {
                     resp.Context = new Net.HttpContext();
                     resp.Context.Request = new Net.HttpRequest() { Path = uri.PathAndQuery, Method = method };
                     resp.Context.StatusCode = status;
+                    if (Options.SafeMode && Options.EnableCompatibilityNegotiation && SafeModeHandshake.LooksLikeWrapper(body)) {
+                        var negotiated = new NetworkConnection(this, null);
+                        SafeModeHandshake.AcceptHttpReply(headerText, Options, negotiated);
+                        var requestType = Options.Serializer.Deserialize(body)?.GetValueType(this);
+                        if (requestType != null) negotiated.TryUseFeature(requestType.Name, requestType);
+                    }
 
                     // Invoke callbacks for received types if any
                     // We only have the full body here; we'll attempt to deserialize into whitelisted types afterwards

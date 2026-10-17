@@ -12,21 +12,26 @@ namespace SocketJack.Net {
             using (InboundMessageSecurity.Enter(socket, connection)) {
                 SafeModeHandshake.RequireVerified(connection, socket.Options);
                 if (bytes == null || bytes.Length > socket.Options.MaximumBufferSize) throw InboundMessageSecurity.Denied();
-                // WebSocket legacy redirects use an unwrapped, inert JSON envelope.
-                if (socket.Options.Serializer is Serialization.Json.JsonSerializer) {
-                    using (var document = JsonDocument.Parse(bytes)) {
-                        var root = document.RootElement;
-                        if (root.ValueKind != JsonValueKind.Object) throw InboundMessageSecurity.Denied();
-                        var names = new HashSet<string>(StringComparer.Ordinal);
-                        foreach (var field in root.EnumerateObject()) if (!names.Add(field.Name)) throw InboundMessageSecurity.Denied();
-                        if (root.TryGetProperty("Value", out _) && root.TryGetProperty("Recipient", out _)) {
-                            if (expectedType != null && expectedType != typeof(PeerRedirect)) throw InboundMessageSecurity.Denied();
-                            InboundMessageSecurity.RequireType(socket, connection, typeof(PeerRedirect));
-                            return socket.Options.Serializer.DeserializeRedirect(socket, bytes);
+                Wrapper wrapper;
+                if (!BinaryNetworkCompression.TryDeserialize(socket, connection, bytes, out wrapper)) {
+                    bytes = BinaryNetworkCompression.Decode(socket, connection, bytes);
+                    if (bytes == null) return null; // Dictionary updates and acknowledgements are protocol-only.
+                    // WebSocket legacy redirects use an unwrapped, inert JSON envelope.
+                    if (socket.Options.Serializer is Serialization.Json.JsonSerializer) {
+                        using (var document = JsonDocument.Parse(bytes)) {
+                            var root = document.RootElement;
+                            if (root.ValueKind != JsonValueKind.Object) throw InboundMessageSecurity.Denied();
+                            var names = new HashSet<string>(StringComparer.Ordinal);
+                            foreach (var field in root.EnumerateObject()) if (!names.Add(field.Name)) throw InboundMessageSecurity.Denied();
+                            if (root.TryGetProperty("Value", out _) && root.TryGetProperty("Recipient", out _)) {
+                                if (expectedType != null && expectedType != typeof(PeerRedirect)) throw InboundMessageSecurity.Denied();
+                                InboundMessageSecurity.RequireType(socket, connection, typeof(PeerRedirect));
+                                return socket.Options.Serializer.DeserializeRedirect(socket, bytes);
+                            }
                         }
                     }
+                    wrapper = socket.Options.Serializer.Deserialize(bytes) ?? throw InboundMessageSecurity.Denied();
                 }
-                var wrapper = socket.Options.Serializer.Deserialize(bytes) ?? throw InboundMessageSecurity.Denied();
                 Type type = wrapper.GetValueType(socket);
                 if (expectedType != null && type != expectedType) throw InboundMessageSecurity.Denied();
                 InboundMessageSecurity.RequireType(socket, connection, type);

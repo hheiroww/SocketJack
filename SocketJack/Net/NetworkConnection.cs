@@ -1,4 +1,4 @@
-using SocketJack.Extensions;
+ï»¿using SocketJack.Extensions;
 using SocketJack.Net.P2P;
 using SocketJack.Serialization;
 using System;
@@ -41,17 +41,20 @@ namespace SocketJack.Net {
         /// </summary>
         public Stream Stream {
             get {
-                return SSL ? (Stream)SslStream : _Stream;
+                return HostedStream ?? (SSL ? (Stream)SslStream : _Stream);
             }
         }
         public NetworkStream _Stream = null;
         public SslStream SslStream { get; set; }
+        /// <summary>Optional externally owned stream for an in-process HTTP upgrade.</summary>
+        public Stream HostedStream { get; set; }
 
         public static readonly byte[] Terminator = new[] { (byte)192, (byte)128 };
         private static readonly TimeSpan OneSecond = TimeSpan.FromSeconds(1);
         private static readonly Type ByteArrayType = typeof(byte[]);
         internal InboundSegmentBuffer InboundSegments { get; } = new InboundSegmentBuffer();
         internal bool SafeModeVerified;
+        internal volatile bool BinaryCompressionReady;
         internal string[] SafeModeAllowedTypes;
         private static readonly char[] LengthTrimChars = { '\0', ' ', '\r', '\n' };
         internal SocketJackPatternCache PatternCache { get; } = new SocketJackPatternCache();
@@ -328,6 +331,14 @@ namespace SocketJack.Net {
         protected internal bool TryEnqueueSendBytes(byte[] bytes) {
             if (bytes == null || bytes.Length == 0 || Closed || Closing)
                 return false;
+            if (HostedStream != null) {
+                lock (SendQueueRaw) {
+                    HostedStream.Write(bytes, 0, bytes.Length);
+                    HostedStream.Flush();
+                }
+                return true;
+            }
+
 
             NetworkOptions options = Parent?.Options;
             int maxQueuedBytes = options?.MaximumSendQueueBytes ?? 0;
@@ -455,7 +466,7 @@ namespace SocketJack.Net {
 
                 while (!isDisposed && !Closed && !Closing) {
                     // When a protocol handler owns the connection (RawTcpMode /
-                    // SuppressConnectionTest), skip Socket.Connected checks —
+                    // SuppressConnectionTest), skip Socket.Connected checks â€”
                     // the handler manages the lifecycle and will detect
                     // disconnects on its own read/write path.
                     if (RawTcpMode || SuppressConnectionTest) {
@@ -704,7 +715,7 @@ namespace SocketJack.Net {
                 } else {
                     while (!isDisposed && !Closed && Socket.Connected) {
                         if (RawTcpMode) {
-                            // Protocol handler owns the stream — just idle until
+                            // Protocol handler owns the stream â€” just idle until
                             // the connection closes or RawTcpMode is cleared.
                             await Task.Delay(250);
                             continue;
@@ -768,7 +779,7 @@ namespace SocketJack.Net {
                             }
 
                             // A protocol handler took ownership while we were blocking.
-                            // Yield without closing — the handler owns the stream now.
+                            // Yield without closing â€” the handler owns the stream now.
                             if (RawTcpMode) {
                                 IsReceiving = false;
                                 return;
@@ -814,14 +825,14 @@ namespace SocketJack.Net {
                 }
 
                 // A protocol handler took ownership while we were blocking.
-                // Yield without closing — the handler owns the stream now.
+                // Yield without closing â€” the handler owns the stream now.
                 if (RawTcpMode) {
                     IsReceiving = false;
                     return;
                 }
 
                 if (lengthRead <= 0) {
-                    // Stream ended — remote side closed the connection.
+                    // Stream ended â€” remote side closed the connection.
                     Parent.CloseConnection(this, DisconnectionReason.RemoteSocketClosed);
                     IsReceiving = false;
                     return;
@@ -915,7 +926,7 @@ namespace SocketJack.Net {
 
         /// <summary>
         /// Returns <see langword="true"/> when <paramref name="data"/> begins with
-        /// a known HTTP method keyword (GET, POST, PUT, …).
+        /// a known HTTP method keyword (GET, POST, PUT, â€¦).
         /// </summary>
         private static bool IsHttpPrefix(byte[] data, int length) {
             if (data == null || length < 3) return false;
@@ -1341,12 +1352,14 @@ namespace SocketJack.Net {
                 Type type = default;
                 lock (Item.Object) {
                     type = Item.Object.GetType();
+                    if (!Item.Connection.CanSend(Item.Object)) return false;
                     wrapped = new Wrapper(Item.Object, Parent);
                     SerializedBytes = Parent.Options.Serializer.Serialize(wrapped);
                 }
                 // if (NIC.MTU == -1 || SerializedBytes.Length < NIC.MTU && SerializedBytes.Length < 65535) {
                 //    Object smaller than MTU.
-                SerializedBytes = Item.Connection.PatternCache.PrepareSend(SerializedBytes, Parent.Options);
+                SerializedBytes = BinaryNetworkCompression.Encode(Parent, Item.Connection, SerializedBytes);
+                if (!(Parent.Options.Serializer is BinarySerializer)) SerializedBytes = Item.Connection.PatternCache.PrepareSend(SerializedBytes, Parent.Options);
                 byte[] ProcessedBytes = Item.Connection.Compressed ? Parent.Options.CompressionAlgorithm.Compress(SerializedBytes).Terminate() : SerializedBytes.Terminate();
                 int totalBytes = ProcessedBytes.Length;
                 NetworkConnection Client = Item.Connection;

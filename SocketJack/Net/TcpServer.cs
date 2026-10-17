@@ -211,6 +211,7 @@ namespace SocketJack.Net {
             string id = args.Connection.Identity == null ? "null" : args.Connection.Identity.ID.ToUpper();
             LogFormat("[{0}] Client Disconnected.", new[] { Name + @"\" + id, Port.ToString() });
             _Clients.Remove(args.Connection.ID);
+            if (isDisposed) return;
 #if WINDOWS
             if (args.Connection.Identity != null) {
                 string disconnectedId = args.Connection.ID.ToString();
@@ -220,9 +221,9 @@ namespace SocketJack.Net {
                 }
             }
 #endif
-            if (args.Connection.Identity != null && Peers.Contains(args.Connection.Identity)) {
-                Peers.Remove(args.Connection.Identity);
-                SendBroadcast(new Identifier(args.Connection.ID.ToString(), PeerAction.Dispose));
+            var peers = Peers;
+            if (args.Connection.Identity != null && peers != null && peers.Remove(args.Connection.Identity)) {
+                if (!isDisposed) SendBroadcast(new Identifier(args.Connection.ID.ToString(), PeerAction.Dispose));
             }
             if (args.Connection.Identity != null && PeerServers.ContainsKey(args.Connection.Identity.ID)) {
                 List<PeerServer> ServerList;
@@ -348,8 +349,12 @@ namespace SocketJack.Net {
         /// asynchronously.
         /// </summary>
         protected internal void InitializePeer(NetworkConnection Client) {
-            if (Client?.Identity == null) return;
-            Peers.AddOrUpdate(Client.Identity);
+            // An accepted connection can finish its handshake while the server is being
+            // disposed. Retain the dictionary reference before disposal clears Peers.
+            var peers = Peers;
+            var identity = Client?.Identity;
+            if (isDisposed || peers == null || identity == null || Client.Closed) return;
+            peers.AddOrUpdate(identity);
             SyncPeer(Client);
         }
         private void OnReceived_MetadataKeyValue(ReceivedEventArgs<MetadataKeyValue> Args) {

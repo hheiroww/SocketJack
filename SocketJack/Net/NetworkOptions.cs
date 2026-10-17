@@ -23,12 +23,23 @@ namespace SocketJack.Net {
 
         public static NetworkOptions DefaultOptions = new NetworkOptions();
 
+        public NetworkOptions() {
+            BindAssemblyRegistration();
+        }
+
+        private void BindAssemblyRegistration() {
+            Whitelist.RegisterAssembly = type => {
+                if (SafeMode) VerifiedAssemblies.Register(type.Assembly);
+            };
+        }
+
         public static NetworkOptions NewDefault() {
             var source = DefaultOptions;
             var copy = source.Clone<NetworkOptions>();
             copy.Whitelist = source.Whitelist.Copy();
             copy.Blacklist = source.Blacklist.Copy();
             copy.VerifiedAssemblies = source.VerifiedAssemblies.Copy();
+            copy.BindAssemblyRegistration();
             source.Authorization.CopyTo(copy.Authorization);
             copy.EndpointSecurity = source.EndpointSecurity?.Copy();
             copy.UdpReliable = source.UdpReliable?.Snapshot();
@@ -45,11 +56,11 @@ namespace SocketJack.Net {
 
         public ISerializer Serializer { get; set; } = new JsonSerializer();
 
-        /// <summary>Require a client DLL fingerprint handshake before typed network traffic. Default: true.</summary>
+        /// <summary>Require local DLL integrity checks and a compatibility handshake before typed network traffic. Default: true.</summary>
         /// <remarks>WARNING: setting SafeMode = false disables the DLL handshake and verified-assembly requirement.
         /// This is not a smart move on an untrusted network. Use only for an explicitly isolated legacy endpoint.
         /// WARNING: client-reported MD5/SHA-256 values are compatibility claims, not remote attestation or authentication.
-        /// Use authenticated TLS and application authorization as well. Register callbacks and approved assemblies before connecting.</remarks>
+        /// Use authenticated TLS and application authorization as well. Register callbacks before connecting; their assemblies are approved automatically.</remarks>
         public bool SafeMode {
             get => safeMode;
             set {
@@ -61,8 +72,16 @@ namespace SocketJack.Net {
         }
         private bool safeMode = true;
 
+        /// <summary>Negotiate wire contracts instead of requiring identical remote DLL builds. Both endpoints must support this protocol.</summary>
+        public bool EnableCompatibilityNegotiation { get; set; } = true;
+
+        /// <summary>Raised when an attempt to use a message or application feature is blocked by peer compatibility.</summary>
+        public event EventHandler<FeatureDisabledEventArgs> FeatureDisabled;
+        internal void RaiseFeatureDisabled(FeatureDisabledEventArgs args) => FeatureDisabled?.Invoke(this, args);
+
         /// <summary>Approved local application assemblies. SHA-256 fingerprints are read automatically from each reflected DLL.
-        /// Never populate this registry from a network client. SafeMode requires every application message DLL to be approved.</summary>
+        /// Adding a local whitelist type or callback automatically registers its assembly without replacing existing pins.
+        /// Locally configured string entries register when resolved. Never populate this registry from a network client.</summary>
         [System.Text.Json.Serialization.JsonIgnore]
         public VerifiedAssemblyRegistry VerifiedAssemblies { get; set; } = new VerifiedAssemblyRegistry();
 

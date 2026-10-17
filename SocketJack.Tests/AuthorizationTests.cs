@@ -16,6 +16,20 @@ namespace SocketJack.Tests;
 
 [TestClass]
 public sealed class AuthorizationTests {
+    [TestMethod]
+    public void HostedAuthenticationRequiresExplicitLocalEncryptedTransport() {
+        using var server = new MutableTcpServer(0);
+        using var connection = new NetworkConnection(server, null) { HostedStream = new MemoryStream(), EndPoint = new IPEndPoint(IPAddress.Loopback, 1) };
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim(ClaimTypes.Name, "hosted-test") }, "verified-test"));
+        Assert.ThrowsException<SecurityException>(() => connection.SetAuthenticatedPrincipal(principal, DateTimeOffset.UtcNow.AddMinutes(1)));
+        connection.SetHostedEncryptedTransport(true);
+        connection.SetAuthenticatedPrincipal(principal, DateTimeOffset.UtcNow.AddMinutes(1));
+        Assert.IsTrue(connection.IsAuthenticated);
+        connection.SetHostedEncryptedTransport(false);
+        Assert.ThrowsException<SecurityException>(() => connection.SetAuthenticatedPrincipal(principal, DateTimeOffset.UtcNow.AddMinutes(1)));
+        connection.EndPoint = new IPEndPoint(IPAddress.Parse("192.0.2.1"), 1);
+        Assert.ThrowsException<InvalidOperationException>(() => connection.SetHostedEncryptedTransport(true));
+    }
     public sealed class Login { public string Token { get; set; } public bool IsAdmin { get; set; } }
     public sealed class Data { public static int Setters; public int Value { get => 0; set => Interlocked.Increment(ref Setters); } }
     [AdministrativeMessage]
@@ -26,7 +40,7 @@ public sealed class AuthorizationTests {
     public static int Invocations;
     public static int DangerousMethod() => Interlocked.Increment(ref Invocations);
     static NetworkOptions Options(bool binary = false) {
-        var options = new NetworkOptions { UsePeerToPeer = false, AutoReconnect = false, EnablePatternCache = false };
+        var options = new NetworkOptions { EnableCompatibilityNegotiation = false, UsePeerToPeer = false, AutoReconnect = false, EnablePatternCache = false };
         if (binary) options.Serializer = new BinarySerializer();
         options.VerifiedAssemblies.Add(typeof(Login).Assembly);
         foreach (var type in new[] { typeof(Login), typeof(Data), typeof(Admin), typeof(NestedAdmin), typeof(TypeHolder), typeof(ReadOnlyGadget) }) options.Whitelist.Add(type);

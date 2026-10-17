@@ -8,8 +8,10 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -21,6 +23,102 @@ namespace SocketJack.Serialization {
     /// Select the same serializer at both endpoints. Usable with TCP and UDP.
     /// </summary>
     public sealed class BinarySerializer : ISerializer {
+        /// <summary>Enable adaptive network compression. Both peers negotiate support; standalone SB1 serialization is unchanged. Set before connecting.</summary>
+        public bool EnableCompression { get; set; } = true;
+        /// <summary>Share learned definitions between clients of the same socket. Set false before connecting for websites or services whose clients exchange independent data. Either peer can require a private connection cache.</summary>
+        public bool ShareCompressionDictionary { get; set; } = true;
+        /// <summary>Zero indicates adaptive, memory-bounded candidate retention rather than a fixed object history.</summary>
+        [Obsolete("Compression learning is adaptive and no longer has a fixed message history. Use CompressionCandidateCount and CompressionProbeInterval.")]
+        public int CompressionHistoryLength => 0;
+        /// <summary>Process-wide ceiling for retained compression state, at most one sixteenth of physical RAM.</summary>
+        public long CompressionMemoryLimit => BinaryCompressionMemory.Limit;
+        /// <summary>Conservatively accounted compression state across all serializers, including acknowledged peer shortcuts.</summary>
+        public long CompressionMemoryUsed => BinaryCompressionMemory.RetainedBytes;
+        /// <summary>Conservatively accounted bytes retained by this serializer's live socket caches.</summary>
+        public long CompressionCacheBytes { get { lock (compressionCaches) return LiveCompressionCaches().Sum(c => c.RetainedBytes); } }
+        /// <summary>Number of definitions retained by this serializer's live socket caches.</summary>
+        public int CompressionDictionaryCount { get { lock (compressionCaches) return LiveCompressionCaches().Sum(c => c.DictionaryCount); } }
+        /// <summary>Unconfirmed repeated-segment candidates retained across this serializer's live sockets.</summary>
+        public int CompressionCandidateCount { get { lock (compressionCaches) return LiveCompressionCaches().Sum(c => c.CandidateCount); } }
+        /// <summary>Full compression attempts after inexpensive eligibility probes, across live socket caches.</summary>
+        public long CompressionEncodingAttempts { get { lock (compressionCaches) return LiveCompressionCaches().Sum(c => c.EncodingAttempts); } }
+        /// <summary>Eligible messages sent as their original byte array, including unsuccessful full compression attempts.</summary>
+        public long CompressionBypassedMessages { get { lock (compressionCaches) return LiveCompressionCaches().Sum(c => c.BypassedMessages); } }
+        /// <summary>Verified reusable encoding plans retained across live compression caches.</summary>
+        public int CompressionPlanCount { get { lock (compressionCaches) return LiveCompressionCaches().Sum(c => c.PlanCount); } }
+        /// <summary>Messages encoded using a byte-verified cached plan.</summary>
+        public long CompressionPlanHits { get { lock (compressionCaches) return LiveCompressionCaches().Sum(c => c.PlanHits); } }
+        /// <summary>Exact candidate-learning passes, including cold observations that skip the encoder.</summary>
+        public long CompressionLearningPasses { get { lock (compressionCaches) return LiveCompressionCaches().Sum(c => c.LearningPasses); } }
+        /// <summary>Largest current background learning probe interval among live socket caches; one when no cache exists.</summary>
+        public int CompressionProbeInterval { get { lock (compressionCaches) return LiveCompressionCaches().Select(c => c.ProbeInterval).DefaultIfEmpty(1).Max(); } }
+        readonly ConditionalWeakTable<ISocket, BinaryCompressionCache> socketCompressionCaches = new ConditionalWeakTable<ISocket, BinaryCompressionCache>();
+        readonly ConditionalWeakTable<NetworkConnection, BinaryCompressionCache> privateCompressionCaches = new ConditionalWeakTable<NetworkConnection, BinaryCompressionCache>();
+        readonly List<WeakReference<BinaryCompressionCache>> compressionCaches = new List<WeakReference<BinaryCompressionCache>>();
+        IEnumerable<BinaryCompressionCache> LiveCompressionCaches() {
+            for (int i = compressionCaches.Count - 1; i >= 0; i--) {
+                if (compressionCaches[i].TryGetTarget(out var cache)) yield return cache;
+                else compressionCaches.RemoveAt(i);
+            }
+        }
+        internal BinaryCompressionCache GetCompressionCache(ISocket socket) {
+            if (socketCompressionCaches.TryGetValue(socket, out var existing)) return existing;
+            return socketCompressionCaches.GetValue(socket, key => {
+            var cache = new BinaryCompressionCache();
+            lock (compressionCaches) { LiveCompressionCaches().ToArray(); compressionCaches.Add(new WeakReference<BinaryCompressionCache>(cache)); }
+            if (key is NetworkBase network) network.OnDisposing += cache.Dispose;
+            else if (key is Net.WebSockets.WebSocketClient client) client.OnDisposing += cache.Dispose;
+            else if (key is Net.WebSockets.WebSocketServer server) server.OnDisposing += cache.Dispose;
+            return cache;
+            });
+        }
+        internal bool UsesPrivateCompression(NetworkConnection connection) => connection?.Compatibility != null
+            ? connection.Compatibility.BinaryCompressionPerClient : !ShareCompressionDictionary;
+        internal BinaryCompressionCache GetCompressionCache(ISocket socket, NetworkConnection connection) {
+            if (!UsesPrivateCompression(connection)) return GetCompressionCache(socket);
+            if (connection == null) throw new ArgumentNullException(nameof(connection));
+            if (privateCompressionCaches.TryGetValue(connection, out var existing)) return existing;
+            return privateCompressionCaches.GetValue(connection, key => {
+                var cache = new BinaryCompressionCache();
+                lock (compressionCaches) { LiveCompressionCaches().ToArray(); compressionCaches.Add(new WeakReference<BinaryCompressionCache>(cache)); }
+                // Remove the socket's lifetime hook on disconnect so a busy web server does
+                // not retain an unbounded list of already disposed connection caches.
+                Action detach = null;
+                if (socket is NetworkBase network) { network.OnDisposing += cache.Dispose; detach = () => network.OnDisposing -= cache.Dispose; }
+                else if (socket is Net.WebSockets.WebSocketClient client) { client.OnDisposing += cache.Dispose; detach = () => client.OnDisposing -= cache.Dispose; }
+                else if (socket is Net.WebSockets.WebSocketServer server) { server.OnDisposing += cache.Dispose; detach = () => server.OnDisposing -= cache.Dispose; }
+                key.OnDisconnected += (_, __) => { cache.Dispose(); detach?.Invoke(); };
+                return cache;
+            });
+        }
+        // UDP validates a hello on a temporary connection before allocating its persistent peer.
+        // Handshake caches have no acknowledged outbound references: transfer their definitions,
+        // release their lifetime hook, and let the persistent peer own all later cache state.
+        internal void TransferCompressionCache(NetworkConnection previous, NetworkConnection current) {
+            if (previous == null || current == null || ReferenceEquals(previous, current)) return;
+            if (!ReferenceEquals(previous.Parent, current.Parent)) throw new ArgumentException("A binary handshake cache belongs to its original socket.", nameof(current));
+            if (!privateCompressionCaches.TryGetValue(previous, out var source) || !privateCompressionCaches.Remove(previous)) return;
+            var definitions = source.Definitions;
+            DetachPrivateCompressionCache(previous.Parent, source);
+            source.Dispose();
+            if (!UsesPrivateCompression(current)) throw new InvalidOperationException("A private binary handshake cache cannot be transferred to a shared connection.");
+            var destination = GetCompressionCache(current.Parent, current);
+            foreach (var definition in definitions) {
+                if (destination.TryGet(definition.Id, out var present) && !BinaryCompressionCodec.Equal(present, definition.Data))
+                    throw new InvalidDataException("Binary compression handshake definition collision.");
+                destination.Import(definition);
+            }
+        }
+        internal void ReleaseCompressionCache(NetworkConnection connection) {
+            if (connection == null || !privateCompressionCaches.TryGetValue(connection, out var cache) || !privateCompressionCaches.Remove(connection)) return;
+            DetachPrivateCompressionCache(connection.Parent, cache);
+            cache.Dispose();
+        }
+        static void DetachPrivateCompressionCache(ISocket socket, BinaryCompressionCache cache) {
+            if (socket is NetworkBase network) network.OnDisposing -= cache.Dispose;
+            else if (socket is Net.WebSockets.WebSocketClient client) client.OnDisposing -= cache.Dispose;
+            else if (socket is Net.WebSockets.WebSocketServer server) server.OnDisposing -= cache.Dispose;
+        }
         readonly Json.JsonSerializer fallback = new Json.JsonSerializer();
         const int MaxDepth = 64;
         enum Tag : byte { Null, False, True, Signed, Unsigned, Float, Double, Decimal, String, Bytes, Array, Object, Wrapper, Json }
@@ -34,6 +132,7 @@ namespace SocketJack.Serialization {
         public BinarySerializer() { fallback.JsonOptions.Converters.Add(new JsonValueConverter()); }
 
         public byte[] Serialize(object value) {
+            if (value is Wrapper controlWrapper && controlWrapper.value is BinaryCompressionControl control) return control.Frame;
             Span<byte> scratch = stackalloc byte[512];
             var writer = new Encoder(scratch);
             try {
@@ -42,8 +141,54 @@ namespace SocketJack.Serialization {
                 return writer.Finish();
             } finally { writer.Dispose(); }
         }
+        /// <summary>Encode JSON-shaped values as SB1 fields, arrays and scalars, without a JSON text payload or CLR type activation.</summary>
+        public byte[] SerializeJson(JsonElement value) {
+            Span<byte> scratch = stackalloc byte[512];
+            var writer = new Encoder(scratch);
+            try {
+                writer.Byte((byte)'S'); writer.Byte((byte)'B'); writer.Byte(1);
+                WriteJson(ref writer, value, 0);
+                return writer.Finish();
+            } finally { writer.Dispose(); }
+        }
+        /// <summary>Read inert SB1 values as a JSON-shaped document. No incoming CLR type is activated.</summary>
+        public JsonElement DeserializeJson(byte[] data) => System.Text.Json.JsonSerializer.SerializeToElement(Decode(data), fallback.JsonOptions);
+        /// <summary>Create an independent, memory-bounded compression repository for one externally hosted binary connection.</summary>
+        public BinaryCompressionSession CreateCompressionSession(int maximumMessageBytes = 2097152) => new BinaryCompressionSession(EnableCompression, maximumMessageBytes);
+        static void WriteJson(ref Encoder writer, JsonElement value, int depth) {
+            if (depth > MaxDepth) throw new InvalidDataException("Binary value nesting exceeds its limit.");
+            switch (value.ValueKind) {
+                case JsonValueKind.Undefined: case JsonValueKind.Null: writer.Byte((byte)Tag.Null); break;
+                case JsonValueKind.True: writer.Byte((byte)Tag.True); break;
+                case JsonValueKind.False: writer.Byte((byte)Tag.False); break;
+                case JsonValueKind.String: writer.Byte((byte)Tag.String); writer.Text(value.GetString()); break;
+                case JsonValueKind.Number:
+                    if (value.TryGetInt64(out long signed)) Signed(ref writer, signed);
+                    else if (value.TryGetUInt64(out ulong unsigned)) Unsigned(ref writer, unsigned);
+                    else Double(ref writer, value.GetDouble());
+                    break;
+                case JsonValueKind.Array:
+                    writer.Byte((byte)Tag.Array); writer.Number((ulong)value.GetArrayLength());
+                    foreach (var item in value.EnumerateArray()) WriteJson(ref writer, item, depth + 1);
+                    break;
+                case JsonValueKind.Object:
+                    int count = 0; foreach (var property in value.EnumerateObject()) count++;
+                    writer.Byte((byte)Tag.Object); writer.Number((ulong)count);
+                    foreach (var property in value.EnumerateObject()) { writer.Text(property.Name); WriteJson(ref writer, property.Value, depth + 1); }
+                    break;
+                default: throw new InvalidDataException("Unsupported JSON value.");
+            }
+        }
         public Wrapper Deserialize(byte[] data) {
             var value = Decode(data);
+            return value as Wrapper ?? throw new InvalidDataException("Expected a SocketJack binary wrapper.");
+        }
+        internal Wrapper DeserializeSegments(ReadOnlyMemory<byte>[] segments, int count, int length) {
+            var reader = new Decoder(segments, count, length);
+            if (reader.Byte() != 'S' || reader.Byte() != 'B' || reader.Byte() != 1)
+                throw new InvalidDataException("Unknown SocketJack binary format/version.");
+            object value = Read(ref reader, 0);
+            if (reader.Remaining != 0) throw new InvalidDataException("Trailing binary data.");
             return value as Wrapper ?? throw new InvalidDataException("Expected a SocketJack binary wrapper.");
         }
         object Decode(byte[] data) {
@@ -249,7 +394,7 @@ namespace SocketJack.Serialization {
                     var parts = new int[4]; for (int i = 0; i < 4; i++) parts[i] = BinaryPrimitives.ReadInt32LittleEndian(reader.Slice(4));
                     try { return new decimal(parts); } catch (ArgumentException ex) { throw new InvalidDataException("Invalid binary decimal.", ex); }
                 case Tag.String: return reader.Text();
-                case Tag.Bytes: return reader.Slice(reader.Length()).ToArray();
+                case Tag.Bytes: return reader.Blob();
                 case Tag.Wrapper:
                     var nameBytes = reader.Slice(reader.Length());
                     var cached = System.Threading.Volatile.Read(ref lastType);
@@ -342,13 +487,52 @@ namespace SocketJack.Serialization {
         }
         ref struct Decoder {
             readonly byte[] data;
-            int position;
-            internal Decoder(byte[] data) { this.data = data; position = 0; }
-            internal int Remaining => data.Length - position;
-            internal byte Byte() { if (position == data.Length) throw new EndOfStreamException(); return data[position++]; }
+            readonly ReadOnlyMemory<byte>[] segments;
+            readonly int segmentCount, totalLength;
+            int position, segmentIndex, segmentOffset;
+            internal Decoder(byte[] data) {
+                this.data = data; segments = null; segmentCount = 0; totalLength = data.Length;
+                position = segmentIndex = segmentOffset = 0;
+            }
+            internal Decoder(ReadOnlyMemory<byte>[] segments, int count, int length) {
+                if (segments == null || count < 0 || count > segments.Length || length < 0) throw new InvalidDataException("Invalid binary input segments.");
+                data = null; this.segments = segments; segmentCount = count; totalLength = length;
+                position = segmentIndex = segmentOffset = 0;
+            }
+            internal int Remaining => totalLength - position;
+            void AdvanceSegment() {
+                while (segmentIndex < segmentCount && segmentOffset == segments[segmentIndex].Length) { segmentIndex++; segmentOffset = 0; }
+                if (segmentIndex == segmentCount) throw new EndOfStreamException();
+            }
+            internal byte Byte() {
+                if (position == totalLength) throw new EndOfStreamException();
+                if (data != null) return data[position++];
+                AdvanceSegment(); position++;
+                return segments[segmentIndex].Span[segmentOffset++];
+            }
             internal ReadOnlySpan<byte> Slice(int length) {
                 if ((uint)length > (uint)Remaining) throw new EndOfStreamException();
-                var result = data.AsSpan(position, length); position += length; return result;
+                if (data != null) { var result = data.AsSpan(position, length); position += length; return result; }
+                if (length == 0) return ReadOnlySpan<byte>.Empty;
+                AdvanceSegment();
+                if (length <= segments[segmentIndex].Length - segmentOffset) {
+                    var result = segments[segmentIndex].Span.Slice(segmentOffset, length);
+                    segmentOffset += length; position += length; return result;
+                }
+                var copy = new byte[length]; CopyTo(copy); return copy;
+            }
+            void CopyTo(Span<byte> destination) {
+                if (destination.Length > Remaining) throw new EndOfStreamException();
+                if (data != null) { data.AsSpan(position, destination.Length).CopyTo(destination); position += destination.Length; return; }
+                while (!destination.IsEmpty) {
+                    AdvanceSegment();
+                    int size = Math.Min(destination.Length, segments[segmentIndex].Length - segmentOffset);
+                    segments[segmentIndex].Span.Slice(segmentOffset, size).CopyTo(destination);
+                    segmentOffset += size; position += size; destination = destination.Slice(size);
+                }
+            }
+            internal byte[] Blob() {
+                int length = Length(); var result = new byte[length]; CopyTo(result); return result;
             }
             internal int Length() {
                 ulong length = Number();
@@ -356,7 +540,16 @@ namespace SocketJack.Serialization {
                 return (int)length;
             }
             internal string Text() => Encoding.UTF8.GetString(Slice(Length()));
-            internal ReadOnlyMemory<byte> BlobMemory() { int length = Length(); var result = data.AsMemory(position, length); position += length; return result; }
+            internal ReadOnlyMemory<byte> BlobMemory() {
+                int length = Length();
+                if (data != null) { var result = data.AsMemory(position, length); position += length; return result; }
+                if (length == 0) return ReadOnlyMemory<byte>.Empty;
+                AdvanceSegment();
+                if (length <= segments[segmentIndex].Length - segmentOffset) {
+                    var result = segments[segmentIndex].Slice(segmentOffset, length); segmentOffset += length; position += length; return result;
+                }
+                var copy = new byte[length]; CopyTo(copy); return copy;
+            }
             internal ulong Number() {
                 ulong value = 0;
                 for (int shift = 0; shift < 64; shift += 7) {

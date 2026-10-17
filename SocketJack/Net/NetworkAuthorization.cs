@@ -1,4 +1,4 @@
-using SocketJack.Net.P2P;
+﻿using SocketJack.Net.P2P;
 using SocketJack.Net.WebSockets;
 using SocketJack.Serialization;
 using System;
@@ -67,7 +67,15 @@ namespace SocketJack.Net {
         }
         [System.Text.Json.Serialization.JsonIgnore]
         public bool IsAuthenticated => AuthenticatedPrincipal?.Identity?.IsAuthenticated == true;
-        internal bool HasAuthenticatedEncryption => SslStream?.IsAuthenticated == true && SslStream.IsEncrypted;
+        private bool hostedEncryptedTransport;
+        public bool HasAuthenticatedEncryption => (SslStream?.IsAuthenticated == true && SslStream.IsEncrypted) || (HostedStream != null && hostedEncryptedTransport);
+        /// <summary>Explicit host-adapter opt-in after HTTPS is verified by a trusted local TLS terminator.
+        /// This state is never read from serialized messages or peer metadata.</summary>
+        public void SetHostedEncryptedTransport(bool verifiedHttps) {
+            if (HostedStream == null || EndPoint?.Address == null || !System.Net.IPAddress.IsLoopback(EndPoint.Address))
+                throw new InvalidOperationException("Hosted TLS trust requires a local host-adapter stream.");
+            hostedEncryptedTransport = verifiedHttps;
+        }
 
         /// <summary>Call only after the server has verified credentials or a client certificate. Requires encrypted TLS.
         /// Never copy roles or an authentication flag from a DTO, peer metadata, or DLL claims. UDP has no authenticated channel.</summary>
@@ -106,6 +114,7 @@ namespace SocketJack.Net {
         }
         internal static void RequireType(ISocket socket, NetworkConnection connection, Type type) {
             if (type == null || type == typeof(Wrapper)) throw Denied();
+            if (connection?.Compatibility != null && !connection.Compatibility.Supports(type)) throw Denied();
             var policy = socket.Options.Authorization;
             if (!IsServer(socket)) return;
             if (connection == null) throw Denied();
@@ -162,6 +171,7 @@ namespace SocketJack.Net {
         }
         internal static void BeforeDispatch(ISocket socket, NetworkConnection connection, object message, Type type) {
             if (message == null || message.GetType() != type) throw Denied();
+            if (connection?.Compatibility?.UnsupportedEnum(message, new System.Collections.Generic.HashSet<object>(), includeFields: (socket.Options.Serializer as Serialization.Json.JsonSerializer)?.JsonOptions.IncludeFields == true) != null) throw Denied();
             RequireType(socket, connection, type);
             if (message is PeerRedirect peer) {
                 // Repeat recipient authorization after deserialization and before callbacks/forwarding.

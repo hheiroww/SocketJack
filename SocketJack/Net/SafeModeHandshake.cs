@@ -10,12 +10,44 @@ using System.Threading;
 using System.Threading.Tasks;
 
 namespace SocketJack.Net {
-    // Only clients send fingerprints. Acceptance is NOT server authentication or remote DLL attestation.
+    // V2 exchanges schemas; only legacy clients send fingerprints. Neither authenticates or attests a peer.
     internal static class SafeModeHandshake {
         internal const int MaximumBytes = 60000;
         internal const string HeaderName = "X-SocketJack-Client-Dlls";
         internal static readonly byte[] Accepted = Encoding.ASCII.GetBytes("SJOK1");
         static readonly byte[] Magic = Encoding.ASCII.GetBytes("SJSM1");
+        static readonly byte[] CompatibilityMagic = Encoding.ASCII.GetBytes("SJSM2");
+        internal const string CompatibilityHeader = "X-SocketJack-Compatibility";
+        internal static bool IsCompatibility(byte[] data) => data != null && data.Length >= 5 && data.Take(5).SequenceEqual(CompatibilityMagic);
+        private static byte[] EncodeManifest(NetworkOptions options, NetworkConnection connection = null, bool snapshot = false) {
+            var manifest = WireContracts.Create(options);
+            if (manifest.BinaryCompression && connection?.Compatibility != null)
+                manifest.BinaryCompressionPerClient = connection.Compatibility.BinaryCompressionPerClient;
+            if (snapshot && connection?.Compatibility?.BinaryCompression == true)
+                manifest.BinaryDictionary = BinaryNetworkCompression.Snapshot(connection.Parent, connection);
+            byte[] json = JsonSerializer.SerializeToUtf8Bytes(manifest);
+            if (json.Length + 5 > MaximumBytes && manifest.BinaryDictionary != null) {
+                manifest.BinaryDictionary = null;
+                json = JsonSerializer.SerializeToUtf8Bytes(manifest);
+            }
+            if (json.Length + 5 > MaximumBytes) throw new SecurityException("SocketJack compatibility manifest is too large.");
+            return CompatibilityMagic.Concat(json).ToArray();
+        }
+        internal static byte[] Reply(NetworkOptions options, NetworkConnection connection) => connection?.Compatibility == null ? Accepted : EncodeManifest(options, connection, true);
+        internal static string ReplyHeader(NetworkOptions options, NetworkConnection connection) => connection?.Compatibility == null ? "" :
+            CompatibilityHeader + ": " + Convert.ToBase64String(EncodeManifest(options, connection)) + "\r\n";
+        internal static void AcceptReply(byte[] data, NetworkOptions options, NetworkConnection connection) {
+            if (IsCompatibility(data) && options.EnableCompatibilityNegotiation) { Validate(data, options, connection); return; }
+            if (!options.EnableCompatibilityNegotiation && data.SequenceEqual(Accepted)) { MarkVerified(connection, options); return; }
+            throw new SecurityException("The server does not support SocketJack compatibility negotiation. Update the server; no unsafe fallback was attempted.");
+        }
+        internal static void AcceptHttpReply(string response, NetworkOptions options, NetworkConnection connection) {
+            if (!options.SafeMode) return;
+            if (!options.EnableCompatibilityNegotiation) { MarkVerified(connection, options); return; }
+            var lines = response.Split(new[] { "\r\n" }, StringSplitOptions.None).Where(l => l.StartsWith(CompatibilityHeader + ":", StringComparison.OrdinalIgnoreCase)).ToArray();
+            if (lines.Length != 1 || lines[0].Length > MaximumBytes * 2) throw new SecurityException("The server does not support SocketJack compatibility negotiation. Update the server.");
+            AcceptReply(Convert.FromBase64String(lines[0].Substring(CompatibilityHeader.Length + 1).Trim()), options, connection);
+        }
         internal sealed class Claim { public string Type { get; set; } public string Md5 { get; set; } public string Sha256 { get; set; } }
         static Dictionary<string, Claim> Local(NetworkOptions options) {
             var result = new Dictionary<string, Claim>(StringComparer.Ordinal);
@@ -34,6 +66,7 @@ namespace SocketJack.Net {
             return result;
         }
         internal static byte[] Create(NetworkOptions options) {
+            if (options.EnableCompatibilityNegotiation) return EncodeManifest(options);
             byte[] json = JsonSerializer.SerializeToUtf8Bytes(Local(options).Values.ToArray());
             if (json.Length + Magic.Length > MaximumBytes) throw new SecurityException("SafeMode handshake is too large.");
             byte[] data = new byte[json.Length + Magic.Length];
@@ -41,10 +74,24 @@ namespace SocketJack.Net {
             Buffer.BlockCopy(json, 0, data, Magic.Length, json.Length);
             return data;
         }
-        internal static bool HasMagic(byte[] data) => data != null && data.Length >= Magic.Length && data.Take(Magic.Length).SequenceEqual(Magic);
+        internal static bool HasMagic(byte[] data) => IsCompatibility(data) || (data != null && data.Length >= Magic.Length && data.Take(Magic.Length).SequenceEqual(Magic));
         internal static void Validate(byte[] data, NetworkOptions options, NetworkConnection connection) {
             // Bounded, inert JSON strings only; never use the application deserializer for a handshake.
             if (!HasMagic(data) || data.Length > MaximumBytes) throw Rejected();
+            if (IsCompatibility(data)) {
+                if (!options.EnableCompatibilityNegotiation || connection == null) throw Rejected();
+                using (var schema = JsonDocument.Parse(new ReadOnlyMemory<byte>(data, 5, data.Length - 5), new JsonDocumentOptions { MaxDepth = 8 })) {
+                    RejectDuplicateFields(schema.RootElement);
+                    var peer = JsonSerializer.Deserialize<WireContracts.Manifest>(schema.RootElement.GetRawText());
+                    connection.Compatibility = WireContracts.Compare(WireContracts.Create(options), peer);
+                    if (connection.Parent is UdpServer udp && connection.EndPoint != null)
+                        udp.ValidateCompressionScope(connection.EndPoint, connection.Compatibility);
+                    if (connection.Compatibility.BinaryCompression && peer.BinaryDictionary != null)
+                        BinaryNetworkCompression.ImportSnapshot(connection.Parent, peer.BinaryDictionary, connection);
+                }
+                MarkVerified(connection, options);
+                return;
+            }
             var expected = Local(options);
             using (var document = JsonDocument.Parse(new ReadOnlyMemory<byte>(data, Magic.Length, data.Length - Magic.Length), new JsonDocumentOptions { MaxDepth = 4 })) {
                 if (document.RootElement.ValueKind != JsonValueKind.Array || document.RootElement.GetArrayLength() != expected.Count) throw Rejected();
@@ -58,6 +105,15 @@ namespace SocketJack.Net {
                 }
             }
             if (connection != null) MarkVerified(connection, options);
+        }
+        private static void RejectDuplicateFields(JsonElement value) {
+            if (value.ValueKind == JsonValueKind.Object) {
+                var names = new HashSet<string>(StringComparer.Ordinal);
+                foreach (var member in value.EnumerateObject()) {
+                    if (!names.Add(member.Name)) throw Rejected();
+                    RejectDuplicateFields(member.Value);
+                }
+            } else if (value.ValueKind == JsonValueKind.Array) foreach (var item in value.EnumerateArray()) RejectDuplicateFields(item);
         }
         internal static void MarkVerified(NetworkConnection connection, NetworkOptions options) {
             connection.SafeModeAllowedTypes = options.Whitelist.ToArray();
@@ -95,16 +151,22 @@ namespace SocketJack.Net {
                     byte[] body = new byte[size];
                     await ReadExact(stream, body, timeout.Token).ConfigureAwait(false);
                     Validate(body, options, connection);
-                    await stream.WriteAsync(Accepted, 0, Accepted.Length, timeout.Token).ConfigureAwait(false);
+                    byte[] response = Reply(options, connection);
+                    if (connection.Compatibility != null) response = Frame(response);
+                    await stream.WriteAsync(response, 0, response.Length, timeout.Token).ConfigureAwait(false);
                 } else {
                     byte[] request = Frame(Create(options));
                     await stream.WriteAsync(request, 0, request.Length, timeout.Token).ConfigureAwait(false);
-                    byte[] reply = new byte[Accepted.Length];
+                    byte[] reply = new byte[options.EnableCompatibilityNegotiation ? 15 : Accepted.Length];
                     await ReadExact(stream, reply, timeout.Token).ConfigureAwait(false);
-                    if (!reply.SequenceEqual(Accepted)) throw Rejected();
-                    MarkVerified(connection, options);
+                    if (options.EnableCompatibilityNegotiation) {
+                        if (!int.TryParse(Encoding.ASCII.GetString(reply).Trim('\0'), out int size) || size < 5 || size > MaximumBytes) throw Rejected();
+                        reply = new byte[size]; await ReadExact(stream, reply, timeout.Token).ConfigureAwait(false);
+                    }
+                    AcceptReply(reply, options, connection);
                 }
             }
+            BinaryNetworkCompression.Synchronize(connection.Parent, connection);
         }
         internal static bool LooksLikeWrapper(byte[] body) {
             if (body == null || body.Length == 0) return false;

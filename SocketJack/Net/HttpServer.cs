@@ -97,9 +97,6 @@ namespace SocketJack.Net {
     }
     public partial class HttpServer : TcpServer {
 
-        // Internal cache for processed HTML/string with variable replacement
-        private readonly ConcurrentDictionary<string, (string html, DateTime lastWrite)> _routeFileCache = new();
-        private readonly ConcurrentDictionary<string, string> _routeStringCache = new();
         private readonly object _httpRoutePatternCacheLock = new object();
         private readonly Dictionary<string, HttpRoutePatternCacheEntry> _httpRoutePatternCache = new Dictionary<string, HttpRoutePatternCacheEntry>(StringComparer.OrdinalIgnoreCase);
         private long _httpRoutePatternCacheBytes;
@@ -114,7 +111,7 @@ namespace SocketJack.Net {
             public long LastUsed;
         }
         /// <summary>
-        /// Maps a route to an HTML file with variable replacement (e.g., $Username) and caching.
+        /// Maps a rendered HTML route. Rendered responses are never cached; use MapDirectory or MapFile for static resources.
         /// </summary>
         public void RouteFile(string method, string path, string filePath, string[][] vars = null, int cacheSeconds = 60) {
             if (string.IsNullOrWhiteSpace(method)) throw new ArgumentException("Method is required.", nameof(method));
@@ -123,31 +120,19 @@ namespace SocketJack.Net {
 
             Map(method, path, (conn, req, ct) =>
             {
-                string cacheKey = filePath + "|" + (vars != null ? GetVarsCacheKey(vars) : "");
                 string html;
-                DateTime lastWrite = DateTime.MinValue;
-                if (cacheSeconds > 0) {
-                    if (_routeFileCache.TryGetValue(cacheKey, out var cached)) {
-                        try { lastWrite = File.GetLastWriteTimeUtc(filePath); } catch { }
-                        if (cached.lastWrite == lastWrite)
-                            return cached.html;
-                    }
-                }
                 try {
                     html = File.ReadAllText(filePath);
-                    lastWrite = File.GetLastWriteTimeUtc(filePath);
                 } catch (Exception ex) {
                     return $"<html><body><h2>File not found</h2><pre>{System.Net.WebUtility.HtmlEncode(ex.Message)}</pre></body></html>";
                 }
                 html = ReplaceVars(html, vars);
-                if (cacheSeconds > 0)
-                    _routeFileCache[cacheKey] = (html, lastWrite);
                 return html;
             });
         }
 
         /// <summary>
-        /// Maps a route to a string (e.g., HTML template) with variable replacement and caching.
+        /// Maps a rendered string route. Variables are evaluated on every request; legacy cache parameters are retained for source compatibility.
         /// </summary>
         public void RouteString(string method, string path, string template, string[][] vars = null, string cacheKey = null, int cacheSeconds = 60) {
             if (string.IsNullOrWhiteSpace(method)) throw new ArgumentException("Method is required.", nameof(method));
@@ -156,13 +141,7 @@ namespace SocketJack.Net {
 
             Map(method, path, (conn, req, ct) =>
             {
-                string key = cacheKey ?? (template.GetHashCode() + "|" + (vars != null ? GetVarsCacheKey(vars) : ""));
-                if (cacheSeconds > 0 && _routeStringCache.TryGetValue(key, out var cached))
-                    return cached;
-                var result = ReplaceVars(template, vars);
-                if (cacheSeconds > 0)
-                    _routeStringCache[key] = result;
-                return result;
+                return ReplaceVars(template, vars);
             });
         }
 
@@ -433,13 +412,9 @@ namespace SocketJack.Net {
         /// </summary>
         public EndpointSecurityMonitor EndpointSecurity { get; } = new EndpointSecurityMonitor();
         /// <summary>
-        /// Gets or sets the <c>Cache-Control</c> header value added to every HTTP response.
-        /// When <see langword="null"/> (the default), no <c>Cache-Control</c> header is emitted.
-        /// Example values: <c>"public, max-age=3600"</c>, <c>"no-cache"</c>,
-        /// <c>"private, max-age=86400"</c>.
-        /// For static files served via <c>MapDirectory</c>, an <c>ETag</c> and
-        /// <c>Last-Modified</c> header are also sent, and <c>If-None-Match</c> /
-        /// <c>If-Modified-Since</c> conditional requests are honoured with <c>304 Not Modified</c>.
+        /// Optional restriction for mapped static resources. Static files always revalidate
+        /// against content ETags so edits invalidate browser copies immediately. A no-store
+        /// setting disables reuse. Rendered routes, APIs and generated responses use no-store.
         /// </summary>
         public string CacheControl { get; set; } = null;
 
@@ -473,6 +448,7 @@ namespace SocketJack.Net {
                 if (connection == null || !request.Headers.TryGetValue(SafeModeHandshake.HeaderName, out string value)) throw SafeModeHandshake.Rejected();
                 if (value.Length > SafeModeHandshake.MaximumBytes * 2) throw SafeModeHandshake.Rejected();
                 SafeModeHandshake.Validate(Convert.FromBase64String(value), Options, connection);
+                if (connection.Compatibility != null) request.Context.Response.Headers[SafeModeHandshake.CompatibilityHeader] = Convert.ToBase64String(SafeModeHandshake.Reply(Options, connection));
             } catch {
                 if (connection != null) connection.Close(this, DisconnectionReason.Unknown);
                 throw SafeModeHandshake.Rejected();
@@ -492,6 +468,10 @@ namespace SocketJack.Net {
                 T typed;
                 try {
                     VerifyTypedRequest(request);
+                    if (connection?.Compatibility != null && !connection.TryUseFeature(typeof(T).Name, typeof(T))) {
+                        request.Context.StatusCode = "409 Conflict";
+                        return "This feature is disabled because its message contract is incompatible with this server.";
+                    }
                     InboundMessageSecurity.RequireType(this, connection, typeof(T));
                     var body = InboundMessageDecoder.Read(this, connection, request.BodyBytes, expectedType: typeof(T));
                     if (!(body is T)) throw InboundMessageSecurity.Denied();
@@ -545,6 +525,10 @@ namespace SocketJack.Net {
                 T typed;
                 try {
                     VerifyTypedRequest(request);
+                    if (connection?.Compatibility != null && !connection.TryUseFeature(typeof(T).Name, typeof(T))) {
+                        request.Context.StatusCode = "409 Conflict";
+                        return "This feature is disabled because its message contract is incompatible with this server.";
+                    }
                     InboundMessageSecurity.RequireType(this, connection, typeof(T));
                     var body = InboundMessageDecoder.Read(this, connection, request.BodyBytes, expectedType: typeof(T));
                     if (!(body is T)) throw InboundMessageSecurity.Denied();
@@ -1861,6 +1845,16 @@ namespace SocketJack.Net {
                 return FinalizeDispatchedHttpResponse(context, streamed: false);
             }
 
+            var uploadHandler = ResolveUploadStreamRoute(request);
+            if (uploadHandler != null) {
+                var bytes = request.BodyBytes ?? Array.Empty<byte>();
+                using var upload = new UploadStream(connection, bytes.LongLength);
+                upload.Enqueue(bytes);
+                upload.Complete();
+                await Task.Run(() => uploadHandler(connection, request, upload, cancellationToken), cancellationToken).ConfigureAwait(false);
+                return FinalizeDispatchedHttpResponse(context, streamed: false);
+            }
+
             StreamRouteHandler streamHandler = ResolveStreamRoute(request);
             if (streamHandler != null) {
                 var chunked = new ChunkedStream(
@@ -1880,6 +1874,69 @@ namespace SocketJack.Net {
             bool handledByRoute = TryResolveAndApplyRoute(connection, request, cancellationToken, context, RouteMatchMode.ExactOnly);
             if (!handledByRoute)
                 handledByRoute = TryResolveAndApplyDocumentRoot(context, request);
+            // Hosted dispatch must honor the same explicit file routes as the
+            // socket listener (theme styles, authentication scripts, etc.).
+            if (!handledByRoute) {
+                var filePath = NormalizePath(request.Path);
+                var hostFiles = GetHostFileMappings(request);
+                if ((hostFiles != null && TryResolveFileMapping(hostFiles, request.Method, filePath, out var fileBytes, out var sourcePath, out var mime, out var fileName, out var modified))
+                    || TryResolveFileMapping(request.Method, filePath, out fileBytes, out sourcePath, out mime, out fileName, out modified)) {
+                    handledByRoute = true;
+                    ApplyServedFileHeaders(context.Response, mime, fileName);
+                    context.Response.StaticFilePath = sourcePath;
+                    if (modified.HasValue) context.Response.Headers["Last-Modified"] = modified.Value.ToString("R");
+                    if (!string.IsNullOrWhiteSpace(sourcePath))
+                        context.Response.StreamFile = new FileResponse { FilePath = sourcePath, ContentType = mime, FileName = fileName };
+                    else context.Response.BodyBytes = fileBytes;
+                }
+            }
+                // Check mapped directories for static file serving
+                if (!handledByRoute) {
+                    var normalizedPath = NormalizePath(request.Path);
+                    string clientIp = null;
+                    string authHeader = null;
+                    try { clientIp = connection?.EndPoint?.Address?.ToString(); } catch { }
+                    try { if (request?.Headers != null) request.Headers.TryGetValue("Authorization", out authHeader); } catch { }
+                    var hostDirectoryMappings = GetHostDirectoryMappings(request);
+                    bool downloadDirectoryZip = IsDirectoryZipDownloadRequest(request);
+                    if ((hostDirectoryMappings != null && TryResolveDirectoryFile(hostDirectoryMappings, request.Method, normalizedPath, downloadDirectoryZip, clientIp, authHeader, out var fileBytes, out var servedFilePath, out var fileMime, out var servedFileName, out var htAccessResult, out var htAuthRealm, out var htExtraHeaders, out var fileLastModified))
+                        || TryResolveDirectoryFile(request.Method, normalizedPath, downloadDirectoryZip, clientIp, authHeader, out fileBytes, out servedFilePath, out fileMime, out servedFileName, out htAccessResult, out htAuthRealm, out htExtraHeaders, out fileLastModified)) {
+                        if (htAccessResult == HtAccessResult.Denied) {
+                            context.StatusCodeNumber = 403;
+                            context.ReasonPhrase = "Forbidden";
+                            context.Response.Body = "403 Forbidden";
+                            context.Response.ContentType = "text/plain";
+                            handledByRoute = true;
+                        } else if (htAccessResult == HtAccessResult.AuthRequired) {
+                            context.StatusCodeNumber = 401;
+                            context.ReasonPhrase = "Unauthorized";
+                            context.Response.Body = "401 Unauthorized";
+                            context.Response.ContentType = "text/plain";
+                            if (context.Response.Headers == null)
+                                context.Response.Headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                            context.Response.Headers["WWW-Authenticate"] = "Basic realm=\"" + (htAuthRealm ?? "Restricted") + "\"";
+                            handledByRoute = true;
+                        } else {
+                            handledByRoute = true;
+
+                            ApplyServedFileHeaders(context.Response, fileMime, servedFileName);
+                            context.Response.StaticFilePath = servedFilePath;
+                            context.Response.ContentType = fileMime;
+                            if (!string.IsNullOrWhiteSpace(servedFilePath)) {
+                                context.Response.StreamFile = new FileResponse { FilePath = servedFilePath, ContentType = fileMime, FileName = servedFileName };
+                            } else {
+                                context.Response.BodyBytes = fileBytes;
+                            }
+                        }
+                        if (htExtraHeaders != null && htExtraHeaders.Count > 0) {
+                            if (context.Response.Headers == null)
+                                context.Response.Headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                            foreach (var kv in htExtraHeaders)
+                                context.Response.Headers[kv.Key] = kv.Value;
+                        }
+                    }
+                }
+
             if (!handledByRoute)
                 handledByRoute = TryResolveAndApplyRoute(connection, request, cancellationToken, context, RouteMatchMode.WildcardOnly);
 
@@ -1894,6 +1951,7 @@ namespace SocketJack.Net {
             }
 
             EnsureErrorResponseBody(context);
+            ApplyHttpCaching(context);
             if (context.Response.StreamFile != null && !string.IsNullOrWhiteSpace(context.Response.StreamFile.FilePath) && streamCallbacks != null) {
                 ApplyDefaultDispatchedResponseHeaders(context.Response);
                 bool isHead = string.Equals(context.Request?.Method, "HEAD", StringComparison.OrdinalIgnoreCase);
@@ -1923,6 +1981,7 @@ namespace SocketJack.Net {
 
 
         private HttpDispatchResult FinalizeDispatchedHttpResponse(HttpContext context, bool streamed) {
+            ApplyHttpCaching(context);
             ApplyDefaultDispatchedResponseHeaders(context.Response);
 
             if (!streamed) {
@@ -2411,6 +2470,7 @@ namespace SocketJack.Net {
                 return;
 
             var response = context.Response;
+            if (string.IsNullOrWhiteSpace(response.StaticFilePath)) return;
             if (response.RawResponseWritten || response.StreamFile != null)
                 return;
             if (context.StatusCodeNumber < 200 || context.StatusCodeNumber >= 300 || context.StatusCodeNumber == 204 || context.StatusCodeNumber == 206 || context.StatusCodeNumber == 304)
@@ -3028,7 +3088,7 @@ namespace SocketJack.Net {
                     // send a complex C1 handshake whose version field is non-zero.
                     if (_rtmpPublishRoutes.Count > 0) {
                         var probeBytes = TryGetRequestBytes(e.Obj);
-                        if (probeBytes != null && probeBytes.Length >= 9
+                        if (probeBytes != null && probeBytes.Length >= 1
                             && probeBytes[0] == 0x03) {
                             var session = CreateRtmpSession(e.Connection);
                             session.ProcessData(probeBytes);
@@ -3261,6 +3321,7 @@ namespace SocketJack.Net {
                         || TryResolveFileMapping(request.Method, fileNormalizedPath, out fileMapBytes, out fileMapPath, out fileMapMime, out fileMapName, out fileMapLastMod)) {
                         handledByRoute = true;
                         ApplyServedFileHeaders(context.Response, fileMapMime, fileMapName);
+                        context.Response.StaticFilePath = fileMapPath;
                         if (fileMapLastMod.HasValue)
                             context.Response.Headers["Last-Modified"] = fileMapLastMod.Value.ToString("R");
                         if (!string.IsNullOrWhiteSpace(fileMapPath)) {
@@ -3304,48 +3365,13 @@ namespace SocketJack.Net {
                         } else {
                             handledByRoute = true;
 
-                            // Compute ETag and Last-Modified for cache validation
-                            string etag = !string.IsNullOrWhiteSpace(servedFilePath)
-                                ? BuildStaticFileEtag(servedFilePath)
-                                : BuildBodyEtag(fileBytes);
-
-                            if (context.Response.Headers == null)
-                                context.Response.Headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                             ApplyServedFileHeaders(context.Response, fileMime, servedFileName);
-
-                            if (etag != null)
-                                context.Response.Headers["ETag"] = etag;
-                            if (fileLastModified.HasValue)
-                                context.Response.Headers["Last-Modified"] = fileLastModified.Value.ToString("R");
-
-                            // Handle conditional requests (304 Not Modified)
-                            bool notModified = false;
-                            if (etag != null && request.Headers.TryGetValue("If-None-Match", out var ifNoneMatch)) {
-                                notModified = ifNoneMatch.Trim() == etag || ifNoneMatch.Trim() == "*";
-                            }
-                            if (!notModified && fileLastModified.HasValue && request.Headers.TryGetValue("If-Modified-Since", out var ifModSince)) {
-                                if (DateTime.TryParse(ifModSince, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AdjustToUniversal, out var sinceDate)) {
-                                    // Truncate to second precision for comparison (HTTP dates have no sub-second)
-                                    var fileMod = new DateTime(fileLastModified.Value.Ticks - (fileLastModified.Value.Ticks % TimeSpan.TicksPerSecond), DateTimeKind.Utc);
-                                    notModified = fileMod <= sinceDate;
-                                }
-                            }
-
-                            if (notModified) {
-                                context.StatusCodeNumber = 304;
-                                context.ReasonPhrase = "Not Modified";
-                                context.Response.BodyBytes = Array.Empty<byte>();
-                                context.Response.ContentType = fileMime;
-                            } else if (!string.IsNullOrWhiteSpace(servedFilePath)) {
-                                context.Response.StreamFile = new FileResponse {
-                                    FilePath = servedFilePath,
-                                    ContentType = fileMime,
-                                    FileName = servedFileName
-                                };
-                                context.Response.ContentType = fileMime;
+                            context.Response.StaticFilePath = servedFilePath;
+                            context.Response.ContentType = fileMime;
+                            if (!string.IsNullOrWhiteSpace(servedFilePath)) {
+                                context.Response.StreamFile = new FileResponse { FilePath = servedFilePath, ContentType = fileMime, FileName = servedFileName };
                             } else {
                                 context.Response.BodyBytes = fileBytes;
-                                context.Response.ContentType = fileMime;
                             }
                         }
                         if (htExtraHeaders != null && htExtraHeaders.Count > 0) {
@@ -3374,6 +3400,7 @@ namespace SocketJack.Net {
 
 WriteHttpResponse:
                 EnsureErrorResponseBody(context);
+                ApplyHttpCaching(context);
                 RecordEndpointSecurityHttpResult(e.Connection, request, context.StatusCodeNumber);
                 if (context.Response != null && context.Response.Headers != null) {
                     if (!context.Response.Headers.ContainsKey("Server"))
@@ -3647,14 +3674,54 @@ CloseHttpConnection:
             }
         }
 
+        private void ApplyHttpCaching(HttpContext context) {
+            var response = context?.Response;
+            var request = context?.Request;
+            if (response == null || request == null || response.CachePolicyApplied) return;
+            response.CachePolicyApplied = true;
+            if (response.Headers == null) response.Headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            bool read = string.Equals(request.Method, "GET", StringComparison.OrdinalIgnoreCase) || string.Equals(request.Method, "HEAD", StringComparison.OrdinalIgnoreCase);
+            bool noStore = HttpResponseCacheControlHasNoStore(response) ||
+                (!string.IsNullOrWhiteSpace(CacheControl) && CacheControl.IndexOf("no-store", StringComparison.OrdinalIgnoreCase) >= 0);
+            if (!read || string.IsNullOrWhiteSpace(response.StaticFilePath) || context.StatusCodeNumber != 200 ||
+                response.Headers.ContainsKey("Set-Cookie") || noStore) {
+                response.Headers["Cache-Control"] = "no-store";
+                response.Headers.Remove("ETag");
+                return;
+            }
+            string etag = BuildStaticFileEtag(response.StaticFilePath);
+            if (etag == null) { response.Headers["Cache-Control"] = "no-store"; return; }
+            response.Headers.TryGetValue("Cache-Control", out string existingPolicy);
+            bool personal = context.Connection?.IsAuthenticated == true ||
+                (!string.IsNullOrWhiteSpace(CacheControl) && CacheControl.IndexOf("private", StringComparison.OrdinalIgnoreCase) >= 0) ||
+                (!string.IsNullOrWhiteSpace(existingPolicy) && existingPolicy.IndexOf("private", StringComparison.OrdinalIgnoreCase) >= 0) ||
+                (request.Headers != null && (request.Headers.ContainsKey("Authorization") || request.Headers.ContainsKey("Cookie")));
+            response.Headers["Cache-Control"] = (personal ? "private" : "public") + ", max-age=0, must-revalidate";
+            response.Headers["ETag"] = etag;
+            DateTime? modified = null;
+            try { modified = File.GetLastWriteTimeUtc(response.StaticFilePath); response.Headers["Last-Modified"] = modified.Value.ToString("R", CultureInfo.InvariantCulture); } catch { }
+            if (request.Headers == null || request.Headers.ContainsKey("Range")) return;
+            bool unchanged = false;
+            if (request.Headers.TryGetValue("If-None-Match", out string match)) {
+                // A stale ETag wins over If-Modified-Since, including preserved timestamps.
+                unchanged = HttpEtagMatches(match, etag);
+            } else if (modified.HasValue && request.Headers.TryGetValue("If-Modified-Since", out string since) &&
+                DateTime.TryParse(since, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var date)) {
+                unchanged = modified.Value <= date;
+            }
+            if (!unchanged) return;
+            context.StatusCodeNumber = 304; context.ReasonPhrase = "Not Modified";
+            response.StreamFile = null; response.BodyBytes = Array.Empty<byte>();
+            response.Headers.Remove("Content-Length"); response.Headers.Remove("Content-Encoding");
+        }
+
         private static string BuildStaticFileEtag(string filePath) {
             try {
                 if (string.IsNullOrWhiteSpace(filePath))
                     return null;
-                var info = new FileInfo(filePath);
-                if (!info.Exists)
-                    return null;
-                return "\"" + info.Length.ToString("x", CultureInfo.InvariantCulture) + "-" + info.LastWriteTimeUtc.Ticks.ToString("x", CultureInfo.InvariantCulture) + "\"";
+                using (var stream = OpenSharedReadStream(filePath))
+                using (var sha = System.Security.Cryptography.SHA256.Create())
+                    return "\"sj-" + BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", "").ToLowerInvariant() + "\"";
             } catch {
                 return null;
             }
@@ -4008,6 +4075,9 @@ CloseHttpConnection:
     }
 
     public class HttpResponse {
+        // Only explicit disk mappings establish static provenance; MIME/extension alone does not.
+        internal string StaticFilePath { get; set; }
+        internal bool CachePolicyApplied { get; set; }
         public HttpContext Context { get; set; }
         public string Path { get; set; }
         public string Version { get; set; }
@@ -4367,6 +4437,7 @@ CloseHttpConnection:
         private void EnsureHeader() {
             if (_headerSent) return;
             _headerSent = true;
+            _response.Headers["Cache-Control"] = "no-cache, no-store, no-transform";
 
             if (_response.LowLatencyStreaming) {
                 if (!_response.Headers.ContainsKey("X-Accel-Buffering"))

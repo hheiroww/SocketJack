@@ -14,6 +14,16 @@ namespace SocketJack.Serialization {
     public sealed class VerifiedAssemblyRegistry {
         private readonly ConcurrentDictionary<Assembly, string> pins = new ConcurrentDictionary<Assembly, string>();
 
+        // Local type registration may establish a pin, but must never replace an existing one.
+        internal void Register(Assembly assembly) {
+            if (IsRuntimeAssembly(assembly)) return;
+            pins.GetOrAdd(assembly, value => Fingerprint(value, false));
+        }
+
+        private static bool IsRuntimeAssembly(Assembly assembly) =>
+            assembly == typeof(Wrapper).Assembly || assembly == typeof(string).Assembly ||
+            assembly == typeof(ConcurrentDictionary<,>).Assembly;
+
         /// <summary>Approve an assembly and automatically SHA-256 hash its reflected DLL location.
         /// If the assembly was loaded from an embedded DLL, a matching loaded manifest resource is used.</summary>
         public void Add(Assembly assembly) {
@@ -39,8 +49,7 @@ namespace SocketJack.Serialization {
 
         internal void Verify(Assembly assembly) {
             // Framework and SocketJack protocol types are part of the trusted local runtime.
-            if (assembly == typeof(Wrapper).Assembly || assembly == typeof(string).Assembly ||
-                assembly == typeof(ConcurrentDictionary<,>).Assembly) return;
+            if (IsRuntimeAssembly(assembly)) return;
             if (!pins.TryGetValue(assembly, out string pin) ||
                 !string.Equals(pin, Fingerprint(assembly, false), StringComparison.Ordinal))
                 throw new SecurityException("An application message DLL has not been approved with a SHA-256 fingerprint.");

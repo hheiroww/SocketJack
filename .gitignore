@@ -369,6 +369,33 @@ FodyWeavers.xsd
 /Tests/TestControls/MultiTest.xaml
 
 # Local secrets
+# Local agent state and imported chat attachments
+.codex/
+.codex-*/
+**/.codex/
+**/.codex-*/
+AGENTS.md
+AGENTS.override.md
+
+# Local service state, secrets and database recovery files
+*.protected
+*.pem
+*.key
+*.p12
+*.p8
+*.sqlite
+*.sqlite3
+*.db
+*.db-shm
+*.db-wal
+*.trx
+**/dataserver.json*
+/SocketJack.Portal/NuGet.Config
+/SocketJack.Portal/Service/App_Data/
+/SocketJack.Portal/Service/data/
+/SocketJack.Portal/Service/wwwroot/updates/
+
+# Local secrets
 .env
 .env.*
 !.env.example
@@ -392,3 +419,11 @@ TestResults/
 .vs/
 *.nupkg
 *.snupkg
+
+# Private applications are maintained in a separate private repository
+/SocketJack.Portal/
+/SocketJack.BrowserSignIn/
+/SocketJack/Net/Mail/
+/SocketJack/EMAIL-HOSTING.md
+/Tests/MailHosting/
+/Examples/EmailHosting/

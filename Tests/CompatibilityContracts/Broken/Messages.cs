@@ -1,0 +1,1 @@
+namespace Versioned { public class Message { public string Number { get; set; } } }

@@ -1,0 +1,146 @@
+[
+  {
+    "protocol": "tcp",
+    "workload": "repeated-32k",
+    "off": {
+      "enabled": false,
+      "warmMiBs": 26.240946328472674,
+      "p95Ms": 4.674799999999999,
+      "totalBytes": 8433968,
+      "warmPlanHits": 0
+    },
+    "on": {
+      "enabled": true,
+      "warmMiBs": 25.181119157406933,
+      "p95Ms": 5.2743,
+      "totalBytes": 659192.5,
+      "warmPlanHits": 127
+    }
+  },
+  {
+    "protocol": "tcp",
+    "workload": "delta-32k",
+    "off": {
+      "enabled": false,
+      "warmMiBs": 28.038266590315683,
+      "p95Ms": 4.5508,
+      "totalBytes": 8433968,
+      "warmPlanHits": 0
+    },
+    "on": {
+      "enabled": true,
+      "warmMiBs": 25.800785705640177,
+      "p95Ms": 4.74295,
+      "totalBytes": 2576051,
+      "warmPlanHits": 127
+    }
+  },
+  {
+    "protocol": "tcp",
+    "workload": "random-32k",
+    "off": {
+      "enabled": false,
+      "warmMiBs": 27.983130304679115,
+      "p95Ms": 4.43165,
+      "totalBytes": 8433968,
+      "warmPlanHits": 0
+    },
+    "on": {
+      "enabled": true,
+      "warmMiBs": 27.167861950129975,
+      "p95Ms": 4.531000000000001,
+      "totalBytes": 8434154,
+      "warmPlanHits": 0
+    }
+  },
+  {
+    "protocol": "tcp",
+    "workload": "runs-32k",
+    "off": {
+      "enabled": false,
+      "warmMiBs": 26.481010264875774,
+      "p95Ms": 5.1197,
+      "totalBytes": 8433968,
+      "warmPlanHits": 0
+    },
+    "on": {
+      "enabled": true,
+      "warmMiBs": 24.71569268417863,
+      "p95Ms": 4.7814499999999995,
+      "totalBytes": 66726,
+      "warmPlanHits": 0
+    }
+  },
+  {
+    "protocol": "reliable-udp",
+    "workload": "repeated-32k",
+    "off": {
+      "enabled": false,
+      "warmMiBs": 19.578997709400006,
+      "p95Ms": 6.135,
+      "totalBytes": 8561584,
+      "warmPlanHits": 0
+    },
+    "on": {
+      "enabled": true,
+      "warmMiBs": 22.48720902329984,
+      "p95Ms": 5.2293,
+      "totalBytes": 708148,
+      "warmPlanHits": 127
+    }
+  },
+  {
+    "protocol": "reliable-udp",
+    "workload": "delta-32k",
+    "off": {
+      "enabled": false,
+      "warmMiBs": 20.154838090449427,
+      "p95Ms": 5.9201999999999995,
+      "totalBytes": 8561549.5,
+      "warmPlanHits": 0
+    },
+    "on": {
+      "enabled": true,
+      "warmMiBs": 22.030371028471343,
+      "p95Ms": 5.2821,
+      "totalBytes": 2741775,
+      "warmPlanHits": 127
+    }
+  },
+  {
+    "protocol": "reliable-udp",
+    "workload": "random-32k",
+    "off": {
+      "enabled": false,
+      "warmMiBs": 19.951361132148307,
+      "p95Ms": 5.95725,
+      "totalBytes": 8561584,
+      "warmPlanHits": 0
+    },
+    "on": {
+      "enabled": true,
+      "warmMiBs": 20.432763536405517,
+      "p95Ms": 5.4236,
+      "totalBytes": 8561747,
+      "warmPlanHits": 0
+    }
+  },
+  {
+    "protocol": "reliable-udp",
+    "workload": "runs-32k",
+    "off": {
+      "enabled": false,
+      "warmMiBs": 19.014824045880044,
+      "p95Ms": 7.2607,
+      "totalBytes": 8561567,
+      "warmPlanHits": 0
+    },
+    "on": {
+      "enabled": true,
+      "warmMiBs": 23.24279257863447,
+      "p95Ms": 4.949,
+      "totalBytes": 76310,
+      "warmPlanHits": 0
+    }
+  }
+]

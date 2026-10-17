@@ -1,0 +1,259 @@
+{
+  "source": "C:\\Users\\Vin\\Documents\\GitHub\\SocketJack\\docs\\binary-compression-benchmark\\2026-10-15\\drain-pilot.json",
+  "metadata": {
+    "startedUtc": "2026-10-16T00:48:47.4782147+00:00",
+    "updatedUtc": "2026-10-16T00:48:58.8158194+00:00",
+    "machineName": "DESKTOP-KSSU21A",
+    "os": "Microsoft Windows NT 10.0.22631.0",
+    "runtime": "8.0.31",
+    "processorCount": 16,
+    "processor": "Intel64 Family 6 Model 85 Stepping 4, GenuineIntel",
+    "physicalMemoryBytes": 16836141056,
+    "corePath": "C:\\Users\\Vin\\Documents\\GitHub\\SocketJack\\tools\\BinaryCompression.Bench\\bin\\Release\\net8.0\\SocketJack.dll",
+    "coreSha256": "8C68C58CD9409D180ADCD5ED48E1F7B5057B3722E2687B6209F054F4C30A4B1C",
+    "harnessSha256": "8EC5ECB5A064E1D35B9A905E3E6B0C678A97B889DF3BAAF2D6D342E4E738FD52",
+    "rounds": 1,
+    "coldMessages": 64,
+    "warmMessages": 128,
+    "latencyMessages": 64,
+    "bulkWindow": 8,
+    "network": "Separate server/client processes on clean IPv4 loopback, transparent counting proxy in client process; no artificial bandwidth/latency/loss.",
+    "counters": "Successfully forwarded TCP stream bytes / UDP datagram bytes, both directions exactly once; includes handshake, dictionary updates/ACKs, application receipts and reliable transport controls/retries; excludes IP/transport/link headers and final harness shutdown message.",
+    "phases": "cold starts without fixture data training; warm reuses the cold phase's cache; latency is warmed stop-and-wait RTT with the same payload. Bulk RTT is under an eight-object window. Phase byte snapshots include trailing controls after 160ms quiet and a reliable-UDP server queue-drain barrier (included in bytes); settling is excluded from throughput timers. Setup timing is Connect only; setup byte counts also include its quiet drain.",
+    "settings": "SafeMode/compatibility negotiation on; only BinarySerializer.EnableCompression changes; outer compression, old pattern cache, P2P, batching, FPS and bandwidth caps off. Reliable UDP default Adaptive, independent delivery, 1200-byte datagrams.",
+    "cpu": "cpuMs is client-process CPU, including counting proxy, not combined endpoint CPU."
+  },
+  "method": {
+    "summary": "Median of per-run metrics; paired geometric mean ratios with percentile bootstrap confidence intervals.",
+    "bootstrapSamples": 10000,
+    "seed": 7301,
+    "confidence": 0.95,
+    "bytes": "Both directions once, including all recorded dictionary/control/application acknowledgement traffic and framing; network-layer headers excluded.",
+    "overallBytes": "Setup bytes once plus all three phase byte counts; only complete connections included."
+  },
+  "comparisons": [
+    {
+      "protocol": "reliable-udp",
+      "workload": "repeated-32k",
+      "phase": "cold",
+      "off": {
+        "runs": 1,
+        "medianUsefulMiBPerSecond": 12.497008528583471,
+        "medianElapsedMs": 160.0383,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 10.4205,
+        "medianRttP95Ms": 19.8001,
+        "medianRttP99Ms": 27.6015,
+        "medianUpBytes": 2129012,
+        "medianDownBytes": 7666,
+        "medianTotalBytes": 2136678,
+        "medianCpuMs": 109.375,
+        "medianDictionaryCount": 0,
+        "medianCacheBytes": 0,
+        "medianSettleMs": 312.8825
+      },
+      "on": {
+        "runs": 1,
+        "medianUsefulMiBPerSecond": 7.720341439820517,
+        "medianElapsedMs": 259.0559,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 10.0972,
+        "medianRttP95Ms": 26.6695,
+        "medianRttP99Ms": 36.3539,
+        "medianUpBytes": 305013,
+        "medianDownBytes": 7584,
+        "medianTotalBytes": 312597,
+        "medianCpuMs": 78.125,
+        "medianDictionaryCount": 98,
+        "medianCacheBytes": 187865,
+        "medianSettleMs": 326.3244
+      },
+      "pairedRounds": [
+        0
+      ],
+      "throughputRatioOnOverOff": {
+        "pairs": 1,
+        "ratio": 0.6177751597242139,
+        "ci95": null
+      },
+      "p50LatencySpeedupOffOverOn": {
+        "pairs": 1,
+        "ratio": 1.0320187774828664,
+        "ci95": null
+      },
+      "p95LatencySpeedupOffOverOn": {
+        "pairs": 1,
+        "ratio": 0.7424248673578433,
+        "ci95": null
+      },
+      "p99LatencySpeedupOffOverOn": {
+        "pairs": 1,
+        "ratio": 0.7592445377249758,
+        "ci95": null
+      },
+      "medianPairedTotalByteReductionPercent": 85.36995279588221,
+      "medianPairedCpuReductionPercent": 28.57142857142857
+    },
+    {
+      "protocol": "reliable-udp",
+      "workload": "repeated-32k",
+      "phase": "warm",
+      "off": {
+        "runs": 1,
+        "medianUsefulMiBPerSecond": 12.925591248857701,
+        "medianElapsedMs": 309.4636,
+        "medianPayloadBytes": 4194304,
+        "medianMessages": 128,
+        "medianRttP50Ms": 10.5198,
+        "medianRttP95Ms": 20.5376,
+        "medianRttP99Ms": 22.2202,
+        "medianUpBytes": 4260054,
+        "medianDownBytes": 15663,
+        "medianTotalBytes": 4275717,
+        "medianCpuMs": 296.875,
+        "medianDictionaryCount": 0,
+        "medianCacheBytes": 0,
+        "medianSettleMs": 272.63
+      },
+      "on": {
+        "runs": 1,
+        "medianUsefulMiBPerSecond": 6.858803471446201,
+        "medianElapsedMs": 583.1921,
+        "medianPayloadBytes": 4194304,
+        "medianMessages": 128,
+        "medianRttP50Ms": 7.5836,
+        "medianRttP95Ms": 90.7549,
+        "medianRttP99Ms": 98.0665,
+        "medianUpBytes": 188590,
+        "medianDownBytes": 12514,
+        "medianTotalBytes": 201104,
+        "medianCpuMs": 171.875,
+        "medianDictionaryCount": 98,
+        "medianCacheBytes": 187874,
+        "medianSettleMs": 435.9823
+      },
+      "pairedRounds": [
+        0
+      ],
+      "throughputRatioOnOverOff": {
+        "pairs": 1,
+        "ratio": 0.5306375034915596,
+        "ci95": null
+      },
+      "p50LatencySpeedupOffOverOn": {
+        "pairs": 1,
+        "ratio": 1.3871775937549449,
+        "ci95": null
+      },
+      "p95LatencySpeedupOffOverOn": {
+        "pairs": 1,
+        "ratio": 0.2262974230592508,
+        "ci95": null
+      },
+      "p99LatencySpeedupOffOverOn": {
+        "pairs": 1,
+        "ratio": 0.2265829819561216,
+        "ci95": null
+      },
+      "medianPairedTotalByteReductionPercent": 95.29660171615662,
+      "medianPairedCpuReductionPercent": 42.10526315789473
+    },
+    {
+      "protocol": "reliable-udp",
+      "workload": "repeated-32k",
+      "phase": "latency",
+      "off": {
+        "runs": 1,
+        "medianUsefulMiBPerSecond": 3.0330598979284358,
+        "medianElapsedMs": 659.4001,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 9.8452,
+        "medianRttP95Ms": 15.6398,
+        "medianRttP99Ms": 21.2679,
+        "medianUpBytes": 2131062,
+        "medianDownBytes": 7919,
+        "medianTotalBytes": 2138981,
+        "medianCpuMs": 125,
+        "medianDictionaryCount": 0,
+        "medianCacheBytes": 0,
+        "medianSettleMs": 275.2345
+      },
+      "on": {
+        "runs": 1,
+        "medianUsefulMiBPerSecond": 4.436858402544627,
+        "medianElapsedMs": 450.7694,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 6.697,
+        "medianRttP95Ms": 9.6157,
+        "medianRttP99Ms": 13.0911,
+        "medianUpBytes": 94424,
+        "medianDownBytes": 6353,
+        "medianTotalBytes": 100777,
+        "medianCpuMs": 78.125,
+        "medianDictionaryCount": 98,
+        "medianCacheBytes": 187874,
+        "medianSettleMs": 274.7038
+      },
+      "pairedRounds": [
+        0
+      ],
+      "throughputRatioOnOverOff": {
+        "pairs": 1,
+        "ratio": 1.4628324371618833,
+        "ci95": null
+      },
+      "p50LatencySpeedupOffOverOn": {
+        "pairs": 1,
+        "ratio": 1.4700910855606988,
+        "ci95": null
+      },
+      "p95LatencySpeedupOffOverOn": {
+        "pairs": 1,
+        "ratio": 1.6264858512640783,
+        "ci95": null
+      },
+      "p99LatencySpeedupOffOverOn": {
+        "pairs": 1,
+        "ratio": 1.6246075578064487,
+        "ci95": null
+      },
+      "medianPairedTotalByteReductionPercent": 95.28855095019544,
+      "medianPairedCpuReductionPercent": 37.5
+    }
+  ],
+  "overall": [
+    {
+      "protocol": "reliable-udp",
+      "workload": "repeated-32k",
+      "off": {
+        "runs": 1,
+        "medianUpBytes": 8525310,
+        "medianDownBytes": 36535,
+        "medianTotalBytes": 8561845,
+        "medianSetupBytes": 10469,
+        "medianSetupMs": 577.3341,
+        "medianPayloadBytes": 8388608,
+        "medianMessages": 256
+      },
+      "on": {
+        "runs": 1,
+        "medianUpBytes": 593234,
+        "medianDownBytes": 31763,
+        "medianTotalBytes": 624997,
+        "medianSetupBytes": 10519,
+        "medianSetupMs": 444.543,
+        "medianPayloadBytes": 8388608,
+        "medianMessages": 256
+      },
+      "pairedRounds": [
+        0
+      ],
+      "medianPairedTotalByteReductionPercent": 92.70020655594676
+    }
+  ],
+  "incompleteRuns": []
+}

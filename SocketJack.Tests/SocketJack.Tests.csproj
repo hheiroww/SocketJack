@@ -18,7 +18,18 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SocketJack\SocketJack.csproj" />
+    <ProjectReference Include="..\Tests\CompatibilityContracts\V1\Contracts.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\Tests\CompatibilityContracts\V2\Contracts.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\Tests\CompatibilityContracts\Broken\Contracts.csproj" ReferenceOutputAssembly="false" />
 
   </ItemGroup>
 
+  <Target Name="CopyCompatibilityFixtures" AfterTargets="Build">
+    <ItemGroup>
+      <ContractFixture Include="..\Tests\CompatibilityContracts\V1\bin\$(Configuration)\net8.0\Compatibility.Contracts.dll"><Version>V1</Version></ContractFixture>
+      <ContractFixture Include="..\Tests\CompatibilityContracts\V2\bin\$(Configuration)\net8.0\Compatibility.Contracts.dll"><Version>V2</Version></ContractFixture>
+      <ContractFixture Include="..\Tests\CompatibilityContracts\Broken\bin\$(Configuration)\net8.0\Compatibility.Contracts.dll"><Version>Broken</Version></ContractFixture>
+    </ItemGroup>
+    <Copy SourceFiles="@(ContractFixture)" DestinationFiles="@(ContractFixture->'$(OutDir)Contracts\%(Version)\Compatibility.Contracts.dll')" />
+  </Target>
 </Project>

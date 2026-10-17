@@ -318,6 +318,10 @@
             keeping all stream state, viewers, recordings, and keys on this instance.
             </summary>
         </member>
+        <member name="P:SocketJack.Net.BroadcastServer.AuthorizeViewer">
+            <summary>Optional per-request playback lease. A null/false lease denies access;
+            the returned predicate is checked throughout playback to support revocation.</summary>
+        </member>
         <member name="M:SocketJack.Net.BroadcastServer.BroadcastToViewers(System.Byte[])">
             <summary>
             Broadcasts raw data to all connected stream viewers.
@@ -375,6 +379,9 @@
         </member>
         <member name="P:SocketJack.Net.BroadcastServer.UserStreamContext.Title">
             <summary>User-settable stream title displayed in the stream directory.</summary>
+        </member>
+        <member name="P:SocketJack.Net.BroadcastServer.UserStreamContext.BroadcastId">
+            <summary>Unique identifier of the current publication; empty when stopped.</summary>
         </member>
         <member name="P:SocketJack.Net.BroadcastServer.UserStreamContext.IsPublishing">
             <summary>Whether this user is currently publishing a stream.</summary>
@@ -1767,12 +1774,12 @@
         </member>
         <member name="M:SocketJack.Net.HttpServer.RouteFile(System.String,System.String,System.String,System.String[][],System.Int32)">
             <summary>
-            Maps a route to an HTML file with variable replacement (e.g., $Username) and caching.
+            Maps a rendered HTML route. Rendered responses are never cached; use MapDirectory or MapFile for static resources.
             </summary>
         </member>
         <member name="M:SocketJack.Net.HttpServer.RouteString(System.String,System.String,System.String,System.String[][],System.String,System.Int32)">
             <summary>
-            Maps a route to a string (e.g., HTML template) with variable replacement and caching.
+            Maps a rendered string route. Variables are evaluated on every request; legacy cache parameters are retained for source compatibility.
             </summary>
         </member>
         <member name="M:SocketJack.Net.HttpServer.ReplaceVars(System.String,System.String[][])">
@@ -1916,13 +1923,9 @@
         </member>
         <member name="P:SocketJack.Net.HttpServer.CacheControl">
             <summary>
-            Gets or sets the <c>Cache-Control</c> header value added to every HTTP response.
-            When <see langword="null"/> (the default), no <c>Cache-Control</c> header is emitted.
-            Example values: <c>"public, max-age=3600"</c>, <c>"no-cache"</c>,
-            <c>"private, max-age=86400"</c>.
-            For static files served via <c>MapDirectory</c>, an <c>ETag</c> and
-            <c>Last-Modified</c> header are also sent, and <c>If-None-Match</c> /
-            <c>If-Modified-Since</c> conditional requests are honoured with <c>304 Not Modified</c>.
+            Optional restriction for mapped static resources. Static files always revalidate
+            against content ETags so edits invalidate browser copies immediately. A no-store
+            setting disables reuse. Rendered routes, APIs and generated responses use no-store.
             </summary>
         </member>
         <member name="P:SocketJack.Net.HttpServer.EnablePort80HttpsRedirect">
@@ -2853,12 +2856,19 @@
         <member name="P:SocketJack.Net.NetworkConnection.AuthenticatedPrincipal">
             <summary>A defensive copy of the locally verified identity. Wire metadata never sets this property.</summary>
         </member>
+        <member name="M:SocketJack.Net.NetworkConnection.SetHostedEncryptedTransport(System.Boolean)">
+            <summary>Explicit host-adapter opt-in after HTTPS is verified by a trusted local TLS terminator.
+            This state is never read from serialized messages or peer metadata.</summary>
+        </member>
         <member name="M:SocketJack.Net.NetworkConnection.SetAuthenticatedPrincipal(System.Security.Claims.ClaimsPrincipal,System.DateTimeOffset)">
             <summary>Call only after the server has verified credentials or a client certificate. Requires encrypted TLS.
             Never copy roles or an authentication flag from a DTO, peer metadata, or DLL claims. UDP has no authenticated channel.</summary>
         </member>
         <member name="M:SocketJack.Net.NetworkConnection.ClearAuthentication">
             <summary>Revoke local authentication on logout or credential invalidation.</summary>
+        </member>
+        <member name="M:SocketJack.Net.NetworkConnection.TryUseFeature(System.String,System.Type[])">
+            <summary>Checks an application feature before starting work; raises FeatureDisabled on the socket options when unavailable.</summary>
         </member>
         <member name="P:SocketJack.Net.NetworkConnection.Socket">
             <summary>
@@ -2869,6 +2879,9 @@
             <summary>
             The stream associated to the connection.
             </summary>
+        </member>
+        <member name="P:SocketJack.Net.NetworkConnection.HostedStream">
+            <summary>Optional externally owned stream for an in-process HTTP upgrade.</summary>
         </member>
         <member name="P:SocketJack.Net.NetworkConnection.Compressed">
             <summary>
@@ -3207,6 +3220,18 @@
             Removes all type callbacks of T and it's respective white-list entry.
             </summary>
         </member>
+        <member name="T:SocketJack.Net.FeatureDisabledEventArgs">
+            <summary>An attempted operation that the connected peer cannot safely decode.</summary>
+        </member>
+        <member name="T:SocketJack.Net.NetworkCompatibility">
+            <summary>Immutable compatibility decisions for one peer, independent of authentication.</summary>
+        </member>
+        <member name="P:SocketJack.Net.NetworkCompatibility.BinaryCompression">
+            <summary>Whether both peers support adaptive compression of SocketJack binary objects.</summary>
+        </member>
+        <member name="P:SocketJack.Net.NetworkCompatibility.BinaryCompressionPerClient">
+            <summary>Definitions and learned compression state are isolated to this connection.</summary>
+        </member>
         <member name="T:SocketJack.Net.NetworkOptions">
             <summary>
             Default options for <see langword="TcpClient"/>, <see langword="TcpServer"/>, <see langword="UdpClient"/>, and <see langword="UdpServer"/>.
@@ -3226,15 +3251,22 @@
             <summary>Local receive authorization policy. Independent of SafeMode and never negotiated by a client.</summary>
         </member>
         <member name="P:SocketJack.Net.NetworkOptions.SafeMode">
-            <summary>Require a client DLL fingerprint handshake before typed network traffic. Default: true.</summary>
+            <summary>Require local DLL integrity checks and a compatibility handshake before typed network traffic. Default: true.</summary>
             <remarks>WARNING: setting SafeMode = false disables the DLL handshake and verified-assembly requirement.
             This is not a smart move on an untrusted network. Use only for an explicitly isolated legacy endpoint.
             WARNING: client-reported MD5/SHA-256 values are compatibility claims, not remote attestation or authentication.
-            Use authenticated TLS and application authorization as well. Register callbacks and approved assemblies before connecting.</remarks>
+            Use authenticated TLS and application authorization as well. Register callbacks before connecting; their assemblies are approved automatically.</remarks>
+        </member>
+        <member name="P:SocketJack.Net.NetworkOptions.EnableCompatibilityNegotiation">
+            <summary>Negotiate wire contracts instead of requiring identical remote DLL builds. Both endpoints must support this protocol.</summary>
+        </member>
+        <member name="E:SocketJack.Net.NetworkOptions.FeatureDisabled">
+            <summary>Raised when an attempt to use a message or application feature is blocked by peer compatibility.</summary>
         </member>
         <member name="P:SocketJack.Net.NetworkOptions.VerifiedAssemblies">
             <summary>Approved local application assemblies. SHA-256 fingerprints are read automatically from each reflected DLL.
-            Never populate this registry from a network client. SafeMode requires every application message DLL to be approved.</summary>
+            Adding a local whitelist type or callback automatically registers its assembly without replacing existing pins.
+            Locally configured string entries register when resolved. Never populate this registry from a network client.</summary>
         </member>
         <member name="P:SocketJack.Net.NetworkOptions.CompressionAlgorithm">
             <summary>
@@ -5143,12 +5175,103 @@
               resource lookups using this strongly typed resource class.
             </summary>
         </member>
+        <member name="T:SocketJack.Serialization.BinaryCompressionMemory">
+            <summary>Process-wide admission accounting for retained compression state, including peer metadata.</summary>
+        </member>
+        <member name="T:SocketJack.Serialization.BinaryCompressionCache">
+            <summary>
+            Adaptive, byte-bounded differential repository. Candidates survive unrelated messages and
+            expire by inactivity or memory pressure. A cheap scout wakes learning when content repeats;
+            unsuccessful deep probes back off instead of scanning incompressible objects repeatedly.
+            Acknowledged definitions remain immutable for the lifetime of the connection.
+            </summary>
+        </member>
+        <member name="M:SocketJack.Serialization.BinaryCompressionCache.Encode(System.Byte[],System.Collections.Generic.ISet{System.UInt64},SocketJack.Serialization.BinaryCompressionDefinition[]@)">
+            <summary>Fast network entry point; the immutable dictionary index is reused across objects.</summary>
+        </member>
+        <member name="T:SocketJack.Serialization.BinaryCompressionCodec">
+            <summary>
+            SBC/version 1: magic (S,B,C,1), command, then unsigned variable-length counts/lengths.
+            Data: original length, inline definition list, and literal(0), overlapping LZ copy(1), or
+            dictionary slice(2) tokens. Updates (2) contain definitions, acknowledgements (3) contain IDs.
+            IDs are little-endian content hashes. Every reference is independently bounds checked.
+            </summary>
+        </member>
+        <member name="T:SocketJack.Serialization.BinaryCompressionSession">
+            <summary>One private SBC1 repository for an externally hosted, negotiated BinarySerializer connection. Send returned controls on the same connection; never share a session between clients.</summary>
+        </member>
+        <member name="P:SocketJack.Serialization.BinaryCompressionSession.RetainedBytes">
+            <summary>Retained repository and peer metadata, charged to the process-wide physical RAM / 16 ceiling.</summary>
+        </member>
+        <member name="P:SocketJack.Serialization.BinaryCompressionSession.DictionaryCount">
+            <summary>Number of immutable binary pieces in this connection's dictionary.</summary>
+        </member>
+        <member name="M:SocketJack.Serialization.BinaryCompressionSession.Encode(System.Byte[],System.Byte[][]@)">
+            <summary>Compress one SB1 payload. Send every returned registration before or with the payload; references remain self-contained until acknowledged.</summary>
+        </member>
+        <member name="M:SocketJack.Serialization.BinaryCompressionSession.Decode(System.Byte[],System.Byte[][]@)">
+            <summary>Decode data or process a control (null result). Send returned controls in order. No application types are activated.</summary>
+        </member>
+        <member name="M:SocketJack.Serialization.BinaryCompressionSession.Dispose">
+            <summary>Release this connection's dictionary and acknowledgement metadata.</summary>
+        </member>
         <member name="T:SocketJack.Serialization.BinarySerializer">
             <summary>
             SocketJack binary format v1. Byte arrays are raw bytes, integers use variable-length encoding,
             and decoding creates inert values until Wrapper applies the socket's type whitelist.
             Select the same serializer at both endpoints. Usable with TCP and UDP.
             </summary>
+        </member>
+        <member name="P:SocketJack.Serialization.BinarySerializer.EnableCompression">
+            <summary>Enable adaptive network compression. Both peers negotiate support; standalone SB1 serialization is unchanged. Set before connecting.</summary>
+        </member>
+        <member name="P:SocketJack.Serialization.BinarySerializer.ShareCompressionDictionary">
+            <summary>Share learned definitions between clients of the same socket. Set false before connecting for websites or services whose clients exchange independent data. Either peer can require a private connection cache.</summary>
+        </member>
+        <member name="P:SocketJack.Serialization.BinarySerializer.CompressionHistoryLength">
+            <summary>Zero indicates adaptive, memory-bounded candidate retention rather than a fixed object history.</summary>
+        </member>
+        <member name="P:SocketJack.Serialization.BinarySerializer.CompressionMemoryLimit">
+            <summary>Process-wide ceiling for retained compression state, at most one sixteenth of physical RAM.</summary>
+        </member>
+        <member name="P:SocketJack.Serialization.BinarySerializer.CompressionMemoryUsed">
+            <summary>Conservatively accounted compression state across all serializers, including acknowledged peer shortcuts.</summary>
+        </member>
+        <member name="P:SocketJack.Serialization.BinarySerializer.CompressionCacheBytes">
+            <summary>Conservatively accounted bytes retained by this serializer's live socket caches.</summary>
+        </member>
+        <member name="P:SocketJack.Serialization.BinarySerializer.CompressionDictionaryCount">
+            <summary>Number of definitions retained by this serializer's live socket caches.</summary>
+        </member>
+        <member name="P:SocketJack.Serialization.BinarySerializer.CompressionCandidateCount">
+            <summary>Unconfirmed repeated-segment candidates retained across this serializer's live sockets.</summary>
+        </member>
+        <member name="P:SocketJack.Serialization.BinarySerializer.CompressionEncodingAttempts">
+            <summary>Full compression attempts after inexpensive eligibility probes, across live socket caches.</summary>
+        </member>
+        <member name="P:SocketJack.Serialization.BinarySerializer.CompressionBypassedMessages">
+            <summary>Eligible messages sent as their original byte array, including unsuccessful full compression attempts.</summary>
+        </member>
+        <member name="P:SocketJack.Serialization.BinarySerializer.CompressionPlanCount">
+            <summary>Verified reusable encoding plans retained across live compression caches.</summary>
+        </member>
+        <member name="P:SocketJack.Serialization.BinarySerializer.CompressionPlanHits">
+            <summary>Messages encoded using a byte-verified cached plan.</summary>
+        </member>
+        <member name="P:SocketJack.Serialization.BinarySerializer.CompressionLearningPasses">
+            <summary>Exact candidate-learning passes, including cold observations that skip the encoder.</summary>
+        </member>
+        <member name="P:SocketJack.Serialization.BinarySerializer.CompressionProbeInterval">
+            <summary>Largest current background learning probe interval among live socket caches; one when no cache exists.</summary>
+        </member>
+        <member name="M:SocketJack.Serialization.BinarySerializer.SerializeJson(System.Text.Json.JsonElement)">
+            <summary>Encode JSON-shaped values as SB1 fields, arrays and scalars, without a JSON text payload or CLR type activation.</summary>
+        </member>
+        <member name="M:SocketJack.Serialization.BinarySerializer.DeserializeJson(System.Byte[])">
+            <summary>Read inert SB1 values as a JSON-shaped document. No incoming CLR type is activated.</summary>
+        </member>
+        <member name="M:SocketJack.Serialization.BinarySerializer.CreateCompressionSession(System.Int32)">
+            <summary>Create an independent, memory-bounded compression repository for one externally hosted binary connection.</summary>
         </member>
         <member name="T:SocketJack.Serialization.ISerializer">
             <summary>

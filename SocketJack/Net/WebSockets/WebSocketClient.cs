@@ -28,6 +28,8 @@ namespace SocketJack.Net.WebSockets {
     public class WebSocketClient : IDisposable, ISocket {
         private bool _handshakeComplete = false;
         private readonly SemaphoreSlim _writeSemaphore = new(1, 1);
+        private MemoryStream _fragments;
+        private int _fragmentOpcode;
 
         #region Properties
 
@@ -70,7 +72,7 @@ namespace SocketJack.Net.WebSockets {
         bool ISocket.isDisposed { get => isDisposed; set => isDisposed = value; }
         public bool Connected {
             get {
-                return _socket != null && _socket.Connected && _stream != null && _stream.CanRead;
+                return !isDisposed && Connection?.Closed != true && _socket != null && _socket.Connected && _stream != null && _stream.CanRead;
             }
         }
 
@@ -566,6 +568,7 @@ namespace SocketJack.Net.WebSockets {
             throw new NotImplementedException("You can only access SendBroadcast(object Obj, NetworkConnection Except) from WebSocketServer.");
         }
         public void SendSegmented(NetworkConnection Client, object Obj) {
+            if (Client != null && !Client.CanSend(Obj)) return;
             byte[] SerializedBytes = Options.Serializer.Serialize(new Wrapper(Obj, this));
             Segment[] SegmentedObject = SerializedBytes.GetSegments();
             foreach (var s in SegmentedObject) {
@@ -775,7 +778,11 @@ namespace SocketJack.Net.WebSockets {
 
         #region Sending
         public void Send(object obj) {
-            SendAsync(obj, default);
+            _ = SendObservedAsync(obj);
+        }
+        private async Task SendObservedAsync(object obj) {
+            try { await SendAsync(obj, default); }
+            catch (Exception ex) { InvokeOnError(ex); }
         }
         protected internal async Task SendAsync(object Object, CancellationToken cancellationToken = default) {
             if (!Connected) return;
@@ -793,15 +800,16 @@ namespace SocketJack.Net.WebSockets {
 #if !UNITY && !WINDOWS
             obj = Object;
 #endif
+            if (Connection != null && !Connection.CanSend(obj)) return;
             byte[] serializedBytes = Options.Serializer.Serialize(new Wrapper(obj, this));
             if (serializedBytes.Length > 8192) {
                 await SendSegmented(Connection, serializedBytes, obj.GetType(), obj);
             } else {
-                byte[] payload = serializedBytes;
+                byte[] payload = BinaryNetworkCompression.Encode(this, Connection, serializedBytes);
                 if (Options.UseCompression) {
                     payload = Options.CompressionAlgorithm.Compress(payload);
                 }
-                await WriteWebSocketFrameAsync(payload, Options.UseCompression ? 0x2 : 0x1, cancellationToken);
+                await WriteWebSocketFrameAsync(payload, Options.UseCompression || Options.Serializer is BinarySerializer ? 0x2 : 0x1, cancellationToken);
                 if (Options.Logging && Options.LogSendEvents) {
                     Type objType = obj.GetType();
                     if (Globals.IgnoreLoggedTypes.Contains(objType)) return;
@@ -899,47 +907,78 @@ namespace SocketJack.Net.WebSockets {
         }
 
         #region Receiving
+        private async Task<bool> ReadFrameBytesAsync(byte[] buffer, CancellationToken token) {
+            int offset = 0;
+            while (offset < buffer.Length) {
+                int count = await _stream.ReadAsync(buffer, offset, buffer.Length - offset, token);
+                if (count == 0) {
+                    if (offset == 0) return false;
+                    throw new EndOfStreamException("WebSocket frame ended prematurely.");
+                }
+                offset += count;
+            }
+            return true;
+        }
+
         public async Task<WscObject> ReceiveAsync(CancellationTokenSource cts = default) {
             try {
+                var token = cts?.Token ?? CancellationToken.None;
                 var header = new byte[2];
-                int bytesRead = await _stream.ReadAsync(header, 0, 2, cts.Token);
+                if (!await ReadFrameBytesAsync(header, token)) return new WscObject(0x8, -1);
                 bool fin = (header[0] & 0x80) != 0;
                 int opcode = header[0] & 0x0F;
+                if ((header[0] & 0x70) != 0) throw new InvalidDataException("Unsupported WebSocket extension bits.");
                 bool mask = (header[1] & 0x80) != 0;
                 int payloadLen = header[1] & 0x7F;
-                if (opcode == 0x8) {
-                    return new WscObject(opcode, -1);
-                }
                 if (payloadLen == 126) {
                     var ext = new byte[2];
-                    bytesRead = await _stream.ReadAsync(ext, 0, 2, cts.Token);
+                    if (!await ReadFrameBytesAsync(ext, token)) throw new EndOfStreamException();
                     payloadLen = (ext[0] << 8) | ext[1];
                 } else if (payloadLen == 127) {
                     var ext = new byte[8];
-                    bytesRead = await _stream.ReadAsync(ext, 0, 8, cts.Token);
+                    if (!await ReadFrameBytesAsync(ext, token)) throw new EndOfStreamException();
                     ulong advertised = System.Buffers.Binary.BinaryPrimitives.ReadUInt64BigEndian(ext);
                     if (advertised > (ulong)Options.MaximumBufferSize) throw new System.IO.InvalidDataException("WebSocket frame exceeds MaximumBufferSize.");
                     payloadLen = checked((int)advertised);
                 }
+                if (opcode >= 8 && (!fin || payloadLen > 125)) throw new InvalidDataException("Invalid WebSocket control frame.");
                 if (payloadLen > Options.MaximumBufferSize) throw new System.IO.InvalidDataException("WebSocket frame exceeds MaximumBufferSize.");
                 byte[] maskKey = null;
                 if (mask) {
                     maskKey = new byte[4];
-                    bytesRead = await _stream.ReadAsync(maskKey, 0, 4, cts.Token);
-                    if (bytesRead == 0)
-                        return null;
+                    if (!await ReadFrameBytesAsync(maskKey, token)) throw new EndOfStreamException();
                 }
                 var payload = new byte[payloadLen];
-                int read = 0;
-                while (read < payloadLen) {
-                    int r = await _stream.ReadAsync(payload, read, payloadLen - read, cts.Token);
-                    read += r;
-                }
+                if (!await ReadFrameBytesAsync(payload, token)) throw new EndOfStreamException();
                 if (mask && maskKey != null) {
                     for (int i = 0; i < payload.Length; i++)
                         payload[i] ^= maskKey[i % 4];
                 }
                 _totalBytesReceived += payload.Length;
+                // Proxy/server keepalive frames are not typed application messages.
+                if (opcode == 0x9) { await WriteWebSocketFrameAsync(payload, 0xA, token); return null; }
+                if (opcode == 0xA) return null;
+                if (opcode == 0x8) {
+                    await WriteWebSocketFrameAsync(payload, 0x8, token);
+                    return new WscObject(opcode, -1);
+                }
+                if (opcode == 0) {
+                    if (_fragments == null) throw new InvalidDataException("Unexpected WebSocket continuation.");
+                    if (_fragments.Length + payload.Length > Options.MaximumBufferSize) throw new InvalidDataException("WebSocket message exceeds MaximumBufferSize.");
+                    _fragments.Write(payload, 0, payload.Length);
+                    if (!fin) return null;
+                    payload = _fragments.ToArray();
+                    _fragments.Dispose(); _fragments = null;
+                    opcode = _fragmentOpcode;
+                } else if (opcode == 1 || opcode == 2) {
+                    if (_fragments != null) throw new InvalidDataException("Unfinished WebSocket message.");
+                    if (!fin) {
+                        _fragmentOpcode = opcode;
+                        _fragments = new MemoryStream();
+                        _fragments.Write(payload, 0, payload.Length);
+                        return null;
+                    }
+                } else throw new InvalidDataException("Unsupported WebSocket opcode.");
                 byte[] data = payload;
                 if (Options.UseCompression && opcode == 0x2) {
                     data = UdpReliableObjects.Decompress(data, Options);
@@ -948,11 +987,15 @@ namespace SocketJack.Net.WebSockets {
                     return null;
                 object message = InboundMessageDecoder.Read(this, Connection, data);
                 return message == null ? null : new WscObject(message, payload.Length);
+            } catch (OperationCanceledException) {
+                return new WscObject(0x8, -1);
+            } catch (ObjectDisposedException) {
+                return new WscObject(0x8, -1);
             } catch (Exception ex) {
                 if(!ex.Message.Contains("Unable to read data from the transport connection")) {
                     InvokeOnError(Connection, ex);
                 }
-                return null;
+                return new WscObject(0x8, -1);
             }
         }
         #endregion
@@ -1016,6 +1059,7 @@ namespace SocketJack.Net.WebSockets {
         }
 
         public WebSocketClient(NetworkOptions Options, string Name = "WebSocketClient") {
+            this.Options = Options ?? throw new ArgumentNullException(nameof(Options));
             this.Name = Name;
             Peers = new PeerList(this);
             OnError += WebSocketClient_OnError;
@@ -1033,6 +1077,8 @@ namespace SocketJack.Net.WebSockets {
             typeof(Identifier[])
         };
         public async Task<bool> ConnectAsync(Uri uri) {
+            CancellationTokenSource cts = null;
+            bool receiving = false;
             try {
                 if (Options.Logging) {
                     LogFormatAsync("[{0}] Connecting to -> {1}", new[] { Name, uri.ToString() });
@@ -1055,16 +1101,8 @@ namespace SocketJack.Net.WebSockets {
                 } else {
                     _stream = Connection._Stream;
                 }
-                var cts = new CancellationTokenSource();
-                // Monitor socket and connection state in a background task
-                var monitorTask = Task.Run(async () => {
-                    while (Connection.Socket != null && Connection.Socket.Connected && !Connection.Closed) {
-                        await Task.Delay(100);
-                    }
-                    if (!cts.IsCancellationRequested) {
-                        cts.Cancel();
-                    }
-                });
+                cts = new CancellationTokenSource();
+                cts.CancelAfter(TimeSpan.FromSeconds(5));
                 // Handshake
                 string secWebSocketKey = Convert.ToBase64String(Guid.NewGuid().ToByteArray());
                 string requestTarget = string.IsNullOrEmpty(uri.PathAndQuery) ? "/" : uri.PathAndQuery;
@@ -1081,35 +1119,43 @@ namespace SocketJack.Net.WebSockets {
                 await _stream.WriteAsync(requestBytes, 0, requestBytes.Length, cts.Token);
                 // Read response
                 var responseBuilder = new StringBuilder();
-                var buffer = new byte[1024];
+                // Stop exactly at the header boundary: the server can send its first
+                // typed frame immediately after the upgrade response.
+                var buffer = new byte[1];
                 int bytesRead = 0;
                 do {
                     bytesRead = await _stream.ReadAsync(buffer, 0, buffer.Length, cts.Token);
                     responseBuilder.Append(Encoding.UTF8.GetString(buffer, 0, bytesRead));
-                } while (!responseBuilder.ToString().Contains("\r\n\r\n") && bytesRead > 0);
+                    if (responseBuilder.Length > SafeModeHandshake.MaximumBytes * 2 + 4096) throw SafeModeHandshake.Rejected();
+                } while (bytesRead > 0 && !(responseBuilder.Length >= 4 &&
+                    responseBuilder[responseBuilder.Length - 4] == '\r' && responseBuilder[responseBuilder.Length - 3] == '\n' &&
+                    responseBuilder[responseBuilder.Length - 2] == '\r' && responseBuilder[responseBuilder.Length - 1] == '\n'));
                 string response = responseBuilder.ToString();
                 if (!response.StartsWith("HTTP/1.1 101")) {
                     LogFormatAsync("[{0}] Failed to connect to -> {1}", new[] { Name, uri.ToString() });
                     cts.Dispose();
+                    _stream?.Dispose();
+                    _socket?.Dispose();
                     return false;
                 }
-                if (Options.SafeMode) SafeModeHandshake.MarkVerified(Connection, Options);
+                SafeModeHandshake.AcceptHttpReply(response, Options, Connection);
+                cts.CancelAfter(Timeout.Infinite);
                 _handshakeComplete = true;
+                BinaryNetworkCompression.Synchronize(this, Connection);
                 InvokeOnConnected(new ConnectedEventArgs(this, Connection));
                 if (Options.Logging) {
                     LogFormatAsync("[{0}] Connected to  -> {1}", new[] { Name, uri.ToString() });
                 }
-                Task.Run(async () => {
+                receiving = true;
+                _ = Task.Run(async () => {
                     while (!_handshakeComplete && Connected) {
                         await Task.Delay(100);
                     }
                     while (Connected && !cts.IsCancellationRequested) {
                         try {
                             var receivedObject = await ReceiveAsync(cts);
-                            if (receivedObject == null || receivedObject.Length == -1) {
-                                // connection closed remotely
-                                //break;
-                            } else if (receivedObject != null && receivedObject.Object != null) {
+                            if (receivedObject?.Length == -1) break;
+                            if (receivedObject != null && receivedObject.Object != null) {
                                 Type objType = receivedObject.Object.GetType();
                                 if (Options.Logging && Options.LogReceiveEvents && !SkipLoggingTypes.Contains(objType)) {
                                     if (ReferenceEquals(objType, typeof(PeerRedirect))) {
@@ -1136,9 +1182,17 @@ namespace SocketJack.Net.WebSockets {
                         }
                     }
                     cts.Dispose();
+                    _stream?.Dispose();
+                    _socket?.Dispose();
+                    _fragments?.Dispose(); _fragments = null;
                 });
                 return true;
             } catch (Exception ex) {
+                if (!receiving) {
+                    cts?.Dispose();
+                    _stream?.Dispose();
+                    _socket?.Dispose();
+                }
                 InvokeOnError(ex);
                 return false;
             }

@@ -1,4 +1,4 @@
-using SocketJack.Extensions;
+﻿using SocketJack.Extensions;
 using SocketJack.Net.Database;
 using SocketJack.Net.P2P;
 using SocketJack.Serialization;
@@ -431,7 +431,7 @@ namespace SocketJack.Net {
             // 4-7, so requiring those bytes to be zero rejects valid publishers.
             // Delegate to the base HttpServer's GetRequestAsync which has full RTMP
             // handshake, session management, and publish route support built in.
-            if (IsProtocolEnabled(_rtmpDelegateHandler) && probe.Length >= 9 && probe[0] == 0x03) {
+            if (IsProtocolEnabled(_rtmpDelegateHandler) && probe.Length >= 1 && probe[0] == 0x03) {
                 _connectionHandlers.TryAdd(connId, _rtmpDelegateHandler);
                 e.Connection._Protocol = TcpProtocol.Rtmp;
                 e.Connection.SuppressConnectionTest = true;
@@ -494,7 +494,7 @@ namespace SocketJack.Net {
                     var conn = kvp.Value;
                     if (conn == null || conn.ID == Client.ID || conn.Closed)
                         continue;
-                    if (conn.Socket == null || !conn.Socket.Connected)
+                    if (conn.HostedStream == null && (conn.Socket == null || !conn.Socket.Connected))
                         continue;
                     // Only send to connections that have been identified as SocketJack or WebSocket.
                     if (_connectionHandlers.TryGetValue(conn.ID, out var handler)) {
@@ -522,12 +522,13 @@ namespace SocketJack.Net {
         public override void SendBroadcast(NetworkConnection[] ClientArray, object Obj, NetworkConnection Except = null) {
             if (ClientArray == null) return;
 
+            byte[] wsPayload = null;
             byte[] wsBytes = null;
 
             foreach (var conn in ClientArray) {
                 if (conn == null || conn.Closed)
                     continue;
-                if (conn.Socket == null || !conn.Socket.Connected)
+                if (conn.HostedStream == null && (conn.Socket == null || !conn.Socket.Connected))
                     continue;
                 if (Except != null && conn.ID == Except.ID)
                     continue;
@@ -535,10 +536,11 @@ namespace SocketJack.Net {
                     if (handler == _socketJackHandler) {
                         conn.TryEnqueueSendBytes(BuildSocketJackPatternFrame(conn, Obj));
                     } else if (handler == _webSocketHandler) {
-                        if (wsBytes == null) {
-                            byte[] payload = Options.Serializer.Serialize(new Wrapper(Obj, this));
-                            bool useBinary = Options.UseCompression;
-                            if (useBinary) {
+                        if (wsBytes == null || Options.Serializer is BinarySerializer) {
+                            if (wsPayload == null) wsPayload = Options.Serializer.Serialize(new Wrapper(Obj, this));
+                            byte[] payload = BinaryNetworkCompression.Encode(this, conn, wsPayload);
+                            bool useBinary = Options.UseCompression || Options.Serializer is BinarySerializer;
+                            if (Options.UseCompression) {
                                 payload = Options.CompressionAlgorithm.Compress(payload);
                             }
                             wsBytes = WebSocketFrameHelper.BuildFrame(payload, useBinary);
@@ -560,14 +562,15 @@ namespace SocketJack.Net {
         }
 
         private void SendBroadcastToSocketJackOnly(object Obj, NetworkConnection Except) {
-            // Pre-serialize once per protocol type to avoid redundant work per client.
-            byte[] wsBytes = null;   // WebSocket framed bytes (serialize + frame header)
+            // Serialize once; compression definitions and acknowledgments are per peer.
+            byte[] wsPayload = null;
+            byte[] wsBytes = null;
 
             foreach (var kvp in Clients) {
                 var conn = kvp.Value;
                 if (conn == null || conn.Closed)
                     continue;
-                if (conn.Socket == null || !conn.Socket.Connected)
+                if (conn.HostedStream == null && (conn.Socket == null || !conn.Socket.Connected))
                     continue;
                 if (Except != null && conn.ID == Except.ID)
                     continue;
@@ -575,10 +578,11 @@ namespace SocketJack.Net {
                     if (handler == _socketJackHandler) {
                         conn.TryEnqueueSendBytes(BuildSocketJackPatternFrame(conn, Obj));
                     } else if (handler == _webSocketHandler) {
-                        if (wsBytes == null) {
-                            byte[] payload = Options.Serializer.Serialize(new Wrapper(Obj, this));
-                            bool useBinary = Options.UseCompression;
-                            if (useBinary) {
+                        if (wsBytes == null || Options.Serializer is BinarySerializer) {
+                            if (wsPayload == null) wsPayload = Options.Serializer.Serialize(new Wrapper(Obj, this));
+                            byte[] payload = BinaryNetworkCompression.Encode(this, conn, wsPayload);
+                            bool useBinary = Options.UseCompression || Options.Serializer is BinarySerializer;
+                            if (Options.UseCompression) {
                                 payload = Options.CompressionAlgorithm.Compress(payload);
                             }
                             wsBytes = WebSocketFrameHelper.BuildFrame(payload, useBinary);
@@ -602,7 +606,8 @@ namespace SocketJack.Net {
         private byte[] BuildSocketJackPatternFrame(NetworkConnection connection, object obj) {
             var wrapped = new Wrapper(obj, this);
             var raw = Options.Serializer.Serialize(wrapped);
-            raw = connection.PatternCache.PrepareSend(raw, Options);
+            raw = BinaryNetworkCompression.Encode(this, connection, raw);
+            if (!(Options.Serializer is BinarySerializer)) raw = connection.PatternCache.PrepareSend(raw, Options);
             byte[] processed = Options.UseCompression ? Options.CompressionAlgorithm.Compress(raw) : raw;
             return processed.Terminate();
         }
@@ -775,9 +780,7 @@ namespace SocketJack.Net {
         private class RtmpDelegateHandler : IProtocolHandler {
             public string Name => "RTMP";
             public bool CanHandle(byte[] data) {
-                return data != null && data.Length >= 9
-                    && data[0] == 0x03
-                    && data[5] == 0 && data[6] == 0 && data[7] == 0 && data[8] == 0;
+                return data != null && data.Length >= 1 && data[0] == 0x03;
             }
             public void ProcessReceive(MutableTcpServer server, NetworkConnection connection, ref IReceivedEventArgs e) {
                 connection._Protocol = TcpProtocol.Rtmp;
@@ -893,7 +896,10 @@ namespace SocketJack.Net {
                 if (target.Options.SafeMode && !sender.SafeModeVerified) {
                     try {
                         SafeModeHandshake.Validate(payload, target.Options, sender);
-                        sender.Stream.Write(SafeModeHandshake.Accepted, 0, SafeModeHandshake.Accepted.Length);
+                        var reply = SafeModeHandshake.Reply(target.Options, sender);
+                        if (sender.Compatibility != null) reply = SafeModeHandshake.Frame(reply);
+                        sender.Stream.Write(reply, 0, reply.Length);
+                        BinaryNetworkCompression.Synchronize(target, sender);
                         if (target.Options.UsePeerToPeer) target.InitializePeer(sender);
                         target.InvokeSocketJackClientConnected(sender);
                     } catch { sender.Close(target, DisconnectionReason.Unknown); return; }
@@ -1575,6 +1581,7 @@ namespace SocketJack.Net {
                 "Upgrade: websocket\r\n" +
                 "Connection: Upgrade\r\n" +
                 "Sec-WebSocket-Accept: " + acceptKey + "\r\n" +
+                SafeModeHandshake.ReplyHeader(server.Options, connection) +
                 "\r\n";
             byte[] responseBytes = Encoding.UTF8.GetBytes(response);
             try {
@@ -1590,6 +1597,7 @@ namespace SocketJack.Net {
 
             state.HandshakeComplete = true;
             state.Buffer.RemoveRange(0, hdrEnd);
+            BinaryNetworkCompression.Synchronize(server, connection);
 
             if (server.Options.UsePeerToPeer) {
                 server.InitializePeer(connection);
@@ -1735,7 +1743,7 @@ namespace SocketJack.Net {
         #region Sending
 
         internal void SendObject(MutableTcpServer server, NetworkConnection connection, object obj) {
-            if (connection == null || connection.Closed || connection.Socket == null || !connection.Socket.Connected)
+            if (connection == null || connection.Closed || (connection.HostedStream == null && (connection.Socket == null || !connection.Socket.Connected)))
                 return;
             try {
                 Type objType = obj.GetType();
@@ -1743,8 +1751,9 @@ namespace SocketJack.Net {
                     ? server.Options.Serializer.Serialize(obj)
                     : server.Options.Serializer.Serialize(new Wrapper(obj, server));
 
-                bool useBinary = server.Options.UseCompression;
-                if (useBinary) {
+                payload = BinaryNetworkCompression.Encode(server, connection, payload);
+                bool useBinary = server.Options.UseCompression || server.Options.Serializer is BinarySerializer;
+                if (server.Options.UseCompression) {
                     payload = server.Options.CompressionAlgorithm.Compress(payload);
                 }
 

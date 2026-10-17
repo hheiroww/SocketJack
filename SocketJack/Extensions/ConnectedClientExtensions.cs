@@ -39,7 +39,11 @@ namespace SocketJack.Extensions {
             for (int i = 0; i < clientArray.Length; i++) {
                 var client = clientArray[i].Value;
                 if (client != null && !ReferenceEquals(client, Except) && !client.Closed && client.Socket != null && client.Socket.Connected) {
-                    client.TryEnqueueSendBytes(serialized);
+                    if (!client.CanSend(Obj)) continue;
+                    if (parent.Options.Serializer is BinarySerializer) {
+                        var encoded = BinaryNetworkCompression.Encode(parent, client, bytes);
+                        client.TryEnqueueSendBytes((parent.Options.UseCompression ? parent.Options.CompressionAlgorithm.Compress(encoded) : encoded).Terminate());
+                    } else client.TryEnqueueSendBytes(serialized);
                 }
             }
         }

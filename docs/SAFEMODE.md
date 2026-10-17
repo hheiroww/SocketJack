@@ -4,19 +4,35 @@
 
 ## What the handshake verifies
 
-The client sends its own allowed type names and the MD5 and SHA-256 of each type's local assembly file. The server compares that manifest with its own allowlist and verified local DLLs before deserializing application traffic. The two type lists and assembly bytes must match exactly. Both sides must register the same message contracts, including types used only for sending. Use one shared, byte-identical contracts DLL; separately compiling a class with the same name is insufficient. Runtime assemblies must also match; different operating systems/runtime builds can have different fingerprints.
+SafeMode and `EnableCompatibilityNegotiation` default to `true`. The version 2 handshake (`SJSM2`) compares locally reflected wire contracts independently of assembly SHA256. Different builds can exchange compatible messages, including additions of optional fields. Missing types, changed field types, missing required fields, and contracts whose custom conversion cannot be inferred disable the affected message. Enum operations are checked individually: existing numeric/name pairs remain usable while newer values are blocked. Serializer/compression/framing settings must agree; incompatible transport encodings reject the connection.
 
-The server never sends its expected DLL fingerprints, its manifest, or approved pins. TCP acceptance is only `SJOK1`; WebSocket acceptance is the ordinary upgrade response. Invalid claims, omitted claims, duplicates and oversized manifests are rejected. TCP/WebSocket connections close, while UDP peers are refused/removed. Silent TCP and reliable-UDP handshakes expire after five seconds. The type list is frozen for each connection: changing it requires reconnection.
+Each endpoint retains local SHA256 integrity checks. Peers exchange bounded schemas, never server DLL fingerprints or pins. TCP uses length-framed replies; WebSocket and typed HTTP return `X-SocketJack-Compatibility`. Invalid, duplicate, and oversized manifests are rejected. Silent TCP and reliable-UDP handshakes expire after five seconds. Changing the whitelist requires reconnection. Schemas never load remote types or widen local whitelists.
 
-**A client-reported hash is not proof of code execution or client identity.** A malicious program can copy a legitimate DLL's hashes. MD5 is not a secure authenticity primitive. The additional SHA-256 comparison avoids relying on MD5 collisions, but does not turn the handshake into attestation. Authenticate clients with TLS/mTLS or application credentials, authorize each operation, and use an authenticated channel for hostile networks. Reliable UDP's cookie establishes return-path reachability, not authenticated application identity.
+Compatibility is not authentication or proof of application semantics. TLS, authentication, authorization, blacklists and structural validation still apply. Reflection identifies wire-format differences; it cannot infer changed business behavior or arbitrary custom converter semantics.
+
+## Handling disabled features
+
+```csharp
+options.FeatureDisabled += (_, e) => ShowNotification(e.Feature + " disabled", e.Reason);
+
+// Check before opening capture devices or changing UI state.
+if (!connection.TryUseFeature("Voice chat", typeof(VoiceStart), typeof(VoiceChunk))) return;
+// For a feature represented by an enum operation in a shared message:
+if (!connection.TryUseFeatureValue("Screen sharing", MessageKind.ScreenShare)) return;
+```
+
+`connection.Compatibility` exposes `Supports`, `SupportsEnum`, and `DisabledTypes`. Typed sends check compatibility automatically and raise the event before sending an unsupported message. A blocked operation leaves other messages available. Reliable UDP's acknowledgement-returning send methods additionally return a failed task. Inbound incompatible types are rejected before materialization. Typed HTTP responds with 409 for a disabled route contract without invoking its handler.
+
+## Builds predating negotiation
+
+Install a negotiation-capable library on both endpoints once. A server enforcing exact hashes cannot accept a new client merely by changing the client. Older `SJSM1` manifests still work when they satisfy the original exact-hash/type rules. `EnableCompatibilityNegotiation = false` selects that strict legacy protocol explicitly. There is no insecure automatic retry and SafeMode remains enabled. A historical hash alone contains no schema, so unknown pre-negotiation binaries cannot safely be declared compatible automatically. After this baseline update, compatible older and newer builds negotiate without maintaining manual SHA256 whitelists.
 
 ## Approving application DLLs
 
-Register the reflected assembly. SocketJack resolves its DLL location and computes the SHA-256 automatically:
+Register a callback or add the message type to the whitelist. SocketJack registers its assembly, resolves its DLL location, and computes SHA-256 automatically:
 
 ```csharp
 var options = new NetworkOptions(); // SafeMode = true
-options.VerifiedAssemblies.Add(typeof(ChatMessage).Assembly);
 options.Whitelist.Add(typeof(ChatMessage));
 
 var server = new SocketJack.Net.TcpServer(options, 12345);
@@ -24,7 +40,7 @@ server.RegisterCallback<ChatMessage>(e => HandleAuthorizedMessage(e));
 server.Listen();
 ```
 
-Configure the client with its approved copy of the same contracts DLL and the same allowed types before `Connect`. Unapproved application DLLs are rejected even when a type was registered for callbacks. SocketJack's own protocol assembly and the local core/collection runtime assemblies are trusted runtime dependencies; their bytes are still compared during handshaking. The registry does not automatically trust other assemblies, and is excluded from JSON serialization.
+Register each endpoint's local contracts before `Connect`, including types used only for sending. Callback registration and `Whitelist.Add(typeof(ChatMessage))` automatically pin the local assembly while SafeMode is enabled. Locally configured string entries are pinned when resolved. Existing pins are preserved, and other types in the same assembly still require their own whitelist entries. SocketJack's own protocol assembly and the local core/collection runtime assemblies are trusted runtime dependencies; their schemas are compared during negotiation. The registry does not automatically trust assemblies outside locally registered message types, and is excluded from JSON serialization.
 
 `Add(assembly, expectedSha256)` remains available when a signed release manifest or administrator-controlled pin is required. The automatic overload approves the local DLL selected by the application; it is integrity and peer-version matching, not provenance verification. Assemblies loaded from an uncompressed embedded `.dll` resource are supported when a loaded owner contains a resource matching the DLL name and module ID. Dynamic assemblies and assemblies with no discoverable DLL image fail closed. This API does not sandbox code, block arbitrary assembly loading elsewhere in the host application, or attest a remote process.
 
@@ -36,7 +52,7 @@ Configure the client with its approved copy of the same contracts DLL and the sa
 - .NET WebSocket: client manifest in `X-SocketJack-Client-Dlls` during the HTTP upgrade. Typed WebSocket upgrades without it are refused. Browser WebSocket APIs cannot set this header; keep browser applications on separate explicitly configured endpoints rather than weakening a protected .NET endpoint.
 - Typed HTTP bodies: the same client-only header is checked before deserialization and typed route invocation. SocketJack's HTTP client adds it for wrapped bodies. Ordinary untyped HTTP routes are unchanged; they still require their own authentication/authorization.
 
-Handshake data is bounded to 60,000 bytes / 256 types and parsed as inert strings, independent of the selected message serializer. Reliable UDP message/queue budgets must accommodate that manifest. The built-in gzip/deflate receive paths now cap decompressed objects at `MaximumBufferSize`.
+Handshake data is bounded to 60,000 bytes / 256 root types / 512 schema nodes and parsed as inert data, independent of the selected message serializer. Reliable UDP message/queue budgets must accommodate that manifest. The built-in gzip/deflate receive paths now cap decompressed objects at `MaximumBufferSize`.
 
 ## Explicit unsafe legacy mode
 

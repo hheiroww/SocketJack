@@ -19,7 +19,6 @@ NetworkOptions Options() {
         Serializer = new BinarySerializer(), UsePeerToPeer = false,
         UdpReliable = new UdpReliableOptions { Ordering = false, BufferSize = 32768 }
     };
-    options.VerifiedAssemblies.Add(typeof(Update).Assembly);
     options.Authorization.AnonymousMessageTypes.Add(typeof(Update));
     return options;
 }

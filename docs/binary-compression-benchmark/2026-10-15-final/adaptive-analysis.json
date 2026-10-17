@@ -1,0 +1,2862 @@
+{
+  "source": "C:\\Users\\Vin\\Documents\\GitHub\\SocketJack\\docs\\binary-compression-benchmark\\2026-10-15-final\\adaptive.json",
+  "metadata": {
+    "startedUtc": "2026-10-16T02:44:51.1580585+00:00",
+    "updatedUtc": "2026-10-16T02:49:25.2885999+00:00",
+    "machineName": "DESKTOP-KSSU21A",
+    "os": "Microsoft Windows NT 10.0.22631.0",
+    "runtime": "8.0.31",
+    "processorCount": 16,
+    "processor": "Intel64 Family 6 Model 85 Stepping 4, GenuineIntel",
+    "physicalMemoryBytes": 16836141056,
+    "corePath": "C:\\Users\\Vin\\Documents\\GitHub\\SocketJack\\tools\\BinaryCompression.Bench\\bin\\Release\\net8.0\\SocketJack.dll",
+    "coreSha256": "70EB30F0CF7082B0746BE22AF2703B4BB2334EE2CFB5A1F8BF2C490FA65271EC",
+    "harnessSha256": "08C5AD754EB43A2499ABFBCE680CB517CCEA1404BAAE9F5BAB6407DA5755FD76",
+    "rounds": 5,
+    "coldMessages": 64,
+    "warmMessages": 128,
+    "latencyMessages": 64,
+    "bulkWindow": 8,
+    "phasePlans": {
+      "adaptive-32k": [
+        {
+          "name": "random",
+          "count": 64,
+          "window": 8
+        },
+        {
+          "name": "repeat",
+          "count": 64,
+          "window": 8
+        },
+        {
+          "name": "churn",
+          "count": 64,
+          "window": 8
+        },
+        {
+          "name": "return",
+          "count": 64,
+          "window": 8
+        },
+        {
+          "name": "runs",
+          "count": 64,
+          "window": 8
+        },
+        {
+          "name": "latency",
+          "count": 64,
+          "window": 1
+        }
+      ],
+      "spaced-32k": [
+        {
+          "name": "cold",
+          "count": 64,
+          "window": 8
+        },
+        {
+          "name": "warm",
+          "count": 128,
+          "window": 8
+        },
+        {
+          "name": "trained",
+          "count": 64,
+          "window": 8
+        },
+        {
+          "name": "latency",
+          "count": 64,
+          "window": 1
+        }
+      ],
+      "marginal-32k": [
+        {
+          "name": "cold",
+          "count": 64,
+          "window": 8
+        },
+        {
+          "name": "warm",
+          "count": 128,
+          "window": 8
+        },
+        {
+          "name": "latency",
+          "count": 64,
+          "window": 1
+        }
+      ]
+    },
+    "network": "Separate server/client processes on clean IPv4 loopback, transparent counting proxy in client process; no artificial bandwidth/latency/loss.",
+    "counters": "Successfully forwarded TCP stream bytes / UDP datagram bytes, both directions exactly once; includes handshake, dictionary updates/ACKs, application receipts and reliable transport controls/retries; excludes IP/transport/link headers and final harness shutdown message.",
+    "phases": "See per-workload phasePlans. Standard workloads use cold 64, warm 128, stop-and-wait latency 64. adaptive-32k uses fresh random 64, repeated 64, fresh random churn 64, return of original 64, byte runs 64, stop-and-wait byte-runs latency 64; one cache persists across phases. spaced-32k repeats a cycle of 32 independently seeded random objects across cold 64, warm 128 (which may still include dictionary growth), trained bulk 64, and stop-and-wait latency 64. marginal-32k uses fresh random objects with 512 stable high-entropy bytes around the 4/9 scout position (1.6% stable) and standard phases. Bulk RTT uses window 8. Byte snapshots include trailing controls after 160 ms quiet and a reliable-UDP server queue-drain barrier (included in bytes); settling is excluded from throughput timers. Setup timing is Connect only; setup byte counts include its quiet drain.",
+    "settings": "SafeMode/compatibility negotiation on; per-client dictionaries (ShareCompressionDictionary=false) on both endpoints; only BinarySerializer.EnableCompression changes. Outer compression, old pattern cache, P2P, batching, FPS and bandwidth caps off. Reliable UDP default Adaptive, independent delivery, 1200-byte datagrams. Shared dictionary propagation is measured separately by FanoutBench.",
+    "cpu": "cpuMs is client-process CPU, including counting proxy, not combined endpoint CPU. allocatedBytes is approximate process-wide managed allocation during the timed phase, including the proxy; counters are read outside the stopwatch and exclude the later drain."
+  },
+  "method": {
+    "summary": "Median of per-run metrics; paired geometric mean ratios with percentile bootstrap confidence intervals.",
+    "bootstrapSamples": 10000,
+    "seed": 7301,
+    "confidence": 0.95,
+    "bytes": "Both directions once, including all recorded dictionary/control/application acknowledgement traffic and framing; network-layer headers excluded.",
+    "overallBytes": "Ending cumulative counter: setup bytes plus final phase prior and phase bytes, including all interphase gaps; only complete connections included."
+  },
+  "comparisons": [
+    {
+      "protocol": "reliable-udp",
+      "workload": "adaptive-32k",
+      "phase": "random",
+      "off": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 16.4532948545611,
+        "medianElapsedMs": 121.5562,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 7.944,
+        "medianRttP95Ms": 15.5299,
+        "medianRttP99Ms": 24.6655,
+        "medianUpBytes": 2128982,
+        "medianDownBytes": 7567,
+        "medianTotalBytes": 2136549,
+        "medianCpuMs": 62.5,
+        "medianDictionaryCount": 0,
+        "medianCacheBytes": 0,
+        "medianSettleMs": 280.831,
+        "medianAllocatedBytes": 5393744,
+        "medianCandidateCount": 0,
+        "medianEncodingAttempts": 0,
+        "medianBypassedMessages": 0,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 0,
+        "medianPlanHits": 0,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "on": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 16.399061317730173,
+        "medianElapsedMs": 121.9582,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 7.3976,
+        "medianRttP95Ms": 13.3842,
+        "medianRttP99Ms": 28.4567,
+        "medianUpBytes": 2128982,
+        "medianDownBytes": 7590,
+        "medianTotalBytes": 2136572,
+        "medianCpuMs": 31.25,
+        "medianDictionaryCount": 0,
+        "medianCacheBytes": 452328,
+        "medianSettleMs": 281.5156,
+        "medianAllocatedBytes": 6024208,
+        "medianCandidateCount": 617,
+        "medianEncodingAttempts": 6,
+        "medianBypassedMessages": 64,
+        "medianProbeInterval": 64,
+        "medianPlanCount": 0,
+        "medianPlanHits": 0,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "pairedRounds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "throughputRatioOnOverOff": {
+        "pairs": 5,
+        "ratio": 0.9721839959432482,
+        "ci95": [
+          0.9017918203730699,
+          1.0475724387989376
+        ]
+      },
+      "p50LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.0755058461325675,
+        "ci95": [
+          1.0288423222432885,
+          1.1264263013247409
+        ]
+      },
+      "p95LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.0417502579935733,
+        "ci95": [
+          0.8598920269147687,
+          1.2324175322713546
+        ]
+      },
+      "p99LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 0.825581354416204,
+        "ci95": [
+          0.7414431278298369,
+          0.9250543400011013
+        ]
+      },
+      "medianPairedTotalByteReductionPercent": -0.0010765023409353702,
+      "medianPairedCpuReductionPercent": 50.0,
+      "medianPairedAllocationReductionPercent": -11.688800951620992
+    },
+    {
+      "protocol": "reliable-udp",
+      "workload": "adaptive-32k",
+      "phase": "repeat",
+      "off": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 19.383995991389632,
+        "medianElapsedMs": 103.1779,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 7.3218,
+        "medianRttP95Ms": 11.1008,
+        "medianRttP99Ms": 12.6866,
+        "medianUpBytes": 2129140,
+        "medianDownBytes": 7694,
+        "medianTotalBytes": 2136834,
+        "medianCpuMs": 15.625,
+        "medianDictionaryCount": 0,
+        "medianCacheBytes": 0,
+        "medianSettleMs": 273.2408,
+        "medianAllocatedBytes": 5256568,
+        "medianCandidateCount": 0,
+        "medianEncodingAttempts": 0,
+        "medianBypassedMessages": 0,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 0,
+        "medianPlanHits": 0,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "on": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 19.36087805454153,
+        "medianElapsedMs": 103.3011,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 5.4026,
+        "medianRttP95Ms": 11.3711,
+        "medianRttP99Ms": 14.8299,
+        "medianUpBytes": 384375,
+        "medianDownBytes": 7320,
+        "medianTotalBytes": 391695,
+        "medianCpuMs": 31.25,
+        "medianDictionaryCount": 98,
+        "medianCacheBytes": 816687,
+        "medianSettleMs": 272.6431,
+        "medianAllocatedBytes": 4040392,
+        "medianCandidateCount": 621,
+        "medianEncodingAttempts": 66,
+        "medianBypassedMessages": 72,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 1,
+        "medianPlanHits": 55,
+        "medianPlanHitsDuringPhase": 55
+      },
+      "pairedRounds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "throughputRatioOnOverOff": {
+        "pairs": 5,
+        "ratio": 0.8647904652733741,
+        "ci95": [
+          0.5971529172875584,
+          1.1128141334816164
+        ]
+      },
+      "p50LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.2030496783097089,
+        "ci95": [
+          0.940244286070745,
+          1.44090794825749
+        ]
+      },
+      "p95LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 0.6782089372618213,
+        "ci95": [
+          0.28307703015260216,
+          1.2253372958629702
+        ]
+      },
+      "p99LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 0.5762289294088264,
+        "ci95": [
+          0.25807713285751727,
+          1.0235353608002775
+        ]
+      },
+      "medianPairedTotalByteReductionPercent": 81.66917897745753,
+      "medianPairedCpuReductionPercent": 0.0,
+      "medianPairedAllocationReductionPercent": 23.078012650535427
+    },
+    {
+      "protocol": "reliable-udp",
+      "workload": "adaptive-32k",
+      "phase": "churn",
+      "off": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 20.438278442930194,
+        "medianElapsedMs": 97.8556,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 7.0925,
+        "medianRttP95Ms": 9.0157,
+        "medianRttP99Ms": 9.8279,
+        "medianUpBytes": 2131032,
+        "medianDownBytes": 7913,
+        "medianTotalBytes": 2138945,
+        "medianCpuMs": 15.625,
+        "medianDictionaryCount": 0,
+        "medianCacheBytes": 0,
+        "medianSettleMs": 274.521,
+        "medianAllocatedBytes": 5263184,
+        "medianCandidateCount": 0,
+        "medianEncodingAttempts": 0,
+        "medianBypassedMessages": 0,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 0,
+        "medianPlanHits": 0,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "on": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 19.068939938559875,
+        "medianElapsedMs": 104.8826,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 7.0786,
+        "medianRttP95Ms": 10.0834,
+        "medianRttP99Ms": 10.5658,
+        "medianUpBytes": 2131032,
+        "medianDownBytes": 7913,
+        "medianTotalBytes": 2138945,
+        "medianCpuMs": 31.25,
+        "medianDictionaryCount": 98,
+        "medianCacheBytes": 1230941,
+        "medianSettleMs": 280.6539,
+        "medianAllocatedBytes": 5852840,
+        "medianCandidateCount": 1219,
+        "medianEncodingAttempts": 72,
+        "medianBypassedMessages": 136,
+        "medianProbeInterval": 64,
+        "medianPlanCount": 1,
+        "medianPlanHits": 55,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "pairedRounds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "throughputRatioOnOverOff": {
+        "pairs": 5,
+        "ratio": 0.8606366091820529,
+        "ci95": [
+          0.6668086602888019,
+          0.9978944478599481
+        ]
+      },
+      "p50LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 0.9523103727373622,
+        "ci95": [
+          0.7819633226752941,
+          1.0837935127471876
+        ]
+      },
+      "p95LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 0.7422747724965972,
+        "ci95": [
+          0.41428765325478967,
+          1.0498829275393216
+        ]
+      },
+      "p99LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 0.7727829444993876,
+        "ci95": [
+          0.4301776784307514,
+          1.1123755420688313
+        ]
+      },
+      "medianPairedTotalByteReductionPercent": -0.0011220610765860783,
+      "medianPairedCpuReductionPercent": 0.0,
+      "medianPairedAllocationReductionPercent": -10.806351451196905
+    },
+    {
+      "protocol": "reliable-udp",
+      "workload": "adaptive-32k",
+      "phase": "return",
+      "off": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 20.866001667193533,
+        "medianElapsedMs": 95.8497,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 6.9635,
+        "medianRttP95Ms": 11.0418,
+        "medianRttP99Ms": 13.939,
+        "medianUpBytes": 2131062,
+        "medianDownBytes": 7919,
+        "medianTotalBytes": 2138981,
+        "medianCpuMs": 31.25,
+        "medianDictionaryCount": 0,
+        "medianCacheBytes": 0,
+        "medianSettleMs": 407.6529,
+        "medianAllocatedBytes": 5258072,
+        "medianCandidateCount": 0,
+        "medianEncodingAttempts": 0,
+        "medianBypassedMessages": 0,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 0,
+        "medianPlanHits": 0,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "on": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 23.754210433799393,
+        "medianElapsedMs": 84.1956,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 5.1505,
+        "medianRttP95Ms": 6.6453,
+        "medianRttP99Ms": 7.0864,
+        "medianUpBytes": 96438,
+        "medianDownBytes": 6383,
+        "medianTotalBytes": 102821,
+        "medianCpuMs": 15.625,
+        "medianDictionaryCount": 98,
+        "medianCacheBytes": 1232197,
+        "medianSettleMs": 277.4568,
+        "medianAllocatedBytes": 3007272,
+        "medianCandidateCount": 1221,
+        "medianEncodingAttempts": 136,
+        "medianBypassedMessages": 136,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 1,
+        "medianPlanHits": 119,
+        "medianPlanHitsDuringPhase": 64
+      },
+      "pairedRounds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "throughputRatioOnOverOff": {
+        "pairs": 5,
+        "ratio": 1.2842668908972485,
+        "ci95": [
+          1.1711234115280134,
+          1.4515294339159825
+        ]
+      },
+      "p50LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.3808117378550318,
+        "ci95": [
+          1.295647022738164,
+          1.446689840309465
+        ]
+      },
+      "p95LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.6176418585160985,
+        "ci95": [
+          1.4070472226406956,
+          1.9304125571813975
+        ]
+      },
+      "p99LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.744986036392898,
+        "ci95": [
+          1.4450383122140904,
+          2.153636529670879
+        ]
+      },
+      "medianPairedTotalByteReductionPercent": 95.19331502366622,
+      "medianPairedCpuReductionPercent": 50.0,
+      "medianPairedAllocationReductionPercent": 42.74837663816107
+    },
+    {
+      "protocol": "reliable-udp",
+      "workload": "adaptive-32k",
+      "phase": "runs",
+      "off": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 21.425181658758987,
+        "medianElapsedMs": 93.3481,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 6.9124,
+        "medianRttP95Ms": 7.9416,
+        "medianRttP99Ms": 8.712,
+        "medianUpBytes": 2131032,
+        "medianDownBytes": 7889,
+        "medianTotalBytes": 2138921,
+        "medianCpuMs": 46.875,
+        "medianDictionaryCount": 0,
+        "medianCacheBytes": 0,
+        "medianSettleMs": 280.4014,
+        "medianAllocatedBytes": 5262608,
+        "medianCandidateCount": 0,
+        "medianEncodingAttempts": 0,
+        "medianBypassedMessages": 0,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 0,
+        "medianPlanHits": 0,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "on": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 26.77666520733841,
+        "medianElapsedMs": 74.6919,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 4.6707,
+        "medianRttP95Ms": 6.059,
+        "medianRttP99Ms": 7.0301,
+        "medianUpBytes": 15127,
+        "medianDownBytes": 5463,
+        "medianTotalBytes": 20590,
+        "medianCpuMs": 31.25,
+        "medianDictionaryCount": 99,
+        "medianCacheBytes": 1238080,
+        "medianSettleMs": 282.3963,
+        "medianAllocatedBytes": 3140376,
+        "medianCandidateCount": 1225,
+        "medianEncodingAttempts": 200,
+        "medianBypassedMessages": 136,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 1,
+        "medianPlanHits": 119,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "pairedRounds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "throughputRatioOnOverOff": {
+        "pairs": 5,
+        "ratio": 1.1749743306080647,
+        "ci95": [
+          1.0907995770240169,
+          1.2504302704146484
+        ]
+      },
+      "p50LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.4070794743378936,
+        "ci95": [
+          1.3311330839651985,
+          1.4933945979840282
+        ]
+      },
+      "p95LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.2700521640249134,
+        "ci95": [
+          1.1443880647606537,
+          1.384162269602555
+        ]
+      },
+      "p99LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.225924928316749,
+        "ci95": [
+          1.1031293675775282,
+          1.3461427151705556
+        ]
+      },
+      "medianPairedTotalByteReductionPercent": 99.03736510137588,
+      "medianPairedCpuReductionPercent": 33.333333333333336,
+      "medianPairedAllocationReductionPercent": 40.14283422827507
+    },
+    {
+      "protocol": "reliable-udp",
+      "workload": "adaptive-32k",
+      "phase": "latency",
+      "off": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 7.192679291017603,
+        "medianElapsedMs": 278.0605,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 4.1112,
+        "medianRttP95Ms": 5.129,
+        "medianRttP99Ms": 10.1537,
+        "medianUpBytes": 2131062,
+        "medianDownBytes": 7919,
+        "medianTotalBytes": 2138981,
+        "medianCpuMs": 31.25,
+        "medianDictionaryCount": 0,
+        "medianCacheBytes": 0,
+        "medianSettleMs": 363.5107,
+        "medianAllocatedBytes": 5363192,
+        "medianCandidateCount": 0,
+        "medianEncodingAttempts": 0,
+        "medianBypassedMessages": 0,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 0,
+        "medianPlanHits": 0,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "on": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 8.68826337254057,
+        "medianElapsedMs": 230.1956,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 3.4139,
+        "medianRttP95Ms": 4.5642,
+        "medianRttP99Ms": 6.8459,
+        "medianUpBytes": 11958,
+        "medianDownBytes": 5359,
+        "medianTotalBytes": 17317,
+        "medianCpuMs": 62.5,
+        "medianDictionaryCount": 99,
+        "medianCacheBytes": 1240896,
+        "medianSettleMs": 312.5022,
+        "medianAllocatedBytes": 3196632,
+        "medianCandidateCount": 1227,
+        "medianEncodingAttempts": 264,
+        "medianBypassedMessages": 136,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 1,
+        "medianPlanHits": 119,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "pairedRounds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "throughputRatioOnOverOff": {
+        "pairs": 5,
+        "ratio": 1.2142858998816868,
+        "ci95": [
+          1.0476829514198862,
+          1.4936452739942316
+        ]
+      },
+      "p50LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.1522820800675762,
+        "ci95": [
+          1.03722943380972,
+          1.29426640195215
+        ]
+      },
+      "p95LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.3297417538764111,
+        "ci95": [
+          0.9798840094968743,
+          2.346539979384385
+        ]
+      },
+      "p99LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.8844654980607694,
+        "ci95": [
+          1.3174463869620372,
+          3.3022550152164323
+        ]
+      },
+      "medianPairedTotalByteReductionPercent": 99.19040889096257,
+      "medianPairedCpuReductionPercent": -41.666666666666664,
+      "medianPairedAllocationReductionPercent": 40.39683830077312
+    },
+    {
+      "protocol": "reliable-udp",
+      "workload": "marginal-32k",
+      "phase": "cold",
+      "off": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 16.233054720004155,
+        "medianElapsedMs": 123.2054,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 7.9461,
+        "medianRttP95Ms": 15.4761,
+        "medianRttP99Ms": 25.38,
+        "medianUpBytes": 2128982,
+        "medianDownBytes": 7567,
+        "medianTotalBytes": 2136549,
+        "medianCpuMs": 31.25,
+        "medianDictionaryCount": 0,
+        "medianCacheBytes": 0,
+        "medianSettleMs": 276.7245,
+        "medianAllocatedBytes": 5404712,
+        "medianCandidateCount": 0,
+        "medianEncodingAttempts": 0,
+        "medianBypassedMessages": 0,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 0,
+        "medianPlanHits": 0,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "on": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 14.729373537649385,
+        "medianElapsedMs": 135.7831,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 7.7298,
+        "medianRttP95Ms": 11.2036,
+        "medianRttP99Ms": 35.0293,
+        "medianUpBytes": 2129242,
+        "medianDownBytes": 7634,
+        "medianTotalBytes": 2136876,
+        "medianCpuMs": 46.875,
+        "medianDictionaryCount": 1,
+        "medianCacheBytes": 872581,
+        "medianSettleMs": 274.5075,
+        "medianAllocatedBytes": 6481792,
+        "medianCandidateCount": 775,
+        "medianEncodingAttempts": 8,
+        "medianBypassedMessages": 64,
+        "medianProbeInterval": 64,
+        "medianPlanCount": 0,
+        "medianPlanHits": 0,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "pairedRounds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "throughputRatioOnOverOff": {
+        "pairs": 5,
+        "ratio": 0.870532680408989,
+        "ci95": [
+          0.764043045911375,
+          1.0049817009483863
+        ]
+      },
+      "p50LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 0.9853493705172773,
+        "ci95": [
+          0.8745519472249528,
+          1.0914706162272148
+        ]
+      },
+      "p95LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.340238493566696,
+        "ci95": [
+          1.1222133775171157,
+          1.5646462701308257
+        ]
+      },
+      "p99LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 0.77531051774986,
+        "ci95": [
+          0.5984381301679839,
+          1.0991197656378826
+        ]
+      },
+      "medianPairedTotalByteReductionPercent": -0.015305055020964353,
+      "medianPairedCpuReductionPercent": 25.0,
+      "medianPairedAllocationReductionPercent": -19.928536432653576
+    },
+    {
+      "protocol": "reliable-udp",
+      "workload": "marginal-32k",
+      "phase": "warm",
+      "off": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 18.2908649932964,
+        "medianElapsedMs": 218.6884,
+        "medianPayloadBytes": 4194304,
+        "medianMessages": 128,
+        "medianRttP50Ms": 7.8399,
+        "medianRttP95Ms": 11.973,
+        "medianRttP99Ms": 12.7015,
+        "medianUpBytes": 4260084,
+        "medianDownBytes": 15497,
+        "medianTotalBytes": 4275563,
+        "medianCpuMs": 78.125,
+        "medianDictionaryCount": 0,
+        "medianCacheBytes": 0,
+        "medianSettleMs": 275.3012,
+        "medianAllocatedBytes": 10465544,
+        "medianCandidateCount": 0,
+        "medianEncodingAttempts": 0,
+        "medianBypassedMessages": 0,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 0,
+        "medianPlanHits": 0,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "on": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 20.0459854907157,
+        "medianElapsedMs": 199.5412,
+        "medianPayloadBytes": 4194304,
+        "medianMessages": 128,
+        "medianRttP50Ms": 7.0497,
+        "medianRttP95Ms": 11.3573,
+        "medianRttP99Ms": 12.06,
+        "medianUpBytes": 4260084,
+        "medianDownBytes": 15525,
+        "medianTotalBytes": 4275609,
+        "medianCpuMs": 46.875,
+        "medianDictionaryCount": 1,
+        "medianCacheBytes": 1022253,
+        "medianSettleMs": 279.7078,
+        "medianAllocatedBytes": 10716384,
+        "medianCandidateCount": 995,
+        "medianEncodingAttempts": 10,
+        "medianBypassedMessages": 192,
+        "medianProbeInterval": 64,
+        "medianPlanCount": 0,
+        "medianPlanHits": 0,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "pairedRounds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "throughputRatioOnOverOff": {
+        "pairs": 5,
+        "ratio": 0.9877761203850688,
+        "ci95": [
+          0.8351349592963694,
+          1.1422313147913934
+        ]
+      },
+      "p50LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.015483259999339,
+        "ci95": [
+          0.9005219278262668,
+          1.136590959912413
+        ]
+      },
+      "p95LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 0.999112120355665,
+        "ci95": [
+          0.7048485902435175,
+          1.259819192406487
+        ]
+      },
+      "p99LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 0.9838443393142685,
+        "ci95": [
+          0.7027960348257847,
+          1.2636559171976314
+        ]
+      },
+      "medianPairedTotalByteReductionPercent": -0.0010758756633810762,
+      "medianPairedCpuReductionPercent": 55.0,
+      "medianPairedAllocationReductionPercent": -2.3123952498524503
+    },
+    {
+      "protocol": "reliable-udp",
+      "workload": "marginal-32k",
+      "phase": "latency",
+      "off": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 5.850394301949965,
+        "medianElapsedMs": 341.8573,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 5.0161,
+        "medianRttP95Ms": 6.9282,
+        "medianRttP99Ms": 9.3028,
+        "medianUpBytes": 2131062,
+        "medianDownBytes": 7919,
+        "medianTotalBytes": 2138981,
+        "medianCpuMs": 31.25,
+        "medianDictionaryCount": 0,
+        "medianCacheBytes": 0,
+        "medianSettleMs": 281.138,
+        "medianAllocatedBytes": 5375232,
+        "medianCandidateCount": 0,
+        "medianEncodingAttempts": 0,
+        "medianBypassedMessages": 0,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 0,
+        "medianPlanHits": 0,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "on": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 6.0962878179404605,
+        "medianElapsedMs": 328.0685,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 4.8669,
+        "medianRttP95Ms": 7.0644,
+        "medianRttP99Ms": 8.6602,
+        "medianUpBytes": 2131062,
+        "medianDownBytes": 7919,
+        "medianTotalBytes": 2138981,
+        "medianCpuMs": 31.25,
+        "medianDictionaryCount": 1,
+        "medianCacheBytes": 1097107,
+        "medianSettleMs": 285.394,
+        "medianAllocatedBytes": 5466672,
+        "medianCandidateCount": 1105,
+        "medianEncodingAttempts": 11,
+        "medianBypassedMessages": 256,
+        "medianProbeInterval": 64,
+        "medianPlanCount": 0,
+        "medianPlanHits": 0,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "pairedRounds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "throughputRatioOnOverOff": {
+        "pairs": 5,
+        "ratio": 0.9725787845152973,
+        "ci95": [
+          0.8765004545001018,
+          1.0791888209901017
+        ]
+      },
+      "p50LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 0.9858712546146062,
+        "ci95": [
+          0.8912684049531352,
+          1.0905156351037535
+        ]
+      },
+      "p95LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 0.912527600208675,
+        "ci95": [
+          0.7899559041645468,
+          1.0578911498890324
+        ]
+      },
+      "p99LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 0.971545568145714,
+        "ci95": [
+          0.7557494780532853,
+          1.2113877401005213
+        ]
+      },
+      "medianPairedTotalByteReductionPercent": 0.0,
+      "medianPairedCpuReductionPercent": 0.0,
+      "medianPairedAllocationReductionPercent": -1.9563337818122584
+    },
+    {
+      "protocol": "reliable-udp",
+      "workload": "spaced-32k",
+      "phase": "cold",
+      "off": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 16.755891790450818,
+        "medianElapsedMs": 119.361,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 8.084,
+        "medianRttP95Ms": 16.2683,
+        "medianRttP99Ms": 23.25,
+        "medianUpBytes": 2128982,
+        "medianDownBytes": 7590,
+        "medianTotalBytes": 2136572,
+        "medianCpuMs": 31.25,
+        "medianDictionaryCount": 0,
+        "medianCacheBytes": 0,
+        "medianSettleMs": 275.8399,
+        "medianAllocatedBytes": 5360728,
+        "medianCandidateCount": 0,
+        "medianEncodingAttempts": 0,
+        "medianBypassedMessages": 0,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 0,
+        "medianPlanHits": 0,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "on": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 14.169634614717008,
+        "medianElapsedMs": 141.1469,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 7.6886,
+        "medianRttP95Ms": 14.8089,
+        "medianRttP99Ms": 28.4253,
+        "medianUpBytes": 2197016,
+        "medianDownBytes": 9627,
+        "medianTotalBytes": 2206643,
+        "medianCpuMs": 31.25,
+        "medianDictionaryCount": 213,
+        "medianCacheBytes": 1575640,
+        "medianSettleMs": 279.0424,
+        "medianAllocatedBytes": 8019000,
+        "medianCandidateCount": 1639,
+        "medianEncodingAttempts": 20,
+        "medianBypassedMessages": 64,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 0,
+        "medianPlanHits": 0,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "pairedRounds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "throughputRatioOnOverOff": {
+        "pairs": 5,
+        "ratio": 0.8585129686947165,
+        "ci95": [
+          0.8312872782423272,
+          0.8843955965078348
+        ]
+      },
+      "p50LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.0249512503351865,
+        "ci95": [
+          0.969712675042029,
+          1.0692621414829833
+        ]
+      },
+      "p95LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.0644778546029392,
+        "ci95": [
+          0.9589776993639361,
+          1.181584413997989
+        ]
+      },
+      "p99LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 0.8436350377181483,
+        "ci95": [
+          0.7882544810826302,
+          0.9022853558755835
+        ]
+      },
+      "medianPairedTotalByteReductionPercent": -3.2796345883010503,
+      "medianPairedCpuReductionPercent": 33.333333333333336,
+      "medianPairedAllocationReductionPercent": -49.875979685993975
+    },
+    {
+      "protocol": "reliable-udp",
+      "workload": "spaced-32k",
+      "phase": "warm",
+      "off": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 19.28719354457632,
+        "medianElapsedMs": 207.3915,
+        "medianPayloadBytes": 4194304,
+        "medianMessages": 128,
+        "medianRttP50Ms": 7.4549,
+        "medianRttP95Ms": 13.8009,
+        "medianRttP99Ms": 15.1738,
+        "medianUpBytes": 4260084,
+        "medianDownBytes": 15502,
+        "medianTotalBytes": 4275586,
+        "medianCpuMs": 46.875,
+        "medianDictionaryCount": 0,
+        "medianCacheBytes": 0,
+        "medianSettleMs": 279.7118,
+        "medianAllocatedBytes": 10523976,
+        "medianCandidateCount": 0,
+        "medianEncodingAttempts": 0,
+        "medianBypassedMessages": 0,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 0,
+        "medianPlanHits": 0,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "on": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 12.53893338817027,
+        "medianElapsedMs": 319.0064,
+        "medianPayloadBytes": 4194304,
+        "medianMessages": 128,
+        "medianRttP50Ms": 8.2018,
+        "medianRttP95Ms": 18.1332,
+        "medianRttP99Ms": 24.443,
+        "medianUpBytes": 3420440,
+        "medianDownBytes": 43687,
+        "medianTotalBytes": 3464020,
+        "medianCpuMs": 93.75,
+        "medianDictionaryCount": 3323,
+        "medianCacheBytes": 2345512,
+        "medianSettleMs": 277.1799,
+        "medianAllocatedBytes": 21743240,
+        "medianCandidateCount": 98,
+        "medianEncodingAttempts": 137,
+        "medianBypassedMessages": 119,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 32,
+        "medianPlanHits": 2,
+        "medianPlanHitsDuringPhase": 2
+      },
+      "pairedRounds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "throughputRatioOnOverOff": {
+        "pairs": 5,
+        "ratio": 0.6489074254706847,
+        "ci95": [
+          0.627992912765141,
+          0.6719667745882368
+        ]
+      },
+      "p50LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 0.9015157713154205,
+        "ci95": [
+          0.8350389012926075,
+          0.9672969825126528
+        ]
+      },
+      "p95LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 0.7252864891968327,
+        "ci95": [
+          0.6796950930343112,
+          0.7768351328052617
+        ]
+      },
+      "p99LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 0.5811165423080344,
+        "ci95": [
+          0.5501745452176796,
+          0.6082925499467595
+        ]
+      },
+      "medianPairedTotalByteReductionPercent": 18.981398105429292,
+      "medianPairedCpuReductionPercent": -50.0,
+      "medianPairedAllocationReductionPercent": -106.29127661274063
+    },
+    {
+      "protocol": "reliable-udp",
+      "workload": "spaced-32k",
+      "phase": "trained",
+      "off": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 20.352443259932247,
+        "medianElapsedMs": 98.2683,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 7.2991,
+        "medianRttP95Ms": 9.7292,
+        "medianRttP99Ms": 11.6183,
+        "medianUpBytes": 2131032,
+        "medianDownBytes": 7889,
+        "medianTotalBytes": 2138921,
+        "medianCpuMs": 15.625,
+        "medianDictionaryCount": 0,
+        "medianCacheBytes": 0,
+        "medianSettleMs": 276.0662,
+        "medianAllocatedBytes": 5220800,
+        "medianCandidateCount": 0,
+        "medianEncodingAttempts": 0,
+        "medianBypassedMessages": 0,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 0,
+        "medianPlanHits": 0,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "on": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 19.61022712565057,
+        "medianElapsedMs": 101.9876,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 5.9955,
+        "medianRttP95Ms": 9.5242,
+        "medianRttP99Ms": 11.2346,
+        "medianUpBytes": 587586,
+        "medianDownBytes": 6545,
+        "medianTotalBytes": 594131,
+        "medianCpuMs": 15.625,
+        "medianDictionaryCount": 3323,
+        "medianCacheBytes": 2361856,
+        "medianSettleMs": 271.3322,
+        "medianAllocatedBytes": 4064080,
+        "medianCandidateCount": 124,
+        "medianEncodingAttempts": 201,
+        "medianBypassedMessages": 119,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 32,
+        "medianPlanHits": 66,
+        "medianPlanHitsDuringPhase": 64
+      },
+      "pairedRounds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "throughputRatioOnOverOff": {
+        "pairs": 5,
+        "ratio": 0.9420247549225962,
+        "ci95": [
+          0.8669551844636502,
+          0.9970727838503775
+        ]
+      },
+      "p50LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.1811802935819937,
+        "ci95": [
+          1.0913142138617193,
+          1.2633244585187147
+        ]
+      },
+      "p95LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.0176997646088788,
+        "ci95": [
+          0.89062134381808,
+          1.2007975786724803
+        ]
+      },
+      "p99LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 0.9364650073158866,
+        "ci95": [
+          0.8348203733126127,
+          1.0625439849747433
+        ]
+      },
+      "medianPairedTotalByteReductionPercent": 72.22286377103222,
+      "medianPairedCpuReductionPercent": 77.77777777777779,
+      "medianPairedAllocationReductionPercent": 22.39821458304373
+    },
+    {
+      "protocol": "reliable-udp",
+      "workload": "spaced-32k",
+      "phase": "latency",
+      "off": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 6.192236112439862,
+        "medianElapsedMs": 322.9851,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 4.8001,
+        "medianRttP95Ms": 6.4008,
+        "medianRttP99Ms": 10.1206,
+        "medianUpBytes": 2131062,
+        "medianDownBytes": 7919,
+        "medianTotalBytes": 2138981,
+        "medianCpuMs": 31.25,
+        "medianDictionaryCount": 0,
+        "medianCacheBytes": 0,
+        "medianSettleMs": 268.6597,
+        "medianAllocatedBytes": 5360344,
+        "medianCandidateCount": 0,
+        "medianEncodingAttempts": 0,
+        "medianBypassedMessages": 0,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 0,
+        "medianPlanHits": 0,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "on": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 6.309659805227111,
+        "medianElapsedMs": 316.9743,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 4.6631,
+        "medianRttP95Ms": 6.4315,
+        "medianRttP99Ms": 9.9306,
+        "medianUpBytes": 587616,
+        "medianDownBytes": 6575,
+        "medianTotalBytes": 594191,
+        "medianCpuMs": 31.25,
+        "medianDictionaryCount": 3323,
+        "medianCacheBytes": 2378200,
+        "medianSettleMs": 277.8244,
+        "medianAllocatedBytes": 4144888,
+        "medianCandidateCount": 150,
+        "medianEncodingAttempts": 265,
+        "medianBypassedMessages": 119,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 32,
+        "medianPlanHits": 130,
+        "medianPlanHitsDuringPhase": 64
+      },
+      "pairedRounds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "throughputRatioOnOverOff": {
+        "pairs": 5,
+        "ratio": 1.0185421360256521,
+        "ci95": [
+          0.9810230521780365,
+          1.0468896772316378
+        ]
+      },
+      "p50LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.034160502526575,
+        "ci95": [
+          1.004196110842559,
+          1.06281973313618
+        ]
+      },
+      "p95LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 0.9794439412782296,
+        "ci95": [
+          0.8834197701600306,
+          1.085905553067772
+        ]
+      },
+      "p99LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 0.9204662537183015,
+        "ci95": [
+          0.7260200990329511,
+          1.1952079325352638
+        ]
+      },
+      "medianPairedTotalByteReductionPercent": 72.22083786625501,
+      "medianPairedCpuReductionPercent": 0.0,
+      "medianPairedAllocationReductionPercent": 22.5869253721531
+    },
+    {
+      "protocol": "tcp",
+      "workload": "adaptive-32k",
+      "phase": "random",
+      "off": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 22.31022365999219,
+        "medianElapsedMs": 89.645,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 4.7661,
+        "medianRttP95Ms": 10.5353,
+        "medianRttP99Ms": 20.3313,
+        "medianUpBytes": 2101824,
+        "medianDownBytes": 4096,
+        "medianTotalBytes": 2105920,
+        "medianCpuMs": 15.625,
+        "medianDictionaryCount": 0,
+        "medianCacheBytes": 0,
+        "medianSettleMs": 188.1755,
+        "medianAllocatedBytes": 6985440,
+        "medianCandidateCount": 0,
+        "medianEncodingAttempts": 0,
+        "medianBypassedMessages": 0,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 0,
+        "medianPlanHits": 0,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "on": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 15.540426087402466,
+        "medianElapsedMs": 128.6966,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 5.9984,
+        "medianRttP95Ms": 14.8092,
+        "medianRttP99Ms": 35.2213,
+        "medianUpBytes": 2101824,
+        "medianDownBytes": 4096,
+        "medianTotalBytes": 2105920,
+        "medianCpuMs": 15.625,
+        "medianDictionaryCount": 0,
+        "medianCacheBytes": 452328,
+        "medianSettleMs": 175.5671,
+        "medianAllocatedBytes": 7637624,
+        "medianCandidateCount": 617,
+        "medianEncodingAttempts": 6,
+        "medianBypassedMessages": 64,
+        "medianProbeInterval": 64,
+        "medianPlanCount": 0,
+        "medianPlanHits": 0,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "pairedRounds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "throughputRatioOnOverOff": {
+        "pairs": 5,
+        "ratio": 0.651340654708027,
+        "ci95": [
+          0.4370008595864959,
+          0.8498812075563136
+        ]
+      },
+      "p50LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 0.7129980159274953,
+        "ci95": [
+          0.442639871246277,
+          0.9878669588295127
+        ]
+      },
+      "p95LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 0.6609418754642469,
+        "ci95": [
+          0.48590987901819827,
+          0.8831706703854433
+        ]
+      },
+      "p99LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 0.6025509211476393,
+        "ci95": [
+          0.5311642341349867,
+          0.6967413486317148
+        ]
+      },
+      "medianPairedTotalByteReductionPercent": 0.0,
+      "medianPairedCpuReductionPercent": 0.0,
+      "medianPairedAllocationReductionPercent": -9.159050825717486
+    },
+    {
+      "protocol": "tcp",
+      "workload": "adaptive-32k",
+      "phase": "repeat",
+      "off": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 26.564129128231688,
+        "medianElapsedMs": 75.2895,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 4.8683,
+        "medianRttP95Ms": 6.3602,
+        "medianRttP99Ms": 6.6099,
+        "medianUpBytes": 2101888,
+        "medianDownBytes": 4160,
+        "medianTotalBytes": 2106048,
+        "medianCpuMs": 15.625,
+        "medianDictionaryCount": 0,
+        "medianCacheBytes": 0,
+        "medianSettleMs": 182.5677,
+        "medianAllocatedBytes": 6800192,
+        "medianCandidateCount": 0,
+        "medianEncodingAttempts": 0,
+        "medianBypassedMessages": 0,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 0,
+        "medianPlanHits": 0,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "on": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 19.68724837235674,
+        "medianElapsedMs": 101.5886,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 5.5121,
+        "medianRttP95Ms": 10.9933,
+        "medianRttP99Ms": 13.5299,
+        "medianUpBytes": 378290,
+        "medianDownBytes": 5364,
+        "medianTotalBytes": 383654,
+        "medianCpuMs": 15.625,
+        "medianDictionaryCount": 98,
+        "medianCacheBytes": 816687,
+        "medianSettleMs": 177.0961,
+        "medianAllocatedBytes": 4154432,
+        "medianCandidateCount": 621,
+        "medianEncodingAttempts": 66,
+        "medianBypassedMessages": 72,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 1,
+        "medianPlanHits": 55,
+        "medianPlanHitsDuringPhase": 55
+      },
+      "pairedRounds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "throughputRatioOnOverOff": {
+        "pairs": 5,
+        "ratio": 0.5488987727544954,
+        "ci95": [
+          0.28352239898237325,
+          0.8065781371231134
+        ]
+      },
+      "p50LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 0.6060882338247396,
+        "ci95": [
+          0.2620148673632056,
+          0.9743712678957045
+        ]
+      },
+      "p95LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 0.42027089714739974,
+        "ci95": [
+          0.16606450751688304,
+          0.7072974062869049
+        ]
+      },
+      "p99LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 0.33863563531325513,
+        "ci95": [
+          0.1627750834655689,
+          0.507606729812842
+        ]
+      },
+      "medianPairedTotalByteReductionPercent": 81.7832262132677,
+      "medianPairedCpuReductionPercent": -100.0,
+      "medianPairedAllocationReductionPercent": 38.90713673966852
+    },
+    {
+      "protocol": "tcp",
+      "workload": "adaptive-32k",
+      "phase": "churn",
+      "off": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 26.44383329807489,
+        "medianElapsedMs": 75.632,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 4.8208,
+        "medianRttP95Ms": 6.0915,
+        "medianRttP99Ms": 6.429,
+        "medianUpBytes": 2101888,
+        "medianDownBytes": 4160,
+        "medianTotalBytes": 2106048,
+        "medianCpuMs": 0,
+        "medianDictionaryCount": 0,
+        "medianCacheBytes": 0,
+        "medianSettleMs": 183.4305,
+        "medianAllocatedBytes": 6723664,
+        "medianCandidateCount": 0,
+        "medianEncodingAttempts": 0,
+        "medianBypassedMessages": 0,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 0,
+        "medianPlanHits": 0,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "on": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 20.568598332298045,
+        "medianElapsedMs": 97.2356,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 5.6584,
+        "medianRttP95Ms": 7.8713,
+        "medianRttP99Ms": 9.4365,
+        "medianUpBytes": 2101888,
+        "medianDownBytes": 4160,
+        "medianTotalBytes": 2106048,
+        "medianCpuMs": 15.625,
+        "medianDictionaryCount": 98,
+        "medianCacheBytes": 1230941,
+        "medianSettleMs": 181.127,
+        "medianAllocatedBytes": 7364720,
+        "medianCandidateCount": 1219,
+        "medianEncodingAttempts": 72,
+        "medianBypassedMessages": 136,
+        "medianProbeInterval": 64,
+        "medianPlanCount": 1,
+        "medianPlanHits": 55,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "pairedRounds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "throughputRatioOnOverOff": {
+        "pairs": 5,
+        "ratio": 0.5805557277997665,
+        "ci95": [
+          0.25289455736456357,
+          0.9173054370985209
+        ]
+      },
+      "p50LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 0.7221581846155266,
+        "ci95": [
+          0.4013315012818283,
+          1.0008975992983316
+        ]
+      },
+      "p95LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 0.4884473597338772,
+        "ci95": [
+          0.11844469322034287,
+          1.2280272071129097
+        ]
+      },
+      "p99LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 0.4480436865549541,
+        "ci95": [
+          0.1136767185439542,
+          1.1060672431244083
+        ]
+      },
+      "medianPairedTotalByteReductionPercent": 0.0,
+      "medianPairedCpuReductionPercent": -150.0,
+      "medianPairedAllocationReductionPercent": -9.506312204626521
+    },
+    {
+      "protocol": "tcp",
+      "workload": "adaptive-32k",
+      "phase": "return",
+      "off": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 27.294364259667663,
+        "medianElapsedMs": 73.2752,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 4.564,
+        "medianRttP95Ms": 6.951,
+        "medianRttP99Ms": 7.6715,
+        "medianUpBytes": 2101888,
+        "medianDownBytes": 4160,
+        "medianTotalBytes": 2106048,
+        "medianCpuMs": 15.625,
+        "medianDictionaryCount": 0,
+        "medianCacheBytes": 0,
+        "medianSettleMs": 178.02,
+        "medianAllocatedBytes": 6719568,
+        "medianCandidateCount": 0,
+        "medianEncodingAttempts": 0,
+        "medianBypassedMessages": 0,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 0,
+        "medianPlanHits": 0,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "on": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 24.928859267864333,
+        "medianElapsedMs": 80.2283,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 5.1174,
+        "medianRttP95Ms": 6.1071,
+        "medianRttP99Ms": 7.7564,
+        "medianUpBytes": 93248,
+        "medianDownBytes": 4160,
+        "medianTotalBytes": 97408,
+        "medianCpuMs": 15.625,
+        "medianDictionaryCount": 98,
+        "medianCacheBytes": 1232197,
+        "medianSettleMs": 183.851,
+        "medianAllocatedBytes": 2792008,
+        "medianCandidateCount": 1221,
+        "medianEncodingAttempts": 136,
+        "medianBypassedMessages": 136,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 1,
+        "medianPlanHits": 119,
+        "medianPlanHitsDuringPhase": 64
+      },
+      "pairedRounds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "throughputRatioOnOverOff": {
+        "pairs": 5,
+        "ratio": 0.7046538530814389,
+        "ci95": [
+          0.37120972149555553,
+          1.0072188075265416
+        ]
+      },
+      "p50LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 0.8804327794547537,
+        "ci95": [
+          0.7126321436363675,
+          1.0275714884724059
+        ]
+      },
+      "p95LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 0.6799529530508355,
+        "ci95": [
+          0.2031946977786943,
+          1.478942668340997
+        ]
+      },
+      "p99LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 0.5900594295708318,
+        "ci95": [
+          0.14225049749802107,
+          1.420111548791756
+        ]
+      },
+      "medianPairedTotalByteReductionPercent": 95.37484425806059,
+      "medianPairedCpuReductionPercent": 100.0,
+      "medianPairedAllocationReductionPercent": 58.342265649059065
+    },
+    {
+      "protocol": "tcp",
+      "workload": "adaptive-32k",
+      "phase": "runs",
+      "off": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 27.411566858867438,
+        "medianElapsedMs": 72.9619,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 4.4185,
+        "medianRttP95Ms": 6.089,
+        "medianRttP99Ms": 7.1928,
+        "medianUpBytes": 2101888,
+        "medianDownBytes": 4160,
+        "medianTotalBytes": 2106048,
+        "medianCpuMs": 31.25,
+        "medianDictionaryCount": 0,
+        "medianCacheBytes": 0,
+        "medianSettleMs": 179.2697,
+        "medianAllocatedBytes": 6736016,
+        "medianCandidateCount": 0,
+        "medianEncodingAttempts": 0,
+        "medianBypassedMessages": 0,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 0,
+        "medianPlanHits": 0,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "on": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 24.5409312056346,
+        "medianElapsedMs": 81.4965,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 4.7804,
+        "medianRttP95Ms": 6.1412,
+        "medianRttP99Ms": 10.5252,
+        "medianUpBytes": 12747,
+        "medianDownBytes": 4218,
+        "medianTotalBytes": 16965,
+        "medianCpuMs": 31.25,
+        "medianDictionaryCount": 99,
+        "medianCacheBytes": 1238080,
+        "medianSettleMs": 182.6608,
+        "medianAllocatedBytes": 2930520,
+        "medianCandidateCount": 1225,
+        "medianEncodingAttempts": 200,
+        "medianBypassedMessages": 136,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 1,
+        "medianPlanHits": 119,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "pairedRounds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "throughputRatioOnOverOff": {
+        "pairs": 5,
+        "ratio": 0.8031275973477858,
+        "ci95": [
+          0.5400954656752519,
+          1.03732970492755
+        ]
+      },
+      "p50LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 0.8600752497243089,
+        "ci95": [
+          0.6239429089699903,
+          1.0691022255721552
+        ]
+      },
+      "p95LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 0.6945246461260476,
+        "ci95": [
+          0.22187970231149876,
+          1.5604327399778966
+        ]
+      },
+      "p99LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 0.632852262440713,
+        "ci95": [
+          0.21803427830017935,
+          1.4079192551723916
+        ]
+      },
+      "medianPairedTotalByteReductionPercent": 99.19446280426656,
+      "medianPairedCpuReductionPercent": 0.0,
+      "medianPairedAllocationReductionPercent": 56.426293507985804
+    },
+    {
+      "protocol": "tcp",
+      "workload": "adaptive-32k",
+      "phase": "latency",
+      "off": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 8.154983836822035,
+        "medianElapsedMs": 245.2488,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 3.637,
+        "medianRttP95Ms": 4.577,
+        "medianRttP99Ms": 5.6183,
+        "medianUpBytes": 2101888,
+        "medianDownBytes": 4160,
+        "medianTotalBytes": 2106048,
+        "medianCpuMs": 15.625,
+        "medianDictionaryCount": 0,
+        "medianCacheBytes": 0,
+        "medianSettleMs": 186.1242,
+        "medianAllocatedBytes": 6751152,
+        "medianCandidateCount": 0,
+        "medianEncodingAttempts": 0,
+        "medianBypassedMessages": 0,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 0,
+        "medianPlanHits": 0,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "on": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 7.083276667119995,
+        "medianElapsedMs": 282.3552,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 4.1915,
+        "medianRttP95Ms": 5.8197,
+        "medianRttP99Ms": 6.1132,
+        "medianUpBytes": 10688,
+        "medianDownBytes": 4160,
+        "medianTotalBytes": 14848,
+        "medianCpuMs": 46.875,
+        "medianDictionaryCount": 99,
+        "medianCacheBytes": 1240896,
+        "medianSettleMs": 183.8819,
+        "medianAllocatedBytes": 2911888,
+        "medianCandidateCount": 1227,
+        "medianEncodingAttempts": 264,
+        "medianBypassedMessages": 136,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 1,
+        "medianPlanHits": 119,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "pairedRounds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "throughputRatioOnOverOff": {
+        "pairs": 5,
+        "ratio": 0.7081684256376349,
+        "ci95": [
+          0.382989515309165,
+          1.0022337590954467
+        ]
+      },
+      "p50LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 0.8571897895610063,
+        "ci95": [
+          0.6929388522060569,
+          0.9833797169630036
+        ]
+      },
+      "p95LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 0.5117561362484395,
+        "ci95": [
+          0.15452805575449893,
+          1.0022892997688864
+        ]
+      },
+      "p99LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 0.5433670702722088,
+        "ci95": [
+          0.13870499911148154,
+          1.191051497505339
+        ]
+      },
+      "medianPairedTotalByteReductionPercent": 99.29498283040083,
+      "medianPairedCpuReductionPercent": -50.0,
+      "medianPairedAllocationReductionPercent": 56.78942582334743
+    },
+    {
+      "protocol": "tcp",
+      "workload": "marginal-32k",
+      "phase": "cold",
+      "off": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 23.2942494651058,
+        "medianElapsedMs": 85.8581,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 4.7879,
+        "medianRttP95Ms": 12.3831,
+        "medianRttP99Ms": 20.7478,
+        "medianUpBytes": 2101824,
+        "medianDownBytes": 4096,
+        "medianTotalBytes": 2105920,
+        "medianCpuMs": 15.625,
+        "medianDictionaryCount": 0,
+        "medianCacheBytes": 0,
+        "medianSettleMs": 181.0716,
+        "medianAllocatedBytes": 6997904,
+        "medianCandidateCount": 0,
+        "medianEncodingAttempts": 0,
+        "medianBypassedMessages": 0,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 0,
+        "medianPlanHits": 0,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "on": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 16.9159800188444,
+        "medianElapsedMs": 118.2314,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 5.0223,
+        "medianRttP95Ms": 7.2564,
+        "medianRttP99Ms": 25.4518,
+        "medianUpBytes": 2102068,
+        "medianDownBytes": 4125,
+        "medianTotalBytes": 2106193,
+        "medianCpuMs": 46.875,
+        "medianDictionaryCount": 1,
+        "medianCacheBytes": 887497,
+        "medianSettleMs": 187.3451,
+        "medianAllocatedBytes": 8035016,
+        "medianCandidateCount": 814,
+        "medianEncodingAttempts": 8,
+        "medianBypassedMessages": 64,
+        "medianProbeInterval": 64,
+        "medianPlanCount": 0,
+        "medianPlanHits": 0,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "pairedRounds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "throughputRatioOnOverOff": {
+        "pairs": 5,
+        "ratio": 0.9716021988323886,
+        "ci95": [
+          0.7410597248564554,
+          1.5751779362627945
+        ]
+      },
+      "p50LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.2916850325509248,
+        "ci95": [
+          0.9572059796582162,
+          2.3032978875571386
+        ]
+      },
+      "p95LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 2.0108325028345657,
+        "ci95": [
+          1.4553991577782701,
+          3.3866826724482286
+        ]
+      },
+      "p99LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.0168369039430656,
+        "ci95": [
+          0.7846287939139758,
+          1.5611013391785848
+        ]
+      },
+      "medianPairedTotalByteReductionPercent": -0.012963455401915347,
+      "medianPairedCpuReductionPercent": 0.0,
+      "medianPairedAllocationReductionPercent": -14.599355964655935
+    },
+    {
+      "protocol": "tcp",
+      "workload": "marginal-32k",
+      "phase": "warm",
+      "off": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 27.29743765777066,
+        "medianElapsedMs": 146.5339,
+        "medianPayloadBytes": 4194304,
+        "medianMessages": 128,
+        "medianRttP50Ms": 4.5736,
+        "medianRttP95Ms": 5.6096,
+        "medianRttP99Ms": 6.8269,
+        "medianUpBytes": 4203776,
+        "medianDownBytes": 8320,
+        "medianTotalBytes": 4212096,
+        "medianCpuMs": 31.25,
+        "medianDictionaryCount": 0,
+        "medianCacheBytes": 0,
+        "medianSettleMs": 188.3013,
+        "medianAllocatedBytes": 13528704,
+        "medianCandidateCount": 0,
+        "medianEncodingAttempts": 0,
+        "medianBypassedMessages": 0,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 0,
+        "medianPlanHits": 0,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "on": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 25.266785673227186,
+        "medianElapsedMs": 158.3106,
+        "medianPayloadBytes": 4194304,
+        "medianMessages": 128,
+        "medianRttP50Ms": 4.8605,
+        "medianRttP95Ms": 6.1795,
+        "medianRttP99Ms": 6.8616,
+        "medianUpBytes": 4203776,
+        "medianDownBytes": 8320,
+        "medianTotalBytes": 4212096,
+        "medianCpuMs": 62.5,
+        "medianDictionaryCount": 1,
+        "medianCacheBytes": 1026394,
+        "medianSettleMs": 182.1622,
+        "medianAllocatedBytes": 13778488,
+        "medianCandidateCount": 1006,
+        "medianEncodingAttempts": 10,
+        "medianBypassedMessages": 192,
+        "medianProbeInterval": 64,
+        "medianPlanCount": 0,
+        "medianPlanHits": 0,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "pairedRounds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "throughputRatioOnOverOff": {
+        "pairs": 5,
+        "ratio": 1.0356924061738422,
+        "ci95": [
+          0.9139673982130448,
+          1.2924585780352287
+        ]
+      },
+      "p50LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.0367899962407803,
+        "ci95": [
+          0.9368336546663504,
+          1.239397057627518
+        ]
+      },
+      "p95LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.0854735262964335,
+        "ci95": [
+          0.8758860301369238,
+          1.5352045570559314
+        ]
+      },
+      "p99LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.1548035003344894,
+        "ci95": [
+          0.7928567604009038,
+          1.902718585905389
+        ]
+      },
+      "medianPairedTotalByteReductionPercent": 0.0,
+      "medianPairedCpuReductionPercent": 0.0,
+      "medianPairedAllocationReductionPercent": -1.8463261521576735
+    },
+    {
+      "protocol": "tcp",
+      "workload": "marginal-32k",
+      "phase": "latency",
+      "off": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 7.698235333514497,
+        "medianElapsedMs": 259.7998,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 3.8964,
+        "medianRttP95Ms": 5.4864,
+        "medianRttP99Ms": 6.9305,
+        "medianUpBytes": 2101888,
+        "medianDownBytes": 4160,
+        "medianTotalBytes": 2106048,
+        "medianCpuMs": 46.875,
+        "medianDictionaryCount": 0,
+        "medianCacheBytes": 0,
+        "medianSettleMs": 179.7808,
+        "medianAllocatedBytes": 6727216,
+        "medianCandidateCount": 0,
+        "medianEncodingAttempts": 0,
+        "medianBypassedMessages": 0,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 0,
+        "medianPlanHits": 0,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "on": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 7.728330630349697,
+        "medianElapsedMs": 258.7881,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 3.8538,
+        "medianRttP95Ms": 4.8462,
+        "medianRttP99Ms": 6.251,
+        "medianUpBytes": 2101888,
+        "medianDownBytes": 4160,
+        "medianTotalBytes": 2106048,
+        "medianCpuMs": 46.875,
+        "medianDictionaryCount": 1,
+        "medianCacheBytes": 1097792,
+        "medianSettleMs": 178.0553,
+        "medianAllocatedBytes": 6841416,
+        "medianCandidateCount": 1107,
+        "medianEncodingAttempts": 11,
+        "medianBypassedMessages": 256,
+        "medianProbeInterval": 64,
+        "medianPlanCount": 0,
+        "medianPlanHits": 0,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "pairedRounds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "throughputRatioOnOverOff": {
+        "pairs": 5,
+        "ratio": 1.1325259092644555,
+        "ci95": [
+          0.9437423398711355,
+          1.4111414235790658
+        ]
+      },
+      "p50LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.0553038929153462,
+        "ci95": [
+          0.9190113491627538,
+          1.2610343139426567
+        ]
+      },
+      "p95LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.2945140049559443,
+        "ci95": [
+          0.9800176209782859,
+          1.7483697129277875
+        ]
+      },
+      "p99LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.461074223658432,
+        "ci95": [
+          0.8192830424684114,
+          2.8184628215803627
+        ]
+      },
+      "medianPairedTotalByteReductionPercent": 0.0,
+      "medianPairedCpuReductionPercent": 0.0,
+      "medianPairedAllocationReductionPercent": -1.3024564328323107
+    },
+    {
+      "protocol": "tcp",
+      "workload": "spaced-32k",
+      "phase": "cold",
+      "off": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 21.118900465566163,
+        "medianElapsedMs": 94.7019,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 5.2992,
+        "medianRttP95Ms": 11.1371,
+        "medianRttP99Ms": 19.8207,
+        "medianUpBytes": 2101824,
+        "medianDownBytes": 4096,
+        "medianTotalBytes": 2105920,
+        "medianCpuMs": 31.25,
+        "medianDictionaryCount": 0,
+        "medianCacheBytes": 0,
+        "medianSettleMs": 184.2949,
+        "medianAllocatedBytes": 6960896,
+        "medianCandidateCount": 0,
+        "medianEncodingAttempts": 0,
+        "medianBypassedMessages": 0,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 0,
+        "medianPlanHits": 0,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "on": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 16.152048927786613,
+        "medianElapsedMs": 123.8233,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 5.3575,
+        "medianRttP95Ms": 11.2744,
+        "medianRttP99Ms": 24.4247,
+        "medianUpBytes": 2169601,
+        "medianDownBytes": 6619,
+        "medianTotalBytes": 2176220,
+        "medianCpuMs": 15.625,
+        "medianDictionaryCount": 213,
+        "medianCacheBytes": 1575640,
+        "medianSettleMs": 178.3833,
+        "medianAllocatedBytes": 9818000,
+        "medianCandidateCount": 1639,
+        "medianEncodingAttempts": 20,
+        "medianBypassedMessages": 64,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 0,
+        "medianPlanHits": 0,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "pairedRounds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "throughputRatioOnOverOff": {
+        "pairs": 5,
+        "ratio": 1.0286396251175096,
+        "ci95": [
+          0.7502407266404395,
+          1.8508409244893813
+        ]
+      },
+      "p50LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.4347910388195408,
+        "ci95": [
+          0.9861201819637635,
+          2.8827090796386092
+        ]
+      },
+      "p95LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.4791650494086472,
+        "ci95": [
+          0.9857619423400568,
+          3.1572232298893104
+        ]
+      },
+      "p99LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.1387525953730027,
+        "ci95": [
+          0.805534330792356,
+          2.235304702338051
+        ]
+      },
+      "medianPairedTotalByteReductionPercent": -3.338208478954563,
+      "medianPairedCpuReductionPercent": 25.0,
+      "medianPairedAllocationReductionPercent": -40.199530854662925
+    },
+    {
+      "protocol": "tcp",
+      "workload": "spaced-32k",
+      "phase": "warm",
+      "off": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 24.43070353096958,
+        "medianElapsedMs": 163.7284,
+        "medianPayloadBytes": 4194304,
+        "medianMessages": 128,
+        "medianRttP50Ms": 5.1903,
+        "medianRttP95Ms": 10.1781,
+        "medianRttP99Ms": 11.4149,
+        "medianUpBytes": 4203776,
+        "medianDownBytes": 8320,
+        "medianTotalBytes": 4212096,
+        "medianCpuMs": 46.875,
+        "medianDictionaryCount": 0,
+        "medianCacheBytes": 0,
+        "medianSettleMs": 176.6604,
+        "medianAllocatedBytes": 13668808,
+        "medianCandidateCount": 0,
+        "medianEncodingAttempts": 0,
+        "medianBypassedMessages": 0,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 0,
+        "medianPlanHits": 0,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "on": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 14.644456395948028,
+        "medianElapsedMs": 273.1409,
+        "medianPayloadBytes": 4194304,
+        "medianMessages": 128,
+        "medianRttP50Ms": 5.3759,
+        "medianRttP95Ms": 10.0933,
+        "medianRttP99Ms": 12.3622,
+        "medianUpBytes": 3422590,
+        "medianDownBytes": 45451,
+        "medianTotalBytes": 3468041,
+        "medianCpuMs": 46.875,
+        "medianDictionaryCount": 3323,
+        "medianCacheBytes": 2343996,
+        "medianSettleMs": 181.677,
+        "medianAllocatedBytes": 24223672,
+        "medianCandidateCount": 97,
+        "medianEncodingAttempts": 134,
+        "medianBypassedMessages": 122,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 31,
+        "medianPlanHits": 0,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "pairedRounds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "throughputRatioOnOverOff": {
+        "pairs": 5,
+        "ratio": 0.7918957790712596,
+        "ci95": [
+          0.5664202910308277,
+          1.2169212795813775
+        ]
+      },
+      "p50LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.3158010642626838,
+        "ci95": [
+          0.9179746412790651,
+          2.1792788983525657
+        ]
+      },
+      "p95LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.4192224814388883,
+        "ci95": [
+          0.9139520127727321,
+          2.47254833256007
+        ]
+      },
+      "p99LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.2599090871773944,
+        "ci95": [
+          0.7598515120758825,
+          2.4426137976505298
+        ]
+      },
+      "medianPairedTotalByteReductionPercent": 17.664720842070082,
+      "medianPairedCpuReductionPercent": 51.66666666666667,
+      "medianPairedAllocationReductionPercent": -77.2186133567755
+    },
+    {
+      "protocol": "tcp",
+      "workload": "spaced-32k",
+      "phase": "trained",
+      "off": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 25.510496931724983,
+        "medianElapsedMs": 78.3991,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 5.2949,
+        "medianRttP95Ms": 8.1766,
+        "medianRttP99Ms": 8.4511,
+        "medianUpBytes": 2101888,
+        "medianDownBytes": 4160,
+        "medianTotalBytes": 2106048,
+        "medianCpuMs": 15.625,
+        "medianDictionaryCount": 0,
+        "medianCacheBytes": 0,
+        "medianSettleMs": 184.2685,
+        "medianAllocatedBytes": 6723880,
+        "medianCandidateCount": 0,
+        "medianEncodingAttempts": 0,
+        "medianBypassedMessages": 0,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 0,
+        "medianPlanHits": 0,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "on": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 20.553970616043607,
+        "medianElapsedMs": 97.3048,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 4.5557,
+        "medianRttP95Ms": 6.0313,
+        "medianRttP99Ms": 7.585,
+        "medianUpBytes": 578944,
+        "medianDownBytes": 4160,
+        "medianTotalBytes": 583104,
+        "medianCpuMs": 31.25,
+        "medianDictionaryCount": 3323,
+        "medianCacheBytes": 2360656,
+        "medianSettleMs": 182.5058,
+        "medianAllocatedBytes": 5347560,
+        "medianCandidateCount": 123,
+        "medianEncodingAttempts": 198,
+        "medianBypassedMessages": 122,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 32,
+        "medianPlanHits": 42,
+        "medianPlanHitsDuringPhase": 42
+      },
+      "pairedRounds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "throughputRatioOnOverOff": {
+        "pairs": 5,
+        "ratio": 1.0636018286779871,
+        "ci95": [
+          0.8479569201790477,
+          1.5271111388090246
+        ]
+      },
+      "p50LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.391555274245478,
+        "ci95": [
+          1.0732256630802306,
+          2.1397161613339866
+        ]
+      },
+      "p95LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.6274178665821213,
+        "ci95": [
+          1.0769864504121212,
+          2.9784369314830004
+        ]
+      },
+      "p99LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.4942112247043633,
+        "ci95": [
+          1.0324915511928037,
+          2.651889598447343
+        ]
+      },
+      "medianPairedTotalByteReductionPercent": 72.31288175768074,
+      "medianPairedCpuReductionPercent": 0.0,
+      "medianPairedAllocationReductionPercent": 20.363761038664197
+    },
+    {
+      "protocol": "tcp",
+      "workload": "spaced-32k",
+      "phase": "latency",
+      "off": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 7.757040192715906,
+        "medianElapsedMs": 257.8303,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 3.8035,
+        "medianRttP95Ms": 4.9828,
+        "medianRttP99Ms": 6.3352,
+        "medianUpBytes": 2101888,
+        "medianDownBytes": 4160,
+        "medianTotalBytes": 2106048,
+        "medianCpuMs": 31.25,
+        "medianDictionaryCount": 0,
+        "medianCacheBytes": 0,
+        "medianSettleMs": 187.6558,
+        "medianAllocatedBytes": 6745448,
+        "medianCandidateCount": 0,
+        "medianEncodingAttempts": 0,
+        "medianBypassedMessages": 0,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 0,
+        "medianPlanHits": 0,
+        "medianPlanHitsDuringPhase": 0
+      },
+      "on": {
+        "runs": 5,
+        "medianUsefulMiBPerSecond": 7.187630949651364,
+        "medianElapsedMs": 278.2558,
+        "medianPayloadBytes": 2097152,
+        "medianMessages": 64,
+        "medianRttP50Ms": 4.1952,
+        "medianRttP95Ms": 5.6655,
+        "medianRttP99Ms": 8.538,
+        "medianUpBytes": 578944,
+        "medianDownBytes": 4160,
+        "medianTotalBytes": 583104,
+        "medianCpuMs": 0,
+        "medianDictionaryCount": 3323,
+        "medianCacheBytes": 2377000,
+        "medianSettleMs": 178.6091,
+        "medianAllocatedBytes": 4306832,
+        "medianCandidateCount": 149,
+        "medianEncodingAttempts": 262,
+        "medianBypassedMessages": 122,
+        "medianProbeInterval": 1,
+        "medianPlanCount": 32,
+        "medianPlanHits": 106,
+        "medianPlanHitsDuringPhase": 64
+      },
+      "pairedRounds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "throughputRatioOnOverOff": {
+        "pairs": 5,
+        "ratio": 1.2177161804458865,
+        "ci95": [
+          0.9149763605240409,
+          1.9087675124938233
+        ]
+      },
+      "p50LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.1641130156187705,
+        "ci95": [
+          0.9003862751852711,
+          1.720446957841259
+        ]
+      },
+      "p95LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.315103979048645,
+        "ci95": [
+          0.8362689017438023,
+          2.5560586172549775
+        ]
+      },
+      "p99LatencySpeedupOffOverOn": {
+        "pairs": 5,
+        "ratio": 1.33843142737988,
+        "ci95": [
+          0.7423518013004947,
+          2.711906909355945
+        ]
+      },
+      "medianPairedTotalByteReductionPercent": 72.31288175768074,
+      "medianPairedCpuReductionPercent": 90.9090909090909,
+      "medianPairedAllocationReductionPercent": 36.07256810978788
+    }
+  ],
+  "overall": [
+    {
+      "protocol": "reliable-udp",
+      "workload": "adaptive-32k",
+      "off": {
+        "runs": 5,
+        "medianUpBytes": 12787492,
+        "medianDownBytes": 52211,
+        "medianTotalBytes": 12839703,
+        "medianSetupBytes": 10469,
+        "medianSetupMs": 360.5513,
+        "medianBetweenPhaseUpBytes": 0,
+        "medianBetweenPhaseDownBytes": 0,
+        "medianBetweenPhaseBytes": 0,
+        "medianPayloadBytes": 12582912,
+        "medianMessages": 384
+      },
+      "on": {
+        "runs": 5,
+        "medianUpBytes": 4773187,
+        "medianDownBytes": 45433,
+        "medianTotalBytes": 4818663,
+        "medianSetupBytes": 10655,
+        "medianSetupMs": 344.1956,
+        "medianBetweenPhaseUpBytes": 0,
+        "medianBetweenPhaseDownBytes": 0,
+        "medianBetweenPhaseBytes": 0,
+        "medianPayloadBytes": 12582912,
+        "medianMessages": 384
+      },
+      "pairedRounds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "medianPairedTotalByteReductionPercent": 62.47087447110251
+    },
+    {
+      "protocol": "reliable-udp",
+      "workload": "marginal-32k",
+      "off": {
+        "runs": 5,
+        "medianUpBytes": 8525310,
+        "medianDownBytes": 36291,
+        "medianTotalBytes": 8561586,
+        "medianSetupBytes": 10469,
+        "medianSetupMs": 332.3932,
+        "medianBetweenPhaseUpBytes": 0,
+        "medianBetweenPhaseDownBytes": 0,
+        "medianBetweenPhaseBytes": 0,
+        "medianPayloadBytes": 8388608,
+        "medianMessages": 256
+      },
+      "on": {
+        "runs": 5,
+        "medianUpBytes": 8525663,
+        "medianDownBytes": 36474,
+        "medianTotalBytes": 8562122,
+        "medianSetupBytes": 10655,
+        "medianSetupMs": 330.3879,
+        "medianBetweenPhaseUpBytes": 0,
+        "medianBetweenPhaseDownBytes": 0,
+        "medianBetweenPhaseBytes": 0,
+        "medianPayloadBytes": 8388608,
+        "medianMessages": 256
+      },
+      "pairedRounds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "medianPairedTotalByteReductionPercent": -0.006260533259605516
+    },
+    {
+      "protocol": "reliable-udp",
+      "workload": "spaced-32k",
+      "off": {
+        "runs": 5,
+        "medianUpBytes": 10656342,
+        "medianDownBytes": 44187,
+        "medianTotalBytes": 10700529,
+        "medianSetupBytes": 10469,
+        "medianSetupMs": 330.973,
+        "medianBetweenPhaseUpBytes": 0,
+        "medianBetweenPhaseDownBytes": 0,
+        "medianBetweenPhaseBytes": 0,
+        "medianPayloadBytes": 10485760,
+        "medianMessages": 320
+      },
+      "on": {
+        "runs": 5,
+        "medianUpBytes": 6755473,
+        "medianDownBytes": 71799,
+        "medianTotalBytes": 6832399,
+        "medianSetupBytes": 10655,
+        "medianSetupMs": 334.5392,
+        "medianBetweenPhaseUpBytes": 0,
+        "medianBetweenPhaseDownBytes": 0,
+        "medianBetweenPhaseBytes": 0,
+        "medianPayloadBytes": 10485760,
+        "medianMessages": 320
+      },
+      "pairedRounds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "medianPairedTotalByteReductionPercent": 36.14896048597224
+    },
+    {
+      "protocol": "tcp",
+      "workload": "adaptive-32k",
+      "off": {
+        "runs": 5,
+        "medianUpBytes": 12616216,
+        "medianDownBytes": 29848,
+        "medianTotalBytes": 12646064,
+        "medianSetupBytes": 9904,
+        "medianSetupMs": 292.8345,
+        "medianBetweenPhaseUpBytes": 0,
+        "medianBetweenPhaseDownBytes": 0,
+        "medianBetweenPhaseBytes": 0,
+        "medianPayloadBytes": 12582912,
+        "medianMessages": 384
+      },
+      "on": {
+        "runs": 5,
+        "medianUpBytes": 4703730,
+        "medianDownBytes": 31203,
+        "medianTotalBytes": 4734933,
+        "medianSetupBytes": 10090,
+        "medianSetupMs": 343.9,
+        "medianBetweenPhaseUpBytes": 0,
+        "medianBetweenPhaseDownBytes": 0,
+        "medianBetweenPhaseBytes": 0,
+        "medianPayloadBytes": 12582912,
+        "medianMessages": 384
+      },
+      "pairedRounds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "medianPairedTotalByteReductionPercent": 62.5580496824941
+    },
+    {
+      "protocol": "tcp",
+      "workload": "marginal-32k",
+      "off": {
+        "runs": 5,
+        "medianUpBytes": 8412440,
+        "medianDownBytes": 21528,
+        "medianTotalBytes": 8433968,
+        "medianSetupBytes": 9904,
+        "medianSetupMs": 282.1221,
+        "medianBetweenPhaseUpBytes": 0,
+        "medianBetweenPhaseDownBytes": 0,
+        "medianBetweenPhaseBytes": 0,
+        "medianPayloadBytes": 8388608,
+        "medianMessages": 256
+      },
+      "on": {
+        "runs": 5,
+        "medianUpBytes": 8412777,
+        "medianDownBytes": 21650,
+        "medianTotalBytes": 8434427,
+        "medianSetupBytes": 10090,
+        "medianSetupMs": 301.917,
+        "medianBetweenPhaseUpBytes": 0,
+        "medianBetweenPhaseDownBytes": 0,
+        "medianBetweenPhaseBytes": 0,
+        "medianPayloadBytes": 8388608,
+        "medianMessages": 256
+      },
+      "pairedRounds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "medianPairedTotalByteReductionPercent": -0.005442278177958393
+    },
+    {
+      "protocol": "tcp",
+      "workload": "spaced-32k",
+      "off": {
+        "runs": 5,
+        "medianUpBytes": 10514328,
+        "medianDownBytes": 25688,
+        "medianTotalBytes": 10540016,
+        "medianSetupBytes": 9904,
+        "medianSetupMs": 305.5842,
+        "medianBetweenPhaseUpBytes": 0,
+        "medianBetweenPhaseDownBytes": 0,
+        "medianBetweenPhaseBytes": 0,
+        "medianPayloadBytes": 10485760,
+        "medianMessages": 320
+      },
+      "on": {
+        "runs": 5,
+        "medianUpBytes": 6783698,
+        "medianDownBytes": 65435,
+        "medianTotalBytes": 6849133,
+        "medianSetupBytes": 10090,
+        "medianSetupMs": 292.8256,
+        "medianBetweenPhaseUpBytes": 0,
+        "medianBetweenPhaseDownBytes": 0,
+        "medianBetweenPhaseBytes": 0,
+        "medianPayloadBytes": 10485760,
+        "medianMessages": 320
+      },
+      "pairedRounds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "medianPairedTotalByteReductionPercent": 35.01781211717325
+    }
+  ],
+  "incompleteRuns": []
+}

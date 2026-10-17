@@ -31,9 +31,13 @@ namespace SocketJack.Net {
             bool independent = !parent.Options.UdpReliable.Ordering;
             // Identity, metadata and routing updates always use the ordered lane.
             if (value != null && value.GetType().Namespace == "SocketJack.Net.P2P") independent = false;
+            // Dictionary synchronization must not overtake the ordered handshake reply.
+            if (value is BinaryCompressionControl) independent = false;
             return peer.SendCore(encodedLimit => {
-                byte[] bytes = serialized;
-                if (parent.Options.UdpReliable.Ordering)
+                NetworkConnection networkConnection = parent is UdpServer server
+                    ? server.CompressionConnection(connection.EndPoint) : parent.Connection;
+                byte[] bytes = BinaryNetworkCompression.Encode(parent, networkConnection, serialized);
+                if (parent.Options.UdpReliable.Ordering && !(parent.Options.Serializer is BinarySerializer))
                     bytes = connection.PatternCache.PrepareSend(bytes, parent.Options, candidate => {
                         if (candidate.Length > parent.Options.MaximumBufferSize || candidate.Length > serialized.Length + 64) return false;
                         int encodedLength = parent.Options.UseCompression ? parent.Options.CompressionAlgorithm.Compress(candidate).Length : candidate.Length;
@@ -55,7 +59,10 @@ namespace SocketJack.Net {
             if (Options.UdpMode != UdpMode.UDP_Reliable) throw new InvalidOperationException("SendAsync acknowledgments require UDP_Reliable.");
             return SendReliable(value, true, cancellationToken);
         }
-        Task SendReliable(object value, bool wait, CancellationToken token) => UdpReliableObjects.Send(ReliablePeer, UdpConn, this, value, wait, token);
+        Task SendReliable(object value, bool wait, CancellationToken token) {
+            if (Connection != null && !Connection.CanSend(value)) return Task.FromException(new NotSupportedException("The peer does not support this message."));
+            return UdpReliableObjects.Send(ReliablePeer, UdpConn, this, value, wait, token);
+        }
         async void ObserveReliable(Task task) { try { await task.ConfigureAwait(false); } catch (Exception ex) { InvokeOnError(Connection, ex); } }
         void ReliableReceive(UdpReliablePeer peer, byte[] data, byte kind) {
             if (ReceiveSafeModeReply(data)) return;
@@ -80,7 +87,11 @@ namespace SocketJack.Net {
             if (Options.UdpMode != UdpMode.UDP_Reliable) throw new InvalidOperationException("SendToAsync acknowledgments require UDP_Reliable.");
             return SendReliable(client, value, true, cancellationToken);
         }
-        Task SendReliable(UdpConnection client, object value, bool wait, CancellationToken token) => UdpReliableObjects.Send(client?.ReliablePeer, client, this, value, wait, token);
+        Task SendReliable(UdpConnection client, object value, bool wait, CancellationToken token) {
+            if (client?.EndPoint != null && _clientNetworkConnections.TryGetValue(client.EndPoint.ToString(), out var target) && !target.CanSend(value))
+                return Task.FromException(new NotSupportedException("The peer does not support this message."));
+            return UdpReliableObjects.Send(client?.ReliablePeer, client, this, value, wait, token);
+        }
         async void ObserveReliable(Task task) { try { await task.ConfigureAwait(false); } catch (Exception ex) { InvokeOnError(Connection, ex); } }
         void ReliableConnected(UdpReliablePeer peer) {
             if (Clients.TryGetValue(peer.Endpoint.ToString(), out var previous) && !ReferenceEquals(previous.ReliablePeer, peer))
@@ -94,13 +105,18 @@ namespace SocketJack.Net {
         }
         void ReliableReceive(UdpReliablePeer peer, byte[] data, byte kind) {
             if (Options.SafeMode && (!peer.SafeModeVerified || SafeModeHandshake.HasMagic(data))) {
+                var handshake = new NetworkConnection(this, null) { EndPoint = peer.Endpoint };
                 try {
                     if (kind != 0) throw SafeModeHandshake.Rejected();
-                    SafeModeHandshake.Validate(data, Options, null);
-                    peer.SafeModeVerified = true;
-                    ObserveReliable(peer.Send(SafeModeHandshake.Accepted, 0, false, false, CancellationToken.None));
-                    GetOrCreateClient(peer.Endpoint, peer);
+                    lock (compressionHandshakeSync) {
+                        SafeModeHandshake.Validate(data, Options, handshake);
+                        ValidateCompressionScope(peer.Endpoint, handshake.Compatibility);
+                        peer.SafeModeVerified = true;
+                        ObserveReliable(peer.Send(SafeModeHandshake.Reply(Options, handshake), 0, false, false, CancellationToken.None));
+                        GetOrCreateClient(peer.Endpoint, peer, handshake.Compatibility, handshake);
+                    }
                 } catch { peer.Fail(SafeModeHandshake.Rejected()); }
+                finally { if (Options.Serializer is BinarySerializer binary) binary.ReleaseCompressionCache(handshake); }
                 return;
             }
             _clientLastActivity[peer.Endpoint.ToString()] = DateTime.UtcNow;

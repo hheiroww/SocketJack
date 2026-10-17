@@ -425,6 +425,7 @@ namespace SocketJack.Net {
             LogAsync(new[] { string.Format(string.Join(Environment.NewLine, lines), args) });
         }
         protected internal void Send(NetworkConnection Connection, object Obj) {
+            if (Connection != null && !Connection.CanSend(Obj)) return;
             if (this is UdpClient udpClient) { udpClient.Send(Obj); return; }
             if (this is UdpServer udpServer) {
                 if (Connection != null) udpServer.Send(Connection.ID.ToString(), Obj);
@@ -435,7 +436,8 @@ namespace SocketJack.Net {
             if (Connection.Socket.Connected) {
                 var wrapped = new Wrapper(Obj, Connection.Parent);
                 var Bytes = Connection.Parent.Options.Serializer.Serialize(wrapped);
-                Bytes = Connection.PatternCache.PrepareSend(Bytes, Connection.Parent.Options);
+                Bytes = BinaryNetworkCompression.Encode(Connection.Parent, Connection, Bytes);
+                if (!(Options.Serializer is BinarySerializer)) Bytes = Connection.PatternCache.PrepareSend(Bytes, Connection.Parent.Options);
                 byte[] ProcessedBytes = Connection.Compressed ? Options.CompressionAlgorithm.Compress(Bytes) : Bytes;
                 var SerializedBytes = ProcessedBytes.Terminate();
                 Connection.TryEnqueueSendBytes(SerializedBytes);
