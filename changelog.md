@@ -1,5 +1,13 @@
 # SocketJack changelog
 
+## 2026.10.17.0
+
+- Use the date-code release version `year.month.day.revision` and reject duplicate NuGet versions before publishing.
+- Add adaptive SB1 binary compression, shared/private dictionary negotiation and bounded retained state.
+- Negotiate compatible wire contracts independently of assembly fingerprints.
+- Add content-based static HTTP caching and incremental data persistence recovery.
+- Refresh package documentation and preserve the separation from private application code.
+
 ## 2026.15.0
 
 - Require explicit MutableTcpServer protocol enablement and default SQL access to local clients.

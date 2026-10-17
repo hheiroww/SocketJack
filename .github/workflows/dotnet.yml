@@ -37,6 +37,9 @@ jobs:
     - uses: actions/setup-dotnet@v4
       with:
         dotnet-version: "10.0.x"
+    - name: Validate release date and unused package version
+      shell: pwsh
+      run: ./tools/Verify-ReleaseVersion.ps1
     - name: Restore and audit dependencies
       run: dotnet restore SocketJack/SocketJack.csproj
     - name: Pack library
@@ -58,7 +61,7 @@ jobs:
         if ($packages.Count -ne 1) {
           throw "Expected exactly one SocketJack package, found $($packages.Count)."
         }
-        dotnet nuget push $packages[0] --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate
+        dotnet nuget push $packages[0] --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json
 
     - name: "Add GitHub Packages source"
       shell: pwsh

@@ -1,3 +1,10 @@
 Pull requests are welcome. For major changes, please open an issue first
 
 to discuss what you would like to change.
+
+
+## Release versions
+
+Before every release push, update `SocketJack/SocketJack.csproj` and both README files to `yyyy.MM.dd.revision`, using the release date in America/Chicago. Begin each date at revision `0`; increment the revision for another release on the same date. Each published version is immutable and must be unused on NuGet.
+
+Run `pwsh -File tools/Verify-ReleaseVersion.ps1` before packaging. The publishing workflow runs the same check and fails when a version has the wrong date or is already published. Confirm the package is downloadable from NuGet after the workflow finishes; a successful build alone does not establish publication.
