@@ -46,7 +46,7 @@ namespace SocketJack.Net {
                         r.Context.StatusCodeNumber = 206; r.Context.ReasonPhrase = "Partial Content";
                         output.SetHeader("Content-Range", $"bytes {start}-{end}/{session.Length}");
                     }
-                    output.ContentType = "application/octet-stream"; output.LowLatencyMode = true;
+                    output.ContentType = options.ContentType?.Invoke(session) ?? "application/octet-stream"; output.LowLatencyMode = true;
                     output.SetHeader("Content-Length", Math.Max(0, end - start + 1).ToString(System.Globalization.CultureInfo.InvariantCulture));
                     output.SetHeader("ETag", session.ETag); output.SetHeader("Accept-Ranges", "bytes");
                     output.SetHeader("X-Content-SHA256", session.Sha256);

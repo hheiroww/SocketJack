@@ -65,6 +65,17 @@ public class HttpTransferTests {
         } finally { Directory.Delete(root, true); }
     }
     [TestMethod]
+    public void ExpiredSessionsDoNotReserveQuotaDuringRestart() {
+        var root=Root(); var now=DateTimeOffset.UtcNow; string id;
+        try {
+            using(var store=new HttpTransferStore(new(){Directory=root,UtcNow=()=>now})) id=store.Create("alice",Request(new byte[10])).Id;
+            now+=TimeSpan.FromHours(2);
+            using var recovered=new HttpTransferStore(new(){Directory=root,UtcNow=()=>now,Reserve=(_,_)=>throw new IOException("No remaining quota"),Release=(_,_)=>throw new Exception("No recovered reservation exists")});
+            Assert.AreEqual(HttpTransferState.Expired,recovered.Get("alice",id).State);
+            Assert.IsFalse(File.Exists(Path.Combine(root,id+".part")));
+        } finally {Directory.Delete(root,true);}
+    }
+    [TestMethod]
     public void InvalidHashAndPathsNeverCommit() {
         var root = Root(); bool committed = false;
         try {
@@ -79,7 +90,7 @@ public class HttpTransferTests {
         var root = Root(); using var listener = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0); listener.Start(); int port = ((IPEndPoint)listener.LocalEndpoint).Port; listener.Stop();
         try {
             using var server = new HttpServer(new NetworkOptions { Logging = false, UsePeerToPeer = false }, port);
-            using var store = server.MapTransfers("/transfers", new() { Directory = root, Authorize = (_, r) => r.Headers.TryGetValue("X-Owner", out var owner) ? owner : null });
+            using var store = server.MapTransfers("/transfers", new() { Directory = root, ContentType = _ => "video/mp4", Authorize = (_, r) => r.Headers.TryGetValue("X-Owner", out var owner) ? owner : null });
             Assert.IsTrue(server.Listen()); using var http = new System.Net.Http.HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{port}") }; http.DefaultRequestHeaders.Add("X-Owner", "alice");
             var data = Encoding.UTF8.GetBytes("download me");
             using var created = await http.PostAsync("/transfers/start", new StringContent(JsonSerializer.Serialize(Request(data)))); created.EnsureSuccessStatusCode(); var s = JsonSerializer.Deserialize<HttpTransferSession>(await created.Content.ReadAsStringAsync());
@@ -87,6 +98,7 @@ public class HttpTransferTests {
             using var completed = await http.PostAsync($"/transfers/complete?id={s.Id}", null); completed.EnsureSuccessStatusCode();
             using var request = new HttpRequestMessage(HttpMethod.Get, $"/transfers/download?id={s.Id}"); request.Headers.Range = new(3, null); request.Headers.TryAddWithoutValidation("If-Range", s.ETag);
             using var response = await http.SendAsync(request); Assert.AreEqual(HttpStatusCode.PartialContent, response.StatusCode); CollectionAssert.AreEqual(data[3..], await response.Content.ReadAsByteArrayAsync());
+            Assert.AreEqual("video/mp4",response.Content.Headers.ContentType.MediaType);
         } finally { Directory.Delete(root, true); }
     }
     [TestMethod]

@@ -28,6 +28,7 @@ namespace SocketJack.Net {
         public Action<string, long> Release { get; set; }
         public Action<HttpTransferSession, string> Commit { get; set; }
         public Func<string, string, string> ExistingGeneration { get; set; }
+        public Func<HttpTransferSession, string> ContentType { get; set; }
     }
     public sealed class HttpTransferSession {
         public string Id { get; set; }
@@ -69,6 +70,10 @@ namespace SocketJack.Net {
                 var session = JsonSerializer.Deserialize<HttpTransferSession>(File.ReadAllText(file));
                 ValidateId(session.Id);
                 if (Path.GetFileNameWithoutExtension(file) != session.Id) throw new InvalidDataException("Transfer identity mismatch.");
+                if (session.State != HttpTransferState.Completed && session.State != HttpTransferState.Expired && options.UtcNow() - session.LastProgressUtc >= options.Retention) {
+                    session.State = HttpTransferState.Expired; Save(session);
+                    if (File.Exists(DataPath(session.Id))) File.Delete(DataPath(session.Id));
+                }
                 if (session.State != HttpTransferState.Expired) {
                     if (!File.Exists(DataPath(session.Id)) || new FileInfo(DataPath(session.Id)).Length < session.Offset) throw new InvalidDataException("Transfer payload is missing or truncated.");
                     using (var stream = new FileStream(DataPath(session.Id), FileMode.Open, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete)) stream.SetLength(session.Offset);
