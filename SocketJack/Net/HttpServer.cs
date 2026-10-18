@@ -4477,7 +4477,7 @@ CloseHttpConnection:
             if (!_response.Headers.ContainsKey("Server"))
                 sb.Append("Server: SocketJack\r\n");
             if (!_response.Headers.ContainsKey("Content-Length")) sb.Append("Transfer-Encoding: chunked\r\n");
-            sb.Append("Connection: keep-alive\r\n");
+            sb.Append(_response.Headers.ContainsKey("Content-Length") ? "Connection: close\r\n" : "Connection: keep-alive\r\n");
             if (!_response.Headers.ContainsKey("Cache-Control"))
                 sb.Append("Cache-Control: no-cache, no-store\r\n");
             if (!_response.Headers.ContainsKey("X-Content-Type-Options"))
@@ -4574,7 +4574,7 @@ CloseHttpConnection:
                     try { _onEnd(); } catch { }
                     return;
                 }
-                if (_response.Headers.ContainsKey("Content-Length")) return;
+                if (_response.Headers.ContainsKey("Content-Length")) { _stream?.Flush(); _connection?.Dispose(); return; }
                 var terminator = Encoding.UTF8.GetBytes("0\r\n\r\n");
                 try {
                     _stream.Write(terminator, 0, terminator.Length);

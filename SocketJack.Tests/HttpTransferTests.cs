@@ -98,6 +98,7 @@ public class HttpTransferTests {
             Assert.IsTrue(server.Listen()); using var http = new System.Net.Http.HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{port}"), Timeout = TimeSpan.FromSeconds(10) }; http.DefaultRequestHeaders.Add("X-Owner", "alice");
             byte[] data = Encoding.UTF8.GetBytes("first and last"); var session = store.Create("alice", Request(data));
             using var response = await http.GetAsync($"/transfers/download?id={session.Id}", HttpCompletionOption.ResponseHeadersRead);
+            Assert.AreEqual(true, response.Headers.ConnectionClose);
             Assert.AreEqual(data.Length, response.Content.Headers.ContentLength); await using var stream = await response.Content.ReadAsStreamAsync();
             store.Append("alice", session.Id, 0, data[..5], Hash(data[..5])); byte[] actual = new byte[data.Length]; await stream.ReadExactlyAsync(actual.AsMemory(0, 5));
             CollectionAssert.AreEqual(data[..5], actual[..5]);
