@@ -332,6 +332,8 @@
     <Compile Include="..\SocketJack\Net\HtmlBuilder.cs" Link="Net\HtmlBuilder.cs" />
     <Compile Include="..\SocketJack\Net\HttpClient.cs" Link="Net\HttpClient.cs" />
     <Compile Include="..\SocketJack\Net\HttpServer.cs" Link="Net\HttpServer.cs" />
+    <Compile Include="..\SocketJack\Net\HttpTransfers.cs" Link="Net\HttpTransfers.cs" />
+    <Compile Include="..\SocketJack\Net\HttpTransferRoutes.cs" Link="Net\HttpTransferRoutes.cs" />
     <Compile Include="..\SocketJack\Net\TypeScriptClientGenerator.cs" Link="Net\TypeScriptClientGenerator.cs" />
     <Compile Include="..\SocketJack\Net\ISocket.cs" Link="Net\ISocket.cs" />
     <Compile Include="..\SocketJack\Net\MutableTcpServer.cs" Link="Net\MutableTcpServer.cs" />

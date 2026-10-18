@@ -1828,6 +1828,12 @@ namespace SocketJack.Net {
             };
             request.Context = context;
 
+            if ((request.BodyBytes?.LongLength ?? 0) > TransferBodyLimit(request.Method, request.Path)) {
+                context.StatusCodeNumber = 413; context.ReasonPhrase = "Content Too Large";
+                context.Response.Body = "Request body exceeds the transfer operation limit.";
+                return FinalizeDispatchedHttpResponse(context, streamed: false);
+            }
+
             if (!IsHostAllowed(request)) {
                 context.StatusCodeNumber = 421;
                 context.ReasonPhrase = "Misdirected Request";
@@ -3141,6 +3147,14 @@ namespace SocketJack.Net {
                     // an upload-stream route matches (those start processing with
                     // partial body data and receive the rest incrementally).
                     contentLength = ExtractContentLength(buffer, hdrEnd);
+                    string transferLine = Encoding.ASCII.GetString(buffer.Take(Math.Min(hdrEnd, 8192)).ToArray()).Split('\r')[0];
+                    string[] transferParts = transferLine.Split(' ');
+                    long transferLimit = transferParts.Length >= 2 ? TransferBodyLimit(transferParts[0], transferParts[1]) : long.MaxValue;
+                    if (contentLength > transferLimit || transferLimit != long.MaxValue && buffer.Count - hdrEnd > transferLimit + 65536) {
+                        var rejected = Encoding.ASCII.GetBytes("HTTP/1.1 413 Content Too Large\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+                        e.Connection.Stream.Write(rejected, 0, rejected.Length); e.Connection.Stream.Flush();
+                        buffer.Clear(); _requestBuffers.TryRemove(e.Connection.ID, out _); e.Connection.Dispose(); return;
+                    }
                     bool isUploadStreamRoute = IsUploadStreamRoute(buffer, hdrEnd);
                     if (contentLength > 0 && buffer.Count < hdrEnd + contentLength) {
                         if (!isUploadStreamRoute)
@@ -4462,7 +4476,7 @@ CloseHttpConnection:
             }
             if (!_response.Headers.ContainsKey("Server"))
                 sb.Append("Server: SocketJack\r\n");
-            sb.Append("Transfer-Encoding: chunked\r\n");
+            if (!_response.Headers.ContainsKey("Content-Length")) sb.Append("Transfer-Encoding: chunked\r\n");
             sb.Append("Connection: keep-alive\r\n");
             if (!_response.Headers.ContainsKey("Cache-Control"))
                 sb.Append("Cache-Control: no-cache, no-store\r\n");
@@ -4515,7 +4529,7 @@ CloseHttpConnection:
                     _onChunk(data, offset, count);
                     return;
                 }
-                var packet = BuildChunkPacket(data, offset, count);
+                var packet = _response.Headers.ContainsKey("Content-Length") ? data.Skip(offset).Take(count).ToArray() : BuildChunkPacket(data, offset, count);
                 _stream.Write(packet, 0, packet.Length);
                 _stream.Flush();
                 HttpServer.TrackHttpBytesSent(_connection, packet.Length);
@@ -4527,7 +4541,7 @@ CloseHttpConnection:
                 _onChunk(data, 0, data.Length);
                 return;
             }
-            var packet = BuildChunkPacket(data, 0, data.Length);
+            var packet = _response.Headers.ContainsKey("Content-Length") ? data : BuildChunkPacket(data, 0, data.Length);
             _stream.Write(packet, 0, packet.Length);
             _stream.Flush();
             HttpServer.TrackHttpBytesSent(_connection, packet.Length);
@@ -4544,9 +4558,13 @@ CloseHttpConnection:
         }
 
         /// <summary>
-        /// Sends the terminating zero-length chunk. Called automatically when the
-        /// stream route handler returns.
+        /// Aborts an incomplete streamed response without a successful terminating chunk.
         /// </summary>
+        public void Abort() {
+            lock (_writeLock) { _finished = true; _stream?.Close(); }
+        }
+
+        /// <summary>Finishes a successful response. Fixed-length responses do not emit a chunk terminator.</summary>
         public void Finish() {
             lock (_writeLock) {
                 if (_finished) return;
@@ -4556,6 +4574,7 @@ CloseHttpConnection:
                     try { _onEnd(); } catch { }
                     return;
                 }
+                if (_response.Headers.ContainsKey("Content-Length")) return;
                 var terminator = Encoding.UTF8.GetBytes("0\r\n\r\n");
                 try {
                     _stream.Write(terminator, 0, terminator.Length);

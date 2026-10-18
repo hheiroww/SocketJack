@@ -2001,6 +2001,12 @@ namespace SocketJack.Net {
             return _server.RemoveHostRoute(hostName, method, path);
         }
 
+        /// <inheritdoc cref="HttpServer.MapTransfers"/>
+        public HttpTransferStore MapTransfers(string prefix, HttpTransferOptions options) {
+            if (_server == null) throw new InvalidOperationException("A server-backed handler is required.");
+            return _server.MapTransfers(prefix, options);
+        }
+
         /// <inheritdoc cref="HttpServer.MapStream"/>
         public void MapStream(string method, string path, StreamRouteHandler handler) {
             EnsureServer();
