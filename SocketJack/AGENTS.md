@@ -1,0 +1,9 @@
+## Source synchronization and privacy
+
+- Commit and push every completed source change at each coherent checkpoint and before reporting completion. This is standing authorization for ordinary commits and non-force pushes to the established repository and branch, unless the user explicitly says otherwise.
+- Verify the authoritative checkout, destination, branch, and current remote visibility before pushing. Unknown visibility must be treated as public.
+- Review the exact staged diff and all outgoing commits for secrets and private content; use the project's secret scanner where available. Ignore rules do not protect tracked files or outgoing history.
+- Public destinations must exclude Codex/ChatGPT session logs, transcripts, prompt dumps, clipboard attachments, agent runtime state, credentials, passwords, tokens, database logins/connection strings, private keys, production settings, personal/customer data, database dumps, and private application source.
+- Private material belongs only in its intended verified private repository and only when required by the project. Prefer secret stores/environment variables and redacted configuration examples; exclude unrelated logs and machine/runtime data even in private repositories.
+- Preserve established public/private source splits. Use audited publication checkouts or explicit source allowlists for mixed trees. Include relevant source assets, tests, templates, and documentation; preserve unrelated dirty work and coordinate with other active chats before overlapping Git mutations.
+- Run appropriate checks, commit, push without force, and verify the remote branch contains the intended commit. If blocked, preserve the source and report the exact blocker and unpublished scope. Never imply a deployment or binary release also synchronized source.
