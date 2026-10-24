@@ -23,7 +23,7 @@ SocketJack is a .NET networking library for sending typed objects, hosting HTTP 
 |---|---|---|---|
 | TCP · UDP · reliable UDP | HTTP · WebSocket · multiple protocols | Typed messages · broadcasts · peer routing | TypeScript generation · SFTP · WPF companion |
 
-[Support SocketJack](SPONSORING.md) · Optional GitHub sponsorship, with planned monthly tiers from $1 to $100.
+[Support SocketJack](SPONSORING.md) · Optional GitHub sponsorship, with monthly tiers from $1 to $100.
 
 ## 📦 Install
 

@@ -4,9 +4,7 @@ If SocketJack has made networking easier in your application, thank you for usin
 
 I'm heirow, the developer behind [heirowDebug](https://github.com/hheiroww/heirowDebug), [SocketJack](https://github.com/hheiroww/SocketJack), and [Project Z](https://github.com/hheiroww/Project-Z). One sponsorship supports my open-source work across all three. You don't need to sponsor each project separately.
 
-> GitHub Sponsors is being set up. Paid sponsorships aren't available yet; the amounts below are the planned monthly tiers.
-
-[Visit my GitHub Sponsors profile](https://github.com/sponsors/hheiroww)
+[Sponsor on GitHub](https://github.com/sponsors/hheiroww)
 
 ## Monthly support
 
