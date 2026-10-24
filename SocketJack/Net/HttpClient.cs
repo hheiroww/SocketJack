@@ -120,6 +120,25 @@ namespace SocketJack.Net {
             return await SendAsync("GET", url, null, null, responseStream, onChunk, cancellationToken);
         }
 
+        /// <summary>Gets exactly one HTTP(S) response without following redirects.</summary>
+        /// <remarks>The caller can inspect the status and Location header before issuing another request.</remarks>
+        public Task<Net.HttpResponse> GetOnceAsync(string url, Stream responseStream = null, Action<byte[], int> onChunk = null, CancellationToken cancellationToken = default) {
+            return SendOnceAsync("GET", url, null, null, responseStream, onChunk, cancellationToken);
+        }
+
+        /// <summary>Sends exactly one HTTP(S) request without following redirects.</summary>
+        /// <remarks>Default headers, streaming callbacks, TLS verification, and cancellation behave as for SendAsync.</remarks>
+        public Task<Net.HttpResponse> SendOnceAsync(string method, string url, IDictionary<string,string> headers = null, byte[] body = null, Stream responseStream = null, Action<byte[], int> onChunk = null, CancellationToken cancellationToken = default) {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+                (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps) || uri.UserInfo.Length != 0)
+                throw new ArgumentException("An absolute HTTP(S) URL without embedded credentials is required.", nameof(url));
+            method = method ?? "GET";
+            if (method.Length == 0 || method.IndexOfAny(new[] { '\r', '\n', ' ', '\t' }) >= 0)
+                throw new ArgumentException("An HTTP method token is required.", nameof(method));
+            return SendOnce(method, uri, headers, body, responseStream, onChunk, cancellationToken);
+        }
+
         public async Task<Net.HttpResponse> PostAsync(string url, string contentType, byte[] body, Stream responseStream = null, Action<byte[], int> onChunk = null, CancellationToken cancellationToken = default) {
             var headers = new Dictionary<string, string> {
                 ["Content-Type"] = contentType ?? "application/octet-stream"

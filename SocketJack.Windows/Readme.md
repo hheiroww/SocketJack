@@ -15,8 +15,8 @@ Share any `FrameworkElement` as a live image stream, view it from another peer, 
 
 | Package / surface | Version | Target |
 |---|---:|---|
-| [`SocketJack.WPF`](https://www.nuget.org/packages/SocketJack.WPF) | `2026.10.23.0` | `net8.0-windows7.0`, `net10.0-windows7.0` |
-| [`SocketJack`](https://www.nuget.org/packages/SocketJack) | `2026.10.23.0` | `.NET Standard 2.1` |
+| [`SocketJack.WPF`](https://www.nuget.org/packages/SocketJack.WPF) | `2026.10.24.0` | `net8.0-windows7.0`, `net10.0-windows7.0` |
+| [`SocketJack`](https://www.nuget.org/packages/SocketJack) | `2026.10.24.0` | `.NET Standard 2.1` |
 
 <details open>
 <summary><strong>#Install</strong> - add WPF remote control to a SocketJack app</summary>
