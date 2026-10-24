@@ -35,12 +35,12 @@
     <Title>SocketJack</Title>
     <IsPackable>True</IsPackable>
     <Company>JackOfFates</Company>
-    <Version>2026.12</Version>
+    <Version>2026.10.23.0</Version>
     <BuildPackage>true</BuildPackage>
     <NeutralLanguage>en-001</NeutralLanguage>
     <IncludeSymbols>False</IncludeSymbols>
     <ImportedNamespaces>System.Text.Json=False,System.Text.Json.Serialization=False,Microsoft.VisualBasic=True,System=True,System.Collections=True,System.Collections.Generic=True,System.Diagnostics=True,System.Linq=True,System.Xml.Linq=True,System.Threading.Tasks=True,SocketJack=True</ImportedNamespaces>
-    <PackageReleaseNotes>2026.14 separates application components from the networking library, requires authenticated authorization before remote commands, blocks administrative peer redirects and remote CLR reflection, and hardens type activation and segment reassembly.</PackageReleaseNotes>
+    <PackageReleaseNotes>2026.10.23.0 refreshes the SocketJack.WPF icon and package branding with the text-free purple-to-dark-blue design.</PackageReleaseNotes>
     <PackageProjectUrl>https://www.nuget.org/packages/SocketJack.WPF/</PackageProjectUrl>
     <PackageIcon>SocketJackWpfIcon.png</PackageIcon>
     <PackageReadmeFile>Readme.md</PackageReadmeFile>

@@ -1,5 +1,5 @@
 
-![SocketJack](https://raw.githubusercontent.com/hheiroww/SocketJack/master/SocketJack/SocketJackIcon.png)
+![SocketJack](https://raw.githubusercontent.com/hheiroww/SocketJack/master/SocketJack/SocketJackIcon.png?v=20261023-purple1)
 
 # ⚡ SocketJack 2026
 
@@ -24,12 +24,12 @@ SocketJack is a .NET networking library for sending typed objects, hosting HTTP 
 ## 📦 Install
 
 ```powershell
-dotnet add package SocketJack --version 2026.10.17.0
+dotnet add package SocketJack --version 2026.10.23.0
 ```
 
 | Package | Target | Purpose |
 |---|---|---|
-| **[SocketJack](https://www.nuget.org/packages/SocketJack/2026.10.17.0)** | .NET Standard 2.1 | Core networking library; this release is **2026.10.17.0**. |
+| **[SocketJack](https://www.nuget.org/packages/SocketJack/2026.10.23.0)** | .NET Standard 2.1 | Core networking library; this release is **2026.10.23.0**. |
 | **[SocketJack.WPF](https://www.nuget.org/packages/SocketJack.WPF)** | Windows / WPF | Companion package for live control capture and remote input; versioned separately. |
 
 ### 🚀 First connection — typed TCP messages
@@ -61,9 +61,11 @@ Console.ReadLine();
 Keep the host application running while connections are in use. Use matching serialization and compression settings on both endpoints.
 
 
-## 🆕 What's new in 2026.10.17.0
+## 🆕 What's new in 2026.10.23.0
 
 This release uses the date code **year.month.day.revision**. It includes the library features below; the install command above selects this exact version.
+
+The package and README now use the text-free SocketJack icon with a flat square frame and a restrained diagonal purple-to-dark-blue gradient.
 
 | Feature | What changed |
 |---|---|

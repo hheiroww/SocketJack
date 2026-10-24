@@ -1,6 +1,6 @@
 # SocketJack.WPF 2026
 
-![SocketJack WPF Icon](https://raw.githubusercontent.com/JackOfFates/SocketJack/master/SocketJack.Windows/SocketJackWpfIcon.png)
+![SocketJack WPF Icon](https://raw.githubusercontent.com/hheiroww/SocketJack/master/SocketJack.Windows/SocketJackWpfIcon.png?v=20261023-purple1)
 
 [![NuGet](https://img.shields.io/nuget/v/SocketJack.WPF.svg)](https://www.nuget.org/packages/SocketJack.WPF)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/SocketJack.WPF.svg)](https://www.nuget.org/packages/SocketJack.WPF)
@@ -15,8 +15,8 @@ Share any `FrameworkElement` as a live image stream, view it from another peer, 
 
 | Package / surface | Version | Target |
 |---|---:|---|
-| [`SocketJack.WPF`](https://www.nuget.org/packages/SocketJack.WPF) | `2026.7` | `net8.0-windows7.0`, `net10.0-windows7.0` |
-| [`SocketJack`](https://www.nuget.org/packages/SocketJack) | `2026.11` | `.NET Standard 2.1` |
+| [`SocketJack.WPF`](https://www.nuget.org/packages/SocketJack.WPF) | `2026.10.23.0` | `net8.0-windows7.0`, `net10.0-windows7.0` |
+| [`SocketJack`](https://www.nuget.org/packages/SocketJack) | `2026.10.23.0` | `.NET Standard 2.1` |
 
 <details open>
 <summary><strong>#Install</strong> - add WPF remote control to a SocketJack app</summary>

@@ -25,7 +25,7 @@ jobs:
       - name: Verify reliable transport and codec
         run: dotnet test SocketJack.UdpReliable.Tests/SocketJack.UdpReliable.Tests.csproj -c Release -p:BuildPackage=false --filter "TestCategory!=LargeFile"
   deploy:
-    name: Publish verified library
+    name: Publish verified packages
     runs-on: windows-latest
     needs: validate
     permissions:
@@ -36,32 +36,48 @@ jobs:
     - uses: actions/checkout@v4
     - uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: "10.0.x"
+        dotnet-version: |
+          10.0.x
+          8.0.x
     - name: Validate release date and unused package version
       shell: pwsh
-      run: ./tools/Verify-ReleaseVersion.ps1
+      run: |
+        ./tools/Verify-ReleaseVersion.ps1
+        ./tools/Verify-ReleaseVersion.ps1 -Project ./SocketJack.Windows/SocketJack.WPF.csproj -PackageId SocketJack.WPF
     - name: Restore and audit dependencies
-      run: dotnet restore SocketJack/SocketJack.csproj
-    - name: Pack library
-      run: dotnet pack SocketJack/SocketJack.csproj -c Release -p:BuildPackage=false --no-restore -o ./nupkg/SocketJack
+      run: |
+        dotnet restore SocketJack/SocketJack.csproj
+        dotnet restore SocketJack.Windows/SocketJack.WPF.csproj
+    - name: Pack libraries
+      run: |
+        dotnet pack SocketJack/SocketJack.csproj -c Release -p:BuildPackage=false --no-restore -o ./nupkg/SocketJack
+        dotnet pack SocketJack.Windows/SocketJack.WPF.csproj -c Release -p:BuildPackage=false -p:GeneratePackageOnBuild=false --no-restore -o ./nupkg/SocketJack.WPF
+    - name: Preserve verified packages
+      uses: actions/upload-artifact@v4
+      with:
+        name: socketjack-packages-${{ github.sha }}
+        path: ./nupkg/**/*.nupkg
     - name: "Login to NuGet with Trusted Publishing"
       uses: NuGet/login@v1
       id: nuget-login
       with:
         user: Pathogenix
 
-    - name: "Push SocketJack to NuGet"
+    - name: "Push SocketJack packages to NuGet"
       shell: pwsh
       env:
         NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
       run: |
-        $packages = @(Get-ChildItem -Path ./nupkg/SocketJack -Filter 'SocketJack*.nupkg' |
+        $packages = @(Get-ChildItem -Path ./nupkg -Recurse -Filter 'SocketJack*.nupkg' |
           Where-Object { $_.Name -notlike '*.symbols.nupkg' } |
           Select-Object -ExpandProperty FullName)
-        if ($packages.Count -ne 1) {
-          throw "Expected exactly one SocketJack package, found $($packages.Count)."
+        if ($packages.Count -ne 2) {
+          throw "Expected SocketJack and SocketJack.WPF packages, found $($packages.Count)."
         }
-        dotnet nuget push $packages[0] --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json
+        foreach ($package in $packages) {
+          dotnet nuget push $package --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json
+          if ($LASTEXITCODE -ne 0) { throw "NuGet publication failed for $([IO.Path]::GetFileName($package))." }
+        }
 
     - name: "Add GitHub Packages source"
       shell: pwsh
@@ -69,13 +85,14 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: dotnet nuget add source --username "${{ github.actor }}" --password "$env:GITHUB_TOKEN" --store-password-in-clear-text --name github "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
 
-    - name: "Push SocketJack to GitHub Packages"
+    - name: "Push SocketJack packages to GitHub Packages"
       shell: pwsh
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        Get-ChildItem -Path ./nupkg/SocketJack -Filter 'SocketJack*.nupkg' |
+        Get-ChildItem -Path ./nupkg -Recurse -Filter 'SocketJack*.nupkg' |
           Where-Object { $_.Name -notlike '*.symbols.nupkg' } |
           ForEach-Object {
             dotnet nuget push $_.FullName --source github --api-key $env:GITHUB_TOKEN --skip-duplicate
+            if ($LASTEXITCODE -ne 0) { throw "GitHub Packages publication failed for $($_.Name)." }
           }
