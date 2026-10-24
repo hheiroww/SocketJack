@@ -1,5 +1,11 @@
 # SocketJack changelog
 
+## 2026.10.24.1
+
+- Publish SocketJack and SocketJack.WPF together to NuGet, GitHub Packages, and a tagged GitHub Release.
+- Attach the verified library packages and SHA-256 checksums to each release.
+- Validate package identities, versions, repository links, and the two-library asset allowlist before publication.
+
 ## 2026.10.17.0
 
 - Use the date-code release version `year.month.day.revision` and reject duplicate NuGet versions before publishing.

@@ -5,6 +5,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: socketjack-release-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
   validate:
     name: Build and security checks
@@ -29,7 +32,7 @@ jobs:
     runs-on: windows-latest
     needs: validate
     permissions:
-      contents: read
+      contents: write
       packages: write
       id-token: write
     steps:
@@ -50,13 +53,26 @@ jobs:
         dotnet restore SocketJack.Windows/SocketJack.WPF.csproj
     - name: Pack libraries
       run: |
-        dotnet pack SocketJack/SocketJack.csproj -c Release -p:BuildPackage=false --no-restore -o ./nupkg/SocketJack
-        dotnet pack SocketJack.Windows/SocketJack.WPF.csproj -c Release -p:BuildPackage=false -p:GeneratePackageOnBuild=false --no-restore -o ./nupkg/SocketJack.WPF
+        dotnet pack SocketJack/SocketJack.csproj -c Release -p:BuildPackage=false -p:RepositoryCommit=${{ github.sha }} --no-restore -o ./nupkg/SocketJack
+        dotnet pack SocketJack.Windows/SocketJack.WPF.csproj -c Release -p:BuildPackage=false -p:GeneratePackageOnBuild=false -p:RepositoryCommit=${{ github.sha }} --no-restore -o ./nupkg/SocketJack.WPF
+    - name: Verify release package allowlist and checksums
+      shell: pwsh
+      run: |
+        $packages = @(./tools/Get-ReleasePackages.ps1)
+        $checksums = foreach ($package in $packages) {
+          $hash = (Get-FileHash -LiteralPath $package -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $([IO.Path]::GetFileName($package))"
+        }
+        $checksums | Set-Content -LiteralPath ./nupkg/SHA256SUMS -Encoding utf8NoBOM
     - name: Preserve verified packages
       uses: actions/upload-artifact@v4
       with:
         name: socketjack-packages-${{ github.sha }}
-        path: ./nupkg/**/*.nupkg
+        path: |
+          ./nupkg/SocketJack/*.nupkg
+          ./nupkg/SocketJack.WPF/*.nupkg
+          ./nupkg/SHA256SUMS
+        if-no-files-found: error
     - name: "Login to NuGet with Trusted Publishing"
       uses: NuGet/login@v1
       id: nuget-login
@@ -68,12 +84,7 @@ jobs:
       env:
         NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
       run: |
-        $packages = @(Get-ChildItem -Path ./nupkg -Recurse -Filter 'SocketJack*.nupkg' |
-          Where-Object { $_.Name -notlike '*.symbols.nupkg' } |
-          Select-Object -ExpandProperty FullName)
-        if ($packages.Count -ne 2) {
-          throw "Expected SocketJack and SocketJack.WPF packages, found $($packages.Count)."
-        }
+        $packages = @(./tools/Get-ReleasePackages.ps1)
         foreach ($package in $packages) {
           dotnet nuget push $package --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json
           if ($LASTEXITCODE -ne 0) { throw "NuGet publication failed for $([IO.Path]::GetFileName($package))." }
@@ -90,9 +101,35 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        Get-ChildItem -Path ./nupkg -Recurse -Filter 'SocketJack*.nupkg' |
-          Where-Object { $_.Name -notlike '*.symbols.nupkg' } |
-          ForEach-Object {
-            dotnet nuget push $_.FullName --source github --api-key $env:GITHUB_TOKEN --skip-duplicate
-            if ($LASTEXITCODE -ne 0) { throw "GitHub Packages publication failed for $($_.Name)." }
-          }
+        foreach ($package in @(./tools/Get-ReleasePackages.ps1)) {
+          dotnet nuget push $package --source github --api-key $env:GITHUB_TOKEN
+          if ($LASTEXITCODE -ne 0) { throw "GitHub Packages publication failed for $([IO.Path]::GetFileName($package))." }
+        }
+
+    - name: Publish GitHub Release with verified package assets
+      shell: pwsh
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        $ErrorActionPreference = 'Stop'
+        [xml]$project = Get-Content -LiteralPath ./SocketJack/SocketJack.csproj -Raw
+        $version = $project.SelectSingleNode('/Project/PropertyGroup/Version').InnerText.Trim()
+        $releaseAssets = @(./tools/Get-ReleasePackages.ps1) + @('./nupkg/SHA256SUMS')
+        $notes = @(
+          $project.SelectSingleNode('/Project/PropertyGroup/PackageReleaseNotes').InnerText.Trim(),
+          '',
+          "Includes SocketJack and SocketJack.WPF $version for NuGet and GitHub Packages.",
+          '',
+          'Download the .nupkg assets below, or install from NuGet:',
+          '',
+          '```powershell',
+          "dotnet add package SocketJack --version $version",
+          "dotnet add package SocketJack.WPF --version $version",
+          '```',
+          '',
+          'SHA256SUMS records the SHA-256 digest of each attached package.'
+        )
+        $notesPath = Join-Path $env:RUNNER_TEMP 'socketjack-release-notes.md'
+        $notes | Set-Content -LiteralPath $notesPath -Encoding utf8NoBOM
+        gh release create "v$version" @releaseAssets --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "SocketJack $version" --notes-file $notesPath --latest
+        if ($LASTEXITCODE -ne 0) { throw 'GitHub Release publication failed.' }

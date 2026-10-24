@@ -11,7 +11,7 @@
 [![Build & publish](https://github.com/hheiroww/SocketJack/actions/workflows/dotnet.yml/badge.svg)](https://github.com/hheiroww/SocketJack/actions/workflows/dotnet.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/hheiroww/SocketJack/blob/master/LICENSE)
 
-**📦 [Install](#-install) · ✨ [What's new](#-whats-new-in-202615) · 🧭 [Features](#-feature-explorer) · 📚 [Documentation](#-documentation)**
+**📦 [Install](#-install) · ✨ [What's new](#-whats-new-in-202610241) · 🧭 [Features](#-feature-explorer) · 📚 [Documentation](#-documentation)**
 
 </div>
 
@@ -28,13 +28,13 @@ SocketJack is a .NET networking library for sending typed objects, hosting HTTP 
 ## 📦 Install
 
 ```powershell
-dotnet add package SocketJack --version 2026.10.24.0
+dotnet add package SocketJack --version 2026.10.24.1
 ```
 
 | Package | Target | Purpose |
 |---|---|---|
-| **[SocketJack](https://www.nuget.org/packages/SocketJack/2026.10.24.0)** | .NET Standard 2.1 | Core networking library; this release is **2026.10.24.0**. |
-| **[SocketJack.WPF](https://www.nuget.org/packages/SocketJack.WPF)** | Windows / WPF | Companion package for live control capture and remote input; versioned separately. |
+| **[SocketJack](https://www.nuget.org/packages/SocketJack/2026.10.24.1)** | .NET Standard 2.1 | Core networking library; this release is **2026.10.24.1**. |
+| **[SocketJack.WPF](https://www.nuget.org/packages/SocketJack.WPF/2026.10.24.1)** | Windows / WPF | Companion package for live control capture and remote input; this release is **2026.10.24.1**. |
 
 <details>
 <summary><strong>🚀 First connection — typed TCP messages</strong></summary>
@@ -67,9 +67,11 @@ Keep the host application running while connections are in use. Use matching ser
 
 </details>
 
-## 🆕 What's new in 2026.10.24.0
+## 🆕 What's new in 2026.10.24.1
 
 This release uses the date code **year.month.day.revision**. It includes the library features below; the install command above selects this exact version.
+
+Download the verified packages and SHA-256 checksums from [GitHub Releases](https://github.com/hheiroww/SocketJack/releases/tag/v2026.10.24.1), or browse both libraries in [GitHub Packages](https://github.com/hheiroww/SocketJack/packages).
 
 `GetOnceAsync` and `SendOnceAsync` return a single response, including redirects, so applications can validate each destination before following it. Existing redirect-following methods keep their behavior.
 

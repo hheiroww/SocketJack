@@ -35,16 +35,16 @@
     <Title>SocketJack</Title>
     <IsPackable>True</IsPackable>
     <Company>JackOfFates</Company>
-    <Version>2026.10.24.0</Version>
+    <Version>2026.10.24.1</Version>
     <BuildPackage>true</BuildPackage>
     <NeutralLanguage>en-001</NeutralLanguage>
     <IncludeSymbols>False</IncludeSymbols>
     <ImportedNamespaces>System.Text.Json=False,System.Text.Json.Serialization=False,Microsoft.VisualBasic=True,System=True,System.Collections=True,System.Collections.Generic=True,System.Diagnostics=True,System.Linq=True,System.Xml.Linq=True,System.Threading.Tasks=True,SocketJack=True</ImportedNamespaces>
-    <PackageReleaseNotes>2026.10.24.0 aligns with the SocketJack single-request HTTP API release and retains the current WPF surface.</PackageReleaseNotes>
+    <PackageReleaseNotes>2026.10.24.1 aligns SocketJack.WPF with the verified NuGet, GitHub Packages, and GitHub Releases publication, including downloadable package assets and SHA-256 checksums.</PackageReleaseNotes>
     <PackageProjectUrl>https://www.nuget.org/packages/SocketJack.WPF/</PackageProjectUrl>
     <PackageIcon>SocketJackWpfIcon.png</PackageIcon>
     <PackageReadmeFile>Readme.md</PackageReadmeFile>
-    <RepositoryUrl>https://github.com/JackOfFates/SocketJack</RepositoryUrl>
+    <RepositoryUrl>https://github.com/hheiroww/SocketJack</RepositoryUrl>
     <PackageTags>Socket; Sockets; Jack; Serialization; Json; Networking; Managed; TCP; Client; TcpClient; TcpServer; Server; P2P; Peer; To; Generic; Compressed; Multi Threaded; Concurrent; Multi Platform; WebSocket; WebSockets; WPF; Remote; Control </PackageTags>
     <UseWPF>True</UseWPF>
   </PropertyGroup>
