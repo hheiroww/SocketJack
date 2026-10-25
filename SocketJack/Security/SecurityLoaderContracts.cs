@@ -73,18 +73,25 @@ namespace SocketJack.Security {
     public sealed class SecurityLoaderJob {
         public const int MaximumResultUtf8Bytes = 1048576;
 
-        public SecurityLoaderJob(string id, SecurityLoaderJobState state, string resultJson = null, string errorCode = null) {
+        public SecurityLoaderJob(string id, SecurityLoaderJobState state, string resultJson = null, string errorCode = null)
+            : this(id, state, resultJson, errorCode, 0) { }
+
+        [JsonConstructor]
+        public SecurityLoaderJob(string id, SecurityLoaderJobState state, string resultJson, string errorCode, int artifactCount = 0) {
             Id = SecurityLoaderContract.Identifier(id, nameof(id));
             if (!Enum.IsDefined(typeof(SecurityLoaderJobState), state)) throw new ArgumentOutOfRangeException(nameof(state));
             State = state;
             ResultJson = resultJson == null ? null : SecurityLoaderContract.Json(resultJson, MaximumResultUtf8Bytes, nameof(resultJson), requireObject: false);
             ErrorCode = errorCode == null ? null : SecurityLoaderContract.Identifier(errorCode, nameof(errorCode));
+            if (artifactCount < 0 || artifactCount > SecurityLoaderOperationResult.MaximumArtifacts) throw new ArgumentOutOfRangeException(nameof(artifactCount));
+            ArtifactCount = artifactCount;
         }
 
         public string Id { get; }
         public SecurityLoaderJobState State { get; }
         public string ResultJson { get; }
         public string ErrorCode { get; }
+        public int ArtifactCount { get; }
     }
 
     internal static class SecurityLoaderContract {
