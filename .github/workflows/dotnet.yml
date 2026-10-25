@@ -27,6 +27,8 @@ jobs:
         run: dotnet test SocketJack.Tests/SocketJack.Tests.csproj -c Release -p:BuildPackage=false
       - name: Verify reliable transport and codec
         run: dotnet test SocketJack.UdpReliable.Tests/SocketJack.UdpReliable.Tests.csproj -c Release -p:BuildPackage=false --filter "TestCategory!=LargeFile"
+      - name: Verify SecurityLoader facade boundaries
+        run: dotnet test SocketJack.SecurityLoader.Tests/SocketJack.SecurityLoader.Tests.csproj -c Release -p:BuildPackage=false
   deploy:
     name: Publish verified packages
     runs-on: windows-latest

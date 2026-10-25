@@ -35,12 +35,12 @@
     <Title>SocketJack</Title>
     <IsPackable>True</IsPackable>
     <Company>JackOfFates</Company>
-    <Version>2026.10.24.1</Version>
+    <Version>2026.10.25.0</Version>
     <BuildPackage>true</BuildPackage>
     <NeutralLanguage>en-001</NeutralLanguage>
     <IncludeSymbols>False</IncludeSymbols>
     <ImportedNamespaces>System.Text.Json=False,System.Text.Json.Serialization=False,Microsoft.VisualBasic=True,System=True,System.Collections=True,System.Collections.Generic=True,System.Diagnostics=True,System.Linq=True,System.Xml.Linq=True,System.Threading.Tasks=True,SocketJack=True</ImportedNamespaces>
-    <PackageReleaseNotes>2026.10.24.1 aligns SocketJack.WPF with the verified NuGet, GitHub Packages, and GitHub Releases publication, including downloadable package assets and SHA-256 checksums.</PackageReleaseNotes>
+    <PackageReleaseNotes>2026.10.25.0 aligns SocketJack.WPF with the SocketJackSecurityLoader facade release. Protected runtime implementation and account enforcement are distributed separately.</PackageReleaseNotes>
     <PackageProjectUrl>https://www.nuget.org/packages/SocketJack.WPF/</PackageProjectUrl>
     <PackageIcon>SocketJackWpfIcon.png</PackageIcon>
     <PackageReadmeFile>Readme.md</PackageReadmeFile>
