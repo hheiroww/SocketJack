@@ -28,13 +28,13 @@ SocketJack is a .NET networking library for sending typed objects, hosting HTTP 
 ## 📦 Install
 
 ```powershell
-dotnet add package SocketJack --version 2026.10.25.1
+dotnet add package SocketJack --version 2026.10.28.0
 ```
 
 | Package | Target | Purpose |
 |---|---|---|
-| **[SocketJack](https://www.nuget.org/packages/SocketJack/2026.10.25.1)** | .NET Standard 2.1 | Core networking library; this release is **2026.10.25.1**. |
-| **[SocketJack.WPF](https://www.nuget.org/packages/SocketJack.WPF/2026.10.25.1)** | Windows / WPF | Companion package for live control capture and remote input; this release is **2026.10.25.1**. |
+| **[SocketJack](https://www.nuget.org/packages/SocketJack/2026.10.28.0)** | .NET Standard 2.1 | Core networking library; this release is **2026.10.28.0**. |
+| **[SocketJack.WPF](https://www.nuget.org/packages/SocketJack.WPF/2026.10.28.0)** | Windows / WPF | Companion package for live control capture and remote input; this release is **2026.10.28.0**. |
 
 <details>
 <summary><strong>🚀 First connection — typed TCP messages</strong></summary>
@@ -67,13 +67,15 @@ Keep the host application running while connections are in use. Use matching ser
 
 </details>
 
-## 🆕 What's new in 2026.10.25.1
+## 🆕 What's new in 2026.10.28.0
+
+`HttpTransferStore.RevokeTarget(owner, target)` invalidates retained upload generations and removes cached payloads, including completed transfers. After an application deletes its canonical file, stale transfer links stop serving bytes and uploading the same content creates a fresh generation. Call revocation before taking application storage locks.
 
 `SocketJack.Security.SocketJackSecurityLoader` provides the public entry point for authenticated private runtimes, with bounded operation requests, account-session callbacks, and asynchronous local module leases. Install the separate signed runtime through heirowInstaller; the public library does not include decryption keys or private service code. See the [SecurityLoader guide](docs/security-loader.md).
 
 This release uses the date code **year.month.day.revision**. It includes the library features below; the install command above selects this exact version.
 
-Download the verified packages and SHA-256 checksums from [GitHub Releases](https://github.com/hheiroww/SocketJack/releases/tag/v2026.10.25.1), or browse both libraries in [GitHub Packages](https://github.com/hheiroww/SocketJack/packages).
+Download the verified packages and SHA-256 checksums from [GitHub Releases](https://github.com/hheiroww/SocketJack/releases/tag/v2026.10.28.0), or browse both libraries in [GitHub Packages](https://github.com/hheiroww/SocketJack/packages).
 
 `GetOnceAsync` and `SendOnceAsync` return a single response, including redirects, so applications can validate each destination before following it. Existing redirect-following methods keep their behavior.
 

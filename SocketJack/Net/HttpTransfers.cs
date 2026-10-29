@@ -166,6 +166,36 @@ namespace SocketJack.Net {
             }
         }
         public HttpTransferSession Cancel(string owner, string id, bool paused = false) { lock (gate) { var s = Owned(owner, id); Active(s); if (s.State != HttpTransferState.Completed) { s.State = paused ? HttpTransferState.Paused : HttpTransferState.Canceled; Save(s); } return Copy(s); } }
+        /// <summary>
+        /// Revokes every retained generation of an owner's target, including completed
+        /// transfers. Call this before deleting the application's canonical file.
+        /// Revocation is persisted before payload removal, and a subsequent upload
+        /// creates a fresh generation instead of replaying a deleted completion.
+        /// </summary>
+        /// <returns>The number of newly revoked generations.</returns>
+        public int RevokeTarget(string owner, string target) {
+            ValidateOwner(owner); ValidateTarget(target);
+            lock (gate) {
+                int revoked = 0;
+                foreach (var session in sessions.Values.Where(s => string.Equals(s.Owner, owner, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(s.Target, target, StringComparison.OrdinalIgnoreCase)).ToArray()) {
+                    var previousState = session.State; var previousError = session.Error;
+                    if (previousState != HttpTransferState.Expired) {
+                        session.State = HttpTransferState.Expired; session.Error = "Transfer revoked.";
+                        try { Save(session); }
+                        catch { session.State = previousState; session.Error = previousError; throw; }
+                        string key = Key(session.Owner, session.Target);
+                        if (targets.TryGetValue(key, out string current) && current == session.Id) targets.Remove(key);
+                        if (previousState != HttpTransferState.Completed) options.Release?.Invoke(session.Owner, session.Length);
+                        revoked++;
+                    }
+                    // Retry payload cleanup even if a previous call persisted the
+                    // revocation but could not remove a temporarily locked file.
+                    if (File.Exists(DataPath(session.Id))) File.Delete(DataPath(session.Id));
+                }
+                return revoked;
+            }
+        }
         public void Sweep() { lock (gate) SweepCore(); }
         void SweepCore() {
             foreach (var s in sessions.Values) {

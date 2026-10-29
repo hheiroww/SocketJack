@@ -1737,6 +1737,14 @@
             Removes a previously registered protocol handler.
             </summary>
         </member>
+        <member name="M:SocketJack.Net.HttpClient.GetOnceAsync(System.String,System.IO.Stream,System.Action{System.Byte[],System.Int32},System.Threading.CancellationToken)">
+            <summary>Gets exactly one HTTP(S) response without following redirects.</summary>
+            <remarks>The caller can inspect the status and Location header before issuing another request.</remarks>
+        </member>
+        <member name="M:SocketJack.Net.HttpClient.SendOnceAsync(System.String,System.String,System.Collections.Generic.IDictionary{System.String,System.String},System.Byte[],System.IO.Stream,System.Action{System.Byte[],System.Int32},System.Threading.CancellationToken)">
+            <summary>Sends exactly one HTTP(S) request without following redirects.</summary>
+            <remarks>Default headers, streaming callbacks, TLS verification, and cancellation behave as for SendAsync.</remarks>
+        </member>
         <member name="T:SocketJack.Net.HttpMappedRoute">
             <summary>
             Read-only description of a route registered through <see cref="M:SocketJack.Net.HttpServer.Map(System.String,System.String,SocketJack.Net.HttpServer.RouteHandler)"/>.
@@ -2148,6 +2156,9 @@
             <param name="rawRequest">The raw HTTP request string.</param>
             <returns>HttpRequest object with parsed data.</returns>
         </member>
+        <member name="M:SocketJack.Net.HttpServer.MapTransfers(System.String,SocketJack.Net.HttpTransferOptions)">
+            <summary>Maps authenticated resumable transfer operations under a caller-selected prefix.</summary>
+        </member>
         <member name="M:SocketJack.Net.HttpServer.GenerateTypeScriptClient(SocketJack.Net.TypeScriptClientOptions)">
             <summary>
             Generates a dependency-free TypeScript client for the server's currently mapped HTTP routes.
@@ -2273,11 +2284,13 @@
             Sends arbitrary bytes as one HTTP chunk.
             </summary>
         </member>
-        <member name="M:SocketJack.Net.ChunkedStream.Finish">
+        <member name="M:SocketJack.Net.ChunkedStream.Abort">
             <summary>
-            Sends the terminating zero-length chunk. Called automatically when the
-            stream route handler returns.
+            Aborts an incomplete streamed response without a successful terminating chunk.
             </summary>
+        </member>
+        <member name="M:SocketJack.Net.ChunkedStream.Finish">
+            <summary>Finishes a successful response. Fixed-length responses do not emit a chunk terminator.</summary>
         </member>
         <member name="T:SocketJack.Net.UploadStream">
             <summary>
@@ -2325,6 +2338,21 @@
             Returns <see langword="false"/> when no data is available within the timeout
             or the stream is complete.
             </summary>
+        </member>
+        <member name="T:SocketJack.Net.HttpTransferStore">
+            <summary>Durable, owner-scoped, sequential uploads with immutable download generations.</summary>
+        </member>
+        <member name="M:SocketJack.Net.HttpTransferStore.RevokeTarget(System.String,System.String)">
+            <summary>
+            Revokes every retained generation of an owner's target, including completed
+            transfers. Call this before deleting the application's canonical file.
+            Revocation is persisted before payload removal, and a subsequent upload
+            creates a fresh generation instead of replaying a deleted completion.
+            </summary>
+            <returns>The number of newly revoked generations.</returns>
+        </member>
+        <member name="M:SocketJack.Net.HttpTransferStore.CopyToAsync(System.String,System.String,System.IO.Stream,System.Int64,System.Nullable{System.Int64},System.Threading.CancellationToken)">
+            <summary>Streams a pinned generation, waiting for newly committed prefixes. The last byte waits for final verification.</summary>
         </member>
         <member name="T:SocketJack.Net.InboundSegmentBuffer">
             <summary>Per-connection, bounded legacy reassembly. A segment ID from another client never joins this buffer.</summary>
@@ -2750,6 +2778,9 @@
         </member>
         <member name="M:SocketJack.Net.HttpProtocolHandler.RemoveHostRoute(System.String,System.String,System.String)">
             <inheritdoc cref="M:SocketJack.Net.HttpServer.RemoveHostRoute(System.String,System.String,System.String)"/>
+        </member>
+        <member name="M:SocketJack.Net.HttpProtocolHandler.MapTransfers(System.String,SocketJack.Net.HttpTransferOptions)">
+            <inheritdoc cref="M:SocketJack.Net.HttpServer.MapTransfers(System.String,SocketJack.Net.HttpTransferOptions)"/>
         </member>
         <member name="M:SocketJack.Net.HttpProtocolHandler.MapStream(System.String,System.String,SocketJack.Net.HttpProtocolHandler.StreamRouteHandler)">
             <inheritdoc cref="M:SocketJack.Net.HttpServer.MapStream(System.String,System.String,SocketJack.Net.HttpServer.StreamRouteHandler)"/>
@@ -5174,6 +5205,51 @@
               Overrides the current thread's CurrentUICulture property for all
               resource lookups using this strongly typed resource class.
             </summary>
+        </member>
+        <member name="T:SocketJack.Security.SecurityLoaderSession">
+            <summary>A snapshot supplied by the application's existing account system. Credentials are omitted from JSON and diagnostic text.</summary>
+        </member>
+        <member name="T:SocketJack.Security.SecurityLoaderRequest">
+            <summary>An allowlisted operation and references to existing application objects. It never names a CLR type or method.</summary>
+        </member>
+        <member name="T:SocketJack.Security.SecurityLoaderObjectReference">
+            <summary>A logical object identity resolved and authorized by the server, rather than a client-selected path or URL.</summary>
+        </member>
+        <member name="T:SocketJack.Security.SecurityLoaderJob">
+            <summary>A bounded result document. Error codes are logical identifiers, not worker output or exception stacks.</summary>
+        </member>
+        <member name="T:SocketJack.Security.ISecurityLoaderOperation">
+            <summary>The shared entry contract for an approved managed operation running in the publisher's isolated execution service.</summary>
+        </member>
+        <member name="T:SocketJack.Security.ISecurityLoaderArtifacts">
+            <summary>Optional artifact access implemented by runtimes that support bounded job artifacts.</summary>
+        </member>
+        <member name="T:SocketJack.Security.SecurityLoaderOperationInput">
+            <summary>Resolved operation data supplied by the service. Object authorization and execution isolation remain service responsibilities.</summary>
+        </member>
+        <member name="T:SocketJack.Security.SecurityLoaderOperationResult">
+            <summary>A structured operation result and optional byte artifacts. Construction and reads defensively copy buffers.</summary>
+        </member>
+        <member name="T:SocketJack.Security.SocketJackSecurityLoader">
+            <summary>Access to an application-installed security runtime. Runtime implementation and trust provisioning are supplied by the application publisher.</summary>
+        </member>
+        <member name="M:SocketJack.Security.SocketJackSecurityLoader.RegisterRuntimeProvider(SocketJack.Security.ISecurityLoaderRuntimeProvider)">
+            <summary>Registers the verified bootstrap's runtime provider once for this process. Re-registering the same instance is harmless.</summary>
+        </member>
+        <member name="M:SocketJack.Security.SocketJackSecurityLoader.Create(SocketJack.Security.SecurityLoaderOptions)">
+            <summary>Creates an application-scoped runtime using the already registered provider. This facade never downloads or activates code.</summary>
+        </member>
+        <member name="T:SocketJack.Security.ISecurityLoaderRuntimeProvider">
+            <summary>The application bootstrap's factory. Implementations are distributed by the application publisher.</summary>
+        </member>
+        <member name="T:SocketJack.Security.ISecurityLoaderRuntime">
+            <summary>Application-scoped access to allowlisted remote operations and authenticated local managed components.</summary>
+        </member>
+        <member name="T:SocketJack.Security.ILoadedSecurityModule`1">
+            <summary>A lease on a loaded component. Disposal releases the runtime's ownership; it does not promise immediate removal of all process memory.</summary>
+        </member>
+        <member name="T:SocketJack.Security.SecurityLoaderOptions">
+            <summary>Application identity and a callback that reads the application's current account session.</summary>
         </member>
         <member name="T:SocketJack.Serialization.BinaryCompressionMemory">
             <summary>Process-wide admission accounting for retained compression state, including peer metadata.</summary>

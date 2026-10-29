@@ -9,6 +9,61 @@ using System.Text.Json;
 namespace SocketJack.Tests;
 [TestClass]
 public class HttpTransferTests {
+    [TestMethod]
+    public void RevocationInvalidatesEveryMatchingGenerationWithoutTouchingOtherTargets() {
+        var root = Root(); byte[] one = Encoding.UTF8.GetBytes("old"), two = Encoding.UTF8.GetBytes("new");
+        try {
+            using var store = new HttpTransferStore(new() { Directory = root });
+            var first = store.Create("alice", Request(one)); store.Append("alice", first.Id, 0, one, Hash(one)); store.Complete("alice", first.Id);
+            var replacement = Request(two); replacement.Overwrite = HttpOverwritePolicy.Always;
+            var second = store.Create("alice", replacement); store.Append("alice", second.Id, 0, two, Hash(two)); store.Complete("alice", second.Id);
+            var other = store.Create("alice", Request(one, "other.bin")); store.Append("alice", other.Id, 0, one, Hash(one)); store.Complete("alice", other.Id);
+            Assert.AreEqual(2, store.RevokeTarget("alice", "test.bin"));
+            Assert.AreEqual(HttpTransferState.Expired, store.Get("alice", first.Id).State);
+            Assert.AreEqual(HttpTransferState.Expired, store.Get("alice", second.Id).State);
+            Assert.AreEqual(HttpTransferState.Completed, store.Get("alice", other.Id).State);
+            Assert.IsTrue(File.Exists(Path.Combine(root, other.Id + ".part")));
+        } finally { Directory.Delete(root, true); }
+    }
+    [TestMethod]
+    public async Task RevocationRemovesCompletedBytesAndAllowsTheSameFileToBeUploadedAgain() {
+        var root = Root(); var data = Encoding.UTF8.GetBytes("completed content"); string old;
+        try {
+            using (var store = new HttpTransferStore(new() { Directory = root })) {
+                var first = store.Create("alice", Request(data)); old = first.Id;
+                store.Append("alice", old, 0, data, Hash(data)); store.Complete("alice", old);
+                Assert.AreEqual(0, store.RevokeTarget("bob", "test.bin"));
+                Assert.AreEqual(HttpTransferState.Completed, store.Get("alice", old).State);
+                Assert.AreEqual(1, store.RevokeTarget("ALICE", "TEST.BIN"));
+                Assert.AreEqual(HttpTransferState.Expired, store.Get("alice", old).State);
+                Assert.IsFalse(File.Exists(Path.Combine(root, old + ".part")));
+                using var output = new MemoryStream();
+                await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => store.CopyToAsync("alice", old, output));
+                Assert.AreEqual(0, store.RevokeTarget("alice", "test.bin"));
+            }
+            using (var reopened = new HttpTransferStore(new() { Directory = root })) {
+                var next = reopened.Create("alice", Request(data));
+                Assert.AreNotEqual(old, next.Id); Assert.AreEqual(0, next.Offset);
+                reopened.Append("alice", next.Id, 0, data, Hash(data)); reopened.Complete("alice", next.Id);
+                using var output = new MemoryStream(); await reopened.CopyToAsync("alice", next.Id, output);
+                CollectionAssert.AreEqual(data, output.ToArray());
+            }
+        } finally { Directory.Delete(root, true); }
+    }
+    [TestMethod]
+    public async Task RevocationStopsActiveDownloadsAndReleasesEachReservationOnlyOnce() {
+        var root = Root(); var data = Encoding.UTF8.GetBytes("unfinished payload"); long reserved = 0;
+        try {
+            using var store = new HttpTransferStore(new() { Directory = root, Reserve = (_, size) => reserved += size, Release = (_, size) => reserved -= size });
+            var first = store.Create("alice", Request(data)); store.Append("alice", first.Id, 0, data[..4], Hash(data[..4]));
+            using var output = new MemoryStream(); using var stop = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            var download = store.CopyToAsync("alice", first.Id, output, cancellationToken: stop.Token);
+            Assert.AreEqual(data.Length, reserved);
+            Assert.AreEqual(1, store.RevokeTarget("alice", "test.bin")); Assert.AreEqual(0, reserved);
+            Assert.AreEqual(0, store.RevokeTarget("alice", "test.bin")); Assert.AreEqual(0, reserved);
+            await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => download);
+        } finally { Directory.Delete(root, true); }
+    }
     static string Hash(byte[] data) => Convert.ToHexString(SHA256.HashData(data)).ToLowerInvariant();
     static HttpTransferCreateRequest Request(byte[] data, string target = "test.bin") => new() { Target = target, Sha256 = Hash(data), Length = data.Length };
     static string Root() { var path = Path.Combine(Path.GetTempPath(), "SocketJack-transfer-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(path); return path; }
