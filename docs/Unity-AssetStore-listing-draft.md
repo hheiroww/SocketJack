@@ -1,5 +1,7 @@
 # SocketJack.Unity — listing draft
 
+The current SocketJack listing copy, detailed technical information and release notes are maintained in [Unity-AssetStore-listing.md](Unity-AssetStore-listing.md).
+
 Suggested public listing copy for the package. Complete publisher-specific fields and compatibility validation before submission.
 
 ## Suggested title
