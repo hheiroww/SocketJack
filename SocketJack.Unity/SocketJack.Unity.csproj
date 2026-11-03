@@ -5,7 +5,7 @@
     <Nullable>disable</Nullable>
     <RootNamespace>SocketJack.Unity</RootNamespace>
     <AssemblyName>SocketJack.Unity</AssemblyName>
-    <Version>2026.11.02.0</Version>
+    <Version>2026.11.02.1</Version>
     <Authors>hheiroww</Authors>
     <Description>Authoritative multiplayer networking for Unity and dedicated .NET servers. Bounded UDP and TCP transports, rooms, ownership, replicated state and main-thread Unity adapters.</Description>
     <PackageId>SocketJack.Unity</PackageId>
@@ -15,6 +15,7 @@
     <PackageProjectUrl>https://github.com/hheiroww/SocketJack</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>SocketJackUnityIcon.png</PackageIcon>
     <PackageReleaseNotes>Initial portable Unity multiplayer package with explicit transports, authoritative object replication, rooms, ownership and Unity component sources.</PackageReleaseNotes>
     <IsPackable>true</IsPackable>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
@@ -28,6 +29,7 @@
     <Compile Include="Transport/**/*.cs" />
     <Compile Include="Runtime/**/*.cs" />
     <None Include="README.md" Pack="true" PackagePath="/" />
+    <None Include="SocketJackUnityIcon.png" Pack="true" PackagePath="/" />
     <None Include="../LICENSE" Pack="true" PackagePath="/" />
     <None Include="Unity/*.cs;Unity/link.xml" Pack="true" PackagePath="contentFiles/any/any/SocketJack.Unity/" BuildAction="None" PackageCopyToOutput="true" />
   </ItemGroup>

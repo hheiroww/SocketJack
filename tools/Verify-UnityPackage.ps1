@@ -22,6 +22,7 @@ function Verify-UnityIdentity([IO.Compression.ZipArchive]$Zip) {
     } finally { $stream.Dispose() }
     $metadata = $xml.SelectSingleNode('/*[local-name()="package"]/*[local-name()="metadata"]')
     if ($metadata.id -ne 'SocketJack.Unity' -or $metadata.version -ne $normalizedVersion) { throw 'Unity package ID or version differs from the owning project.' }
+    if ($metadata.icon -ne 'SocketJackUnityIcon.png') { throw 'Unity package must reference its branded SocketJack icon.' }
     if ($metadata.repository.url -ne 'https://github.com/hheiroww/SocketJack' -or $metadata.repository.type -ne 'git') { throw 'Unexpected Unity package source repository.' }
     if ($ExpectedCommit -and $metadata.repository.commit -ne $ExpectedCommit) { throw 'Unity package repository commit differs from the expected source commit.' }
     $groups = @($metadata.dependencies.group)
@@ -37,7 +38,7 @@ function Read-PackageEntries([string]$Path) {
         foreach ($entry in $zip.Entries) {
             $name = $entry.FullName
             if ($name -eq '.signature.p7s') { continue } # NuGet may repository-sign the published archive.
-            if ($name -notmatch '^(SocketJack\.Unity\.nuspec|\[Content_Types\]\.xml|_rels/\.rels|package/services/metadata/core-properties/[^/]+\.psmdcp|lib/netstandard2\.1/SocketJack\.Unity\.(dll|xml)|README\.md|LICENSE|contentFiles/any/any/SocketJack\.Unity/(NetworkManager\.cs|NetworkIdentity\.cs|NetworkTransform\.cs|ExamplePlayerController\.cs|link\.xml))$') {
+            if ($name -notmatch '^(SocketJack\.Unity\.nuspec|\[Content_Types\]\.xml|_rels/\.rels|package/services/metadata/core-properties/[^/]+\.psmdcp|lib/netstandard2\.1/SocketJack\.Unity\.(dll|xml)|README\.md|LICENSE|SocketJackUnityIcon\.png|contentFiles/any/any/SocketJack\.Unity/(NetworkManager\.cs|NetworkIdentity\.cs|NetworkTransform\.cs|ExamplePlayerController\.cs|link\.xml))$') {
                 throw "Unexpected Unity package entry: $name"
             }
             if ($entries.ContainsKey($name)) { throw "Duplicate Unity package entry: $name" }
@@ -52,7 +53,7 @@ function Read-PackageEntries([string]$Path) {
         }
         Verify-UnityIdentity $zip
         foreach ($required in @('SocketJack.Unity.nuspec', 'lib/netstandard2.1/SocketJack.Unity.dll', 'lib/netstandard2.1/SocketJack.Unity.xml',
-            'README.md', 'LICENSE', 'contentFiles/any/any/SocketJack.Unity/NetworkManager.cs',
+            'README.md', 'LICENSE', 'SocketJackUnityIcon.png', 'contentFiles/any/any/SocketJack.Unity/NetworkManager.cs',
             'contentFiles/any/any/SocketJack.Unity/NetworkIdentity.cs', 'contentFiles/any/any/SocketJack.Unity/NetworkTransform.cs',
             'contentFiles/any/any/SocketJack.Unity/ExamplePlayerController.cs', 'contentFiles/any/any/SocketJack.Unity/link.xml')) {
             if (!$entries.ContainsKey($required)) { throw "Missing required Unity package entry: $required" }

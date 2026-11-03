@@ -1,5 +1,7 @@
 # SocketJack.Unity
 
+![SocketJack.Unity](https://raw.githubusercontent.com/hheiroww/SocketJack/socketjack-unity-v2026.11.02.1/SocketJack.Unity/SocketJackUnityIcon.png)
+
 Portable multiplayer networking for Unity games and dedicated .NET servers. Targets .NET Standard 2.1 with no third-party dependencies and no UnityEngine dependency in the runtime DLL.
 
 The package supplies the networking foundation: explicit UDP/TCP transports, authoritative object spawning and state, player ownership, room-based visibility, fixed simulation ticks, bounded queues and Unity component sources. Game code defines its prefabs, input, simulation rules and replicated state. Adding a package alone cannot make arbitrary single-player game logic multiplayer.
@@ -9,7 +11,7 @@ The package supplies the networking foundation: explicit UDP/TCP transports, aut
 For a dedicated .NET server or a non-Unity integration:
 
 ```sh
-dotnet add package SocketJack.Unity --version 2026.11.02.0
+dotnet add package SocketJack.Unity --version 2026.11.02.1
 ```
 
 For Unity 2022.3 or later, use the .NET Standard 2.1 API compatibility level. Open the `.nupkg` as a ZIP archive, then copy:
@@ -122,7 +124,7 @@ WebGL cannot use raw UDP/TCP sockets. The built-in Unity manager rejects it with
 ```sh
 dotnet test SocketJack.Unity.Tests/SocketJack.Unity.Tests.csproj -c Release
 dotnet pack SocketJack.Unity/SocketJack.Unity.csproj -c Release -o ./artifacts/unity
-pwsh -File tools/Verify-UnityPackage.ps1 -Package ./artifacts/unity/SocketJack.Unity.2026.11.2.nupkg
+pwsh -File tools/Verify-UnityPackage.ps1 -Package ./artifacts/unity/SocketJack.Unity.2026.11.2.1.nupkg
 ```
 
 From a repository checkout with Unity installed, compile component sources against the real Editor reference assemblies:
@@ -132,6 +134,6 @@ dotnet build tools/UnityAdapter.Verify/UnityAdapter.Verify.csproj -c Release `
   '-p:UnityManagedPath=C:\Program Files\Unity\Hub\Editor\2022.3.17f1\Editor\Data\Managed'
 ```
 
-This compile check does not establish player/IL2CPP or live gameplay acceptance. CI tests the managed runtime on Windows and Linux, packs with an explicit content allowlist, and preserves the package with SHA-256 checksums. NuGet publication is a separate step requiring a matching date-code release version and configured package publishing credentials.
+This compile check does not establish player/IL2CPP or live gameplay acceptance. CI tests the managed runtime on Windows and Linux, packs with an explicit content allowlist, and preserves the package with SHA-256 checksums. Publish through `dotnet.yml` using `workflow_dispatch` with `releaseTarget: unity`; `unity.yml` validates only. Publication requires a matching date-code release version and uses the existing NuGet trusted-publishing policy.
 
 Unity's [.NET compatibility documentation](https://docs.unity.com/en-us/engine/6000.0/manual/programming-environment/overview-of-dot-net-in-unity/dotnet-profile-support) and [Web .NET API restrictions](https://docs.unity.com/en-us/engine/6000.5/manual/platform-specific/webgl/develop/web-dotnet-api-support) describe the relevant platform constraints.
