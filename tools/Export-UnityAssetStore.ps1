@@ -123,6 +123,7 @@ $sources = [ordered]@{
     'Documentation/Runtime.md' = (Join-Path $repository 'SocketJack.Unity/README.md')
     'Documentation/PhysicsSample.md' = (Join-Path $repository 'Examples/UnityPhysics/README.md')
     'Documentation/LICENSE.txt' = (Join-Path $repository 'LICENSE')
+    'Documentation/Third-Party Notices.txt' = (Join-Path $repository 'docs/Unity-Third-Party-Notices.txt')
     'Branding/SocketJackUnityIcon.png' = (Join-Path $repository 'SocketJack.Unity/SocketJackUnityIcon.png')
 }
 if ($DocumentationOnly) {
@@ -175,7 +176,7 @@ foreach ($asset in @($assets)) {
 $manifest = Join-Path $staging 'asset-allowlist.txt'
 @($assets | Sort-Object) | Set-Content -LiteralPath $manifest -Encoding utf8NoBOM
 $exportReceipt = Join-Path $staging 'export-receipt.json'
-$exportMethod = if ($DocumentationOnly) { 'SocketJack.Unity.Editor.PhysicsSampleAssetStore.ReExportStaged' } else { 'SocketJack.Unity.Editor.PhysicsSampleAssetStore.Export' }
+$exportMethod = if ($DocumentationOnly) { 'SocketJack.Publishing.Editor.PhysicsSampleAssetStore.ReExportStaged' } else { 'SocketJack.Publishing.Editor.PhysicsSampleAssetStore.Export' }
 Invoke-Editor $exportProject $exportMethod (Join-Path $staging 'unity-export.log') @(
     '-socketjackPackage', ('"' + $package + '"'), '-socketjackAssetManifest', ('"' + $manifest + '"'), '-socketjackReceipt', ('"' + $exportReceipt + '"')
 ) 'SOCKETJACK_ASSET_STORE_EXPORT_PASS'
@@ -237,16 +238,22 @@ if ($DocumentationOnly) {
     return
 }
 
-Invoke-Editor $importProject 'SocketJack.Unity.Editor.PhysicsSampleAssetStore.Import' (Join-Path $staging 'unity-fresh-import.log') @(
+Invoke-Editor $importProject 'SocketJack.Publishing.Editor.PhysicsSampleAssetStore.Import' (Join-Path $staging 'unity-fresh-import.log') @(
     '-socketjackPackage', ('"' + $package + '"')
 ) 'SOCKETJACK_ASSET_STORE_IMPORT_COMPLETED' $true
 $importReceipt = Join-Path $staging 'fresh-import-receipt.json'
-Invoke-Editor $importProject 'SocketJack.Unity.Editor.PhysicsSampleAssetStore.VerifyImport' (Join-Path $staging 'unity-fresh-compile.log') @(
+Invoke-Editor $importProject 'SocketJack.Publishing.Editor.PhysicsSampleAssetStore.VerifyImport' (Join-Path $staging 'unity-fresh-compile.log') @(
     '-socketjackPackage', ('"' + $package + '"'), '-socketjackReceipt', ('"' + $importReceipt + '"')
 ) 'SOCKETJACK_ASSET_STORE_FRESH_IMPORT_PASS'
 $imported = Get-Content -LiteralPath $importReceipt -Raw | ConvertFrom-Json
 $original = Get-Content -LiteralPath $exportReceipt -Raw | ConvertFrom-Json
 if ($imported.packageSha256 -ne $packageHash -or $imported.runtimeSha256 -ne $original.runtimeSha256) { throw 'Fresh import differs from the verified package/runtime.' }
+$expectedTypes = @('SocketJack.Multiplayer.Components.NetworkManager', 'SocketJack.Multiplayer.Components.NetworkIdentity',
+    'SocketJack.Multiplayer.Components.NetworkTransform', 'SocketJack.Multiplayer.Components.SocketJackObject',
+    'SocketJack.Multiplayer.Components.ExamplePlayerController', 'SocketJack.Samples.Physics.PhysicsGame')
+if (@($imported.compiledTypes).Count -ne $expectedTypes.Count -or @(Compare-Object $expectedTypes @($imported.compiledTypes)).Count -ne 0) {
+    throw 'Fresh import component/sample namespaces differ from the published API contract.'
+}
 Write-Host "Verified Unity Asset Store review artifact: $package"
 Write-Host "SHA-256: $packageHash"
 Write-Host 'No external upload, listing, price change or cleanup deletion was performed.'

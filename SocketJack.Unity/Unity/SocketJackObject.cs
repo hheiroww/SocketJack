@@ -1,13 +1,13 @@
 using System;
 using System.IO;
-using SocketJack.Unity.Physics;
-using SocketJack.Unity.Transport;
+using SocketJack.Multiplayer.Physics;
+using SocketJack.Multiplayer.Transport;
 using UnityEngine;
 using UnityEngine.Serialization;
 using NumericsVector3 = System.Numerics.Vector3;
 using NumericsQuaternion = System.Numerics.Quaternion;
 
-namespace SocketJack.Unity.Components
+namespace SocketJack.Multiplayer.Components
 {
     public enum ObjectMovementMode
     {

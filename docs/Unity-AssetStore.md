@@ -20,6 +20,8 @@ Archive verification reads the gzip/tar structure, validates Unity GUID records 
 
 `Unity-AssetStore-QuickStart.md` is the offline customer quick start. `Unity-AssetStore-listing-draft.md` contains suggested listing text, compatibility boundaries, AI-assistance disclosure and a pricing field to complete before submission.
 
+The shipped API uses `SocketJack.Multiplayer` and `SocketJack.Multiplayer.Components`; product/assembly paths retain `SocketJack.Unity`. Sample code has its own `SocketJack.Samples.Physics` namespaces and editor actions live under **Tools → SocketJack**. `Unity-Third-Party-Notices.txt` records the first-party MIT code and Unity-provided dependencies without bundling engine or publishing-tool binaries.
+
 Before any external submission, review the exact artifact and listing in the intended publisher account, run the official publishing validator, resolve any pricing/metadata/license requirements and submit through Unity's normal review process. The exporter neither changes publisher settings nor accepts agreements.
 
 Official references: [Asset Store submission guidelines](https://assetstore.unity.com/publishing/submission-guidelines), [publishing validation and upload](https://docs.unity.com/en-us/asset-store/publishing/asset-packages/upload), [Unity 2022.3 ExportPackage](https://docs.unity3d.com/2022.3/Documentation/ScriptReference/AssetDatabase.ExportPackage.html).

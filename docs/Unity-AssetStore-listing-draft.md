@@ -40,7 +40,7 @@ Game-specific integration is required. This package does not provide hosted rela
 
 ## AI assistance disclosure draft
 
-AI assistance was used for functional code generation, refactoring, documentation, test development and adapting the existing SocketJack logo's colors to a monochrome variant. The package was compiled and checked with managed tests and actual Unity players. The publisher reviews and maintains the resulting code and artwork.
+OpenAI Codex was used for functional code generation, refactoring, documentation and test development. OpenAI ImageGen was used to adapt the existing SocketJack logo's colors to a monochrome variant while retaining its socket design. The generated code was iteratively refined, compiled and checked with managed tests and actual Unity players. The resulting code and artwork are maintained as part of SocketJack.
 
 ## Publisher fields to review
 
@@ -49,3 +49,5 @@ Suggested category: Tools / Network. Suggested tags: multiplayer, networking, UD
 Pricing: TBD. Unity's [publisher FAQ](https://assetstore.unity.com/publishing/publish-and-sell-assets) currently gives USD 4.99 as the minimum paid price.
 
 Publisher display name, support contact, description, key art, screenshots/video, final compatibility claims and license treatment must match the intended publisher account and submitted artifact. Do not invent account or support information. The included MIT license must remain intact; any Asset Store license presentation should be checked against Unity's submission requirements before upload.
+
+License notice for the description: includes first-party SocketJack code under the MIT license; see `Documentation/LICENSE.txt` and `Documentation/Third-Party Notices.txt`. No third-party runtime library is redistributed in the asset package.

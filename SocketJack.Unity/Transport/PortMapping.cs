@@ -13,7 +13,7 @@ using System.Threading.Tasks;
 using System.Xml;
 using System.Xml.Linq;
 
-namespace SocketJack.Unity.Transport
+namespace SocketJack.Multiplayer.Transport
 {
     public enum PortMappingStatus { Mapped, AlreadyMapped, Unavailable, Conflict, Cancelled, Failed }
 

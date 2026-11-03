@@ -4,10 +4,10 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using SocketJack.Unity;
-using SocketJack.Unity.Transport;
+using SocketJack.Multiplayer;
+using SocketJack.Multiplayer.Transport;
 
-namespace SocketJack.Unity.Tests
+namespace SocketJack.Multiplayer.Tests
 {
     [TestClass]
     public class SessionTests

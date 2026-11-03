@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using System.Text;
 
-namespace SocketJack.Unity
+namespace SocketJack.Multiplayer
 {
     // A deliberately closed binary protocol: no CLR type names, reflection, or object activation.
     internal static class SessionWire

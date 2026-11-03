@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using System.Numerics;
 
-namespace SocketJack.Unity.Physics
+namespace SocketJack.Multiplayer.Physics
 {
     /// <summary>Player intent, independent of Unity types. Sequences reject stale unordered delivery.</summary>
     public struct PhysicsInput

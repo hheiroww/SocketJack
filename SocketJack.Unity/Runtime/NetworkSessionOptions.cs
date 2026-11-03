@@ -1,7 +1,7 @@
 using System;
-using SocketJack.Unity.Transport;
+using SocketJack.Multiplayer.Transport;
 
-namespace SocketJack.Unity
+namespace SocketJack.Multiplayer
 {
     /// <summary>Limits for a manually pumped authoritative session. A session requires four transport channels.</summary>
     public sealed class NetworkSessionOptions

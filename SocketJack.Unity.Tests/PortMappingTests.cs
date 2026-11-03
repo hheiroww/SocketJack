@@ -10,9 +10,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using SocketJack.Unity.Transport;
+using SocketJack.Multiplayer.Transport;
 
-namespace SocketJack.Unity.Tests
+namespace SocketJack.Multiplayer.Tests
 {
     [TestClass]
     public class PortMappingTests

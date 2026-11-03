@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using UnityEngine;
 
-namespace SocketJack.Unity.Components
+namespace SocketJack.Multiplayer.Components
 {
     /// <summary>Canonical server- or owner-authoritative position, rotation and local scale.
     /// The authority controls its transform directly; observing clients/server interpolate received state.</summary>

@@ -1,7 +1,7 @@
 using System;
 using System.Numerics;
 
-namespace SocketJack.Unity.Physics
+namespace SocketJack.Multiplayer.Physics
 {
     /// <summary>Pure correction math shared by Unity and headless tests. Unity/PhysX is not
     /// deterministic across machines; sparse authoritative corrections remain necessary.</summary>

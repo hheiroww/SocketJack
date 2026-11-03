@@ -3,9 +3,9 @@
     <TargetFramework>netstandard2.1</TargetFramework>
     <LangVersion>8.0</LangVersion>
     <Nullable>disable</Nullable>
-    <RootNamespace>SocketJack.Unity</RootNamespace>
+    <RootNamespace>SocketJack.Multiplayer</RootNamespace>
     <AssemblyName>SocketJack.Unity</AssemblyName>
-    <Version>2026.11.02.3</Version>
+    <Version>2026.11.03.0</Version>
     <Authors>hheiroww</Authors>
     <Description>Authoritative multiplayer networking for Unity and dedicated .NET servers. Bounded UDP and TCP transports, rooms, ownership, replicated state and main-thread Unity adapters.</Description>
     <PackageId>SocketJack.Unity</PackageId>
@@ -16,7 +16,7 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>SocketJackUnityIcon.png</PackageIcon>
-    <PackageReleaseNotes>Adds independent topology and transport configuration, server/owner authority, native-physics movement modes and automatic UPnP port mapping. Includes SocketJackObject prediction, compact binary input, sparse correction keyframes, reliable unordered UDP and MTU-safe object reconstruction.</PackageReleaseNotes>
+    <PackageReleaseNotes>Prepares the Asset Store edition with SocketJack.Multiplayer code namespaces, namespaced samples and Tools/SocketJack editor menus. Existing consumers must update using directives from SocketJack.Unity to SocketJack.Multiplayer; package and assembly identity remain SocketJack.Unity. Includes local physics prediction, interpolation/extrapolation, binary inputs, reliable unordered UDP, automatic MTU-safe reconstruction, topology/authority options and automatic UPnP mapping.</PackageReleaseNotes>
     <IsPackable>true</IsPackable>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>

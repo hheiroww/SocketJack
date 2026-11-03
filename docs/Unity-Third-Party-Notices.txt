@@ -1,0 +1,22 @@
+SocketJack.Unity - component and dependency notices
+
+First-party code
+The SocketJack multiplayer runtime, Unity components and physics sample are
+first-party SocketJack code. The repository's MIT license and copyright notice
+are included in Documentation/LICENSE.txt. Public source is available at:
+https://github.com/hheiroww/SocketJack
+
+Redistributed third-party components
+This asset package does not redistribute third-party libraries, fonts, audio,
+models or textures. Its managed runtime has no third-party NuGet dependencies.
+
+Unity-provided dependencies
+The sample uses Unity's built-in Physics, IMGUI, JSON serialization and legacy
+input APIs, and a material that references Unity's built-in Standard shader.
+Unity engine binaries and shader source are not redistributed in this package;
+they are supplied by the customer's Unity Editor/player installation.
+
+Editor publishing tools
+Unity Asset Store Publishing Tools and its editor-only dependencies, when used
+for validation/upload, are installed only in the publishing project. They are
+not included in the exported SocketJack asset content.

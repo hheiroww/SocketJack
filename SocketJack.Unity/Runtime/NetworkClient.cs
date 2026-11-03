@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Net;
-using SocketJack.Unity.Transport;
+using SocketJack.Multiplayer.Transport;
 
-namespace SocketJack.Unity
+namespace SocketJack.Multiplayer
 {
     /// <summary>Client view of authoritative objects. All callbacks run on the thread calling Update.</summary>
     public sealed class NetworkClient : IDisposable

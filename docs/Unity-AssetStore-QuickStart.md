@@ -15,6 +15,8 @@ All files are under `Assets/SocketJack.Unity`. Importing the package adds assets
 
 Add `NetworkManager` to a scene object. Register the same network prefab list in the same order in every build. Add `NetworkIdentity` to those prefabs. Use `SocketJackObject` for the supplied Rigidbody prediction and repair workflow, or `NetworkTransform` for server transform replication; use one synchronization method per object.
 
+Component scripts use `SocketJack.Multiplayer.Components`; the portable runtime uses `SocketJack.Multiplayer`. The product, NuGet package and DLL remain named `SocketJack.Unity`.
+
 Start a server, host or client from your game menu. Spawn network objects on the server through `NetworkManager.Spawn`; assign the connected player's peer ID as owner when appropriate. Game input is sent for owned objects and is checked against ownership on the server. Your simulation must additionally validate movement, collisions, cooldowns and other game rules. Despawn through the networking manager.
 
 Choose **Host / Peer** for a player-hosted session (`StartHost` / `StartPeer`), or **Dedicated Server / Client** for a server process and its clients (`StartServer` / `StartClient`). Topology is independent of UDP/TCP. Selecting dedicated topology enables **Server Authority** by default. A network object's **Authority** can inherit the manager policy or select server/owner authority; the server records that choice when it spawns the object. Owner authority permits that object's owner to submit canonical state, so use it only where your game trusts the owner.
@@ -52,4 +54,4 @@ Native Windows Mono player acceptance and Unity 2022.3 compilation are the initi
 
 `Runtime/Plugins` contains the portable managed DLL; `Runtime/Components` contains editable Unity component sources and linker configuration. `Samples/Physics` contains the example scene, material, scripts and explicit build helper. The package uses Unity modules for physics, IMGUI and JSON serialization, with no third-party runtime NuGet dependencies.
 
-Source, issues and release information: [SocketJack on GitHub](https://github.com/hheiroww/SocketJack). License: `Documentation/LICENSE.txt`. Development used AI-assisted code generation and refactoring; the existing SocketJack logo also received an AI-assisted monochrome color adaptation. Functional behavior is validated by the accompanying managed and actual-player checks.
+Source, issues and release information: [SocketJack on GitHub](https://github.com/hheiroww/SocketJack). License: `Documentation/LICENSE.txt`; dependency notices: `Documentation/Third-Party Notices.txt`. OpenAI Codex assisted code, documentation and tests; OpenAI ImageGen assisted the existing SocketJack logo's monochrome color adaptation. The code was iteratively refined and validated by managed and actual-player checks.

@@ -12,7 +12,7 @@ Use Unity 2022.3 or later with Windows Standalone support and an activated Edito
 pwsh -File tools/Prepare-UnityPhysics.ps1 -StagingDirectory "$env:TEMP/SocketJackPhysics" -Build
 ```
 
-The script builds the portable library, copies that DLL and the Unity component sources into this project's ignored dependency folders, and invokes Unity's `PhysicsSampleBuild.BuildWindows`. The actual player appears at `<staging>/Player/SocketJackPhysics.exe`. Build logs, checksums/dependencies and the ownership manifest remain in the staging directory. The script performs no cleanup deletion.
+The script builds the portable library, copies that DLL and the Unity component sources into this project's ignored dependency folders, and invokes Unity's `SocketJack.Samples.Physics.Editor.PhysicsSampleBuild.BuildWindows`. The actual player appears at `<staging>/Player/SocketJackPhysics.exe`. Build logs, checksums/dependencies and the ownership manifest remain in the staging directory. The script performs no cleanup deletion.
 
 To open the project visibly instead:
 
@@ -20,7 +20,7 @@ To open the project visibly instead:
 pwsh -File tools/Prepare-UnityPhysics.ps1 -StagingDirectory "$env:TEMP/SocketJackPhysics" -Open
 ```
 
-In the Editor, use **SocketJack → Physics sample → Prepare scene**, then enter Play Mode. **Build Windows player** creates a standalone player. The generated demo scene contains an explicit `PhysicsGame` object that constructs the floor, lighting, camera, player prefab and role menu. Importing component sources into another scene does not automatically launch the demo. The source project intentionally excludes generated `Library`, account/cloud settings and copied binary dependencies from Git. The build verifies all four movement modes against a real Rigidbody/Collider and checks that mass, drag, angular drag, gravity, interpolation and friction remain intact.
+In the Editor, use **Tools → SocketJack → Physics sample → Prepare scene**, then enter Play Mode. **Build Windows player** creates a standalone player. The generated demo scene contains an explicit `PhysicsGame` object that constructs the floor, lighting, camera, player prefab and role menu. Importing component sources into another scene does not automatically launch the demo. The source project intentionally excludes generated `Library`, account/cloud settings and copied binary dependencies from Git. The build verifies all four movement modes against a real Rigidbody/Collider and checks that mass, drag, angular drag, gravity, interpolation and friction remain intact.
 
 ## Run
 

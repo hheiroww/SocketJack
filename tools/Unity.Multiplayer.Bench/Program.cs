@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Net;
 using System.Text.Json;
-using SocketJack.Unity.Transport;
+using SocketJack.Multiplayer.Transport;
 
 int count = args.Length > 0 ? int.Parse(args[0]) : 2000;
 int rounds = args.Length > 1 ? int.Parse(args[1]) : 20;

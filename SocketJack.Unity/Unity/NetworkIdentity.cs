@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace SocketJack.Unity.Components
+namespace SocketJack.Multiplayer.Components
 {
     /// <summary>Runtime identity of an object spawned by NetworkManager.</summary>
     [DisallowMultipleComponent]

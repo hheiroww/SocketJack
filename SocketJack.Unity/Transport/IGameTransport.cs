@@ -1,7 +1,7 @@
 using System;
 using System.Net;
 
-namespace SocketJack.Unity.Transport
+namespace SocketJack.Multiplayer.Transport
 {
     /// <summary>Wire protocol selected explicitly; transports never silently downgrade.</summary>
     public enum TransportType { Udp = 0, Tcp = 1, Custom = 255 }

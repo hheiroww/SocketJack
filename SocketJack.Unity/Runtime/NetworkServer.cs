@@ -4,9 +4,9 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Net;
-using SocketJack.Unity.Transport;
+using SocketJack.Multiplayer.Transport;
 
-namespace SocketJack.Unity
+namespace SocketJack.Multiplayer
 {
     /// <summary>Single-threaded authoritative server with explicit room interest and bounded per-peer queues.
     /// Pump Update from a Unity Update method or a dedicated server loop. Objects are replicated only to

@@ -5,9 +5,9 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using SocketJack.Unity.Transport;
+using SocketJack.Multiplayer.Transport;
 
-namespace SocketJack.Unity.Tests
+namespace SocketJack.Multiplayer.Tests
 {
     [TestClass]
     public class TcpEdgeTests

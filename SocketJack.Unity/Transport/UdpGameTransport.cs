@@ -7,7 +7,7 @@ using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace SocketJack.Unity.Transport
+namespace SocketJack.Multiplayer.Transport
 {
     /// <summary>
     /// A manually pumped, bounded datagram transport for native Unity players and dedicated servers.

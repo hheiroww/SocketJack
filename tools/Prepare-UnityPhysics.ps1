@@ -36,7 +36,7 @@ if ($Build) {
     $player = Join-Path $staging 'Player/SocketJackPhysics.exe'
     $buildLog = Join-Path $staging 'unity-build.log'
     $arguments = @('-batchmode', '-nographics', '-quit', '-projectPath', ('"' + $project + '"'),
-        '-executeMethod', 'PhysicsSampleBuild.BuildWindows', '-socketjackOutput', ('"' + $player + '"'), '-logFile', ('"' + $buildLog + '"'))
+        '-executeMethod', 'SocketJack.Samples.Physics.Editor.PhysicsSampleBuild.BuildWindows', '-socketjackOutput', ('"' + $player + '"'), '-logFile', ('"' + $buildLog + '"'))
     $process = Start-Process -FilePath $Editor -ArgumentList $arguments -WindowStyle Hidden -PassThru
     Write-Host "Unity build started: PID $($process.Id); player $player; log $buildLog"
     $process.WaitForExit()

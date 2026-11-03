@@ -2,9 +2,9 @@ using System;
 using System.IO;
 using System.Numerics;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using SocketJack.Unity.Physics;
+using SocketJack.Multiplayer.Physics;
 
-namespace SocketJack.Unity.Tests
+namespace SocketJack.Multiplayer.Tests
 {
     [TestClass]
     public class PhysicsTests

@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
-using SocketJack.Unity.Serialization;
+using SocketJack.Multiplayer.Serialization;
 
-namespace SocketJack.Unity.Transport
+namespace SocketJack.Multiplayer.Transport
 {
     public sealed class ObjectFrameOptions
     {

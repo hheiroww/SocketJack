@@ -7,7 +7,7 @@ using UnityEditor.Compilation;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 
-namespace SocketJack.Unity.Editor
+namespace SocketJack.Publishing.Editor
 {
     /// <summary>Explicit export and fresh-import acceptance entry points. This helper is kept outside the exported asset root.</summary>
     public static class PhysicsSampleAssetStore
@@ -73,7 +73,7 @@ namespace SocketJack.Unity.Editor
         private static void ResumeImport()
         {
             string[] args = Environment.GetCommandLineArgs();
-            bool importCommand = Array.IndexOf(args, "SocketJack.Unity.Editor.PhysicsSampleAssetStore.Import") >= 0;
+            bool importCommand = Array.IndexOf(args, "SocketJack.Publishing.Editor.PhysicsSampleAssetStore.Import") >= 0;
             if (!importCommand && !SessionState.GetBool(ImportPending, false)) return;
             SessionState.SetBool(ImportPending, true);
             if (string.IsNullOrEmpty(SessionState.GetString(ImportDeadline, "")))

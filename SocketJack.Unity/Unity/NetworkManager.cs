@@ -4,11 +4,11 @@ using System.IO;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
-using SocketJack.Unity.Transport;
+using SocketJack.Multiplayer.Transport;
 using UnityEngine;
-using RuntimeObject = SocketJack.Unity.NetworkObject;
+using RuntimeObject = SocketJack.Multiplayer.NetworkObject;
 
-namespace SocketJack.Unity.Components
+namespace SocketJack.Multiplayer.Components
 {
     public enum NetworkTopology
     {

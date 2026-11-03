@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace SocketJack.Unity.Components
+namespace SocketJack.Multiplayer.Components
 {
     /// <summary>Optional two-axis movement example. Wire SetMoveIntent from your input system.
     /// Server authority sends owner intent for server simulation; owner authority simulates locally

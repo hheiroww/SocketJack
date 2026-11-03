@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.IO;
 
 #if SOCKETJACK_UNITY
-namespace SocketJack.Unity.Serialization
+namespace SocketJack.Multiplayer.Serialization
 #else
 namespace SocketJack.Net
 #endif

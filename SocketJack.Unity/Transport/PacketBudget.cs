@@ -1,7 +1,7 @@
 using System;
 using System.Net.Sockets;
 
-namespace SocketJack.Unity.Transport
+namespace SocketJack.Multiplayer.Transport
 {
     /// <summary>Budget for one unfragmented IP/UDP game packet. MaxDatagramBytes includes
     /// SocketJack's reliability header; MaxPayloadBytes excludes it. Frame payloads keep the

@@ -1,6 +1,6 @@
 # SocketJack.Unity
 
-![SocketJack.Unity](https://raw.githubusercontent.com/hheiroww/SocketJack/socketjack-unity-v2026.11.02.3/SocketJack.Unity/SocketJackUnityIcon.png)
+![SocketJack.Unity](https://raw.githubusercontent.com/hheiroww/SocketJack/socketjack-unity-v2026.11.03.0/SocketJack.Unity/SocketJackUnityIcon.png)
 
 Portable multiplayer networking for Unity games and dedicated .NET servers. Targets .NET Standard 2.1 with no third-party dependencies and no UnityEngine dependency in the runtime DLL.
 
@@ -11,7 +11,7 @@ The package supplies the networking foundation: independent topology/transport c
 For a dedicated .NET server or a non-Unity integration:
 
 ```sh
-dotnet add package SocketJack.Unity --version 2026.11.02.3
+dotnet add package SocketJack.Unity --version 2026.11.03.0
 ```
 
 For Unity 2022.3 or later, use the .NET Standard 2.1 API compatibility level. Open the `.nupkg` as a ZIP archive, then copy:
@@ -21,14 +21,16 @@ For Unity 2022.3 or later, use the .NET Standard 2.1 API compatibility level. Op
 
 The component sources intentionally ship as content, rather than a DLL referencing one particular Unity Editor version. Ordinary .NET consumers do not compile them. Do not copy UnityEditor assemblies or `UnityAdapter.Verify.dll` into a game. The standalone multiplayer DLL can coexist with the base `SocketJack` package; it does not duplicate the base library's types.
 
+The public C# namespace is `SocketJack.Multiplayer`, with Unity components in `SocketJack.Multiplayer.Components`. Starting with 2026.11.03.0, update older `using SocketJack.Unity...` statements to that namespace. The NuGet ID, assembly name and package paths remain `SocketJack.Unity`; this namespace change does not change the built-in wire protocol.
+
 ## First Unity game
 
-Create a prefab with a collider and add `SocketJackObject` from `SocketJack.Unity.Components`. Unity adds its required `NetworkIdentity` and `Rigidbody`. Add `NetworkManager` to an empty scene object. Register the same prefab list in the same order in every build; prefab IDs start at `1`. The prefab must be spawned by the authoritative manager: adding a component alone does not assign an existing scene object a shared network identity.
+Create a prefab with a collider and add `SocketJackObject` from `SocketJack.Multiplayer.Components`. Unity adds its required `NetworkIdentity` and `Rigidbody`. Add `NetworkManager` to an empty scene object. Register the same prefab list in the same order in every build; prefab IDs start at `1`. The prefab must be spawned by the authoritative manager: adding a component alone does not assign an existing scene object a shared network identity.
 
 Choose **Host / Peer** topology for `StartHost()` and `StartPeer()`, or **Dedicated Server / Client** for `StartServer()` and `StartClient()`. Topology is independent of the UDP/TCP transport setting. Dedicated mode defaults to server authority. Both modes default to UDP and `127.0.0.1:7777`. For LAN/Internet peers/clients set `Address` before starting. Only the host/server opens a listening service and requests router forwarding. A peer/client uses an outbound connection and its normal return-traffic socket; it does not listen for new game connections or map a service port.
 
 ```csharp
-using SocketJack.Unity.Components;
+using SocketJack.Multiplayer.Components;
 using UnityEngine;
 
 public sealed class GameBootstrap : MonoBehaviour
@@ -110,8 +112,8 @@ Use `NetworkServer` and `NetworkClient` directly when you do not need the suppli
 
 ```csharp
 using System.Net;
-using SocketJack.Unity;
-using SocketJack.Unity.Transport;
+using SocketJack.Multiplayer;
+using SocketJack.Multiplayer.Transport;
 
 using var server = new NetworkServer(GameTransport.Create(TransportType.Udp));
 server.PeerConnected += peer => server.Spawn(1, ownerId: peer, state: new byte[] { 100 });
@@ -152,7 +154,7 @@ The source checkout includes a real Unity/PhysX cube game in [`Examples/UnityPhy
 ```sh
 dotnet test SocketJack.Unity.Tests/SocketJack.Unity.Tests.csproj -c Release
 dotnet pack SocketJack.Unity/SocketJack.Unity.csproj -c Release -o ./artifacts/unity
-pwsh -File tools/Verify-UnityPackage.ps1 -Package ./artifacts/unity/SocketJack.Unity.2026.11.2.3.nupkg
+pwsh -File tools/Verify-UnityPackage.ps1 -Package ./artifacts/unity/SocketJack.Unity.2026.11.3.nupkg
 ```
 
 From a repository checkout with Unity installed, compile component sources against the real Editor reference assemblies:
