@@ -1,0 +1,5 @@
+<linker>
+  <!-- Explicit binary codecs need no reflection. Preserve the public API when game code
+       obtains entry points through Unity events or an external scripting integration. -->
+  <assembly fullname="SocketJack.Unity" preserve="all" />
+</linker>

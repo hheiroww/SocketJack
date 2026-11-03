@@ -1,0 +1,130 @@
+name: SocketJack.Unity
+on:
+  push:
+    branches: [master, codex/unity-multiplayer]
+    tags: [socketjack-unity-v*]
+    paths:
+      - SocketJack.Unity/**
+      - SocketJack.Unity.Tests/**
+      - tools/Unity.Multiplayer.Bench/**
+      - tools/Verify-UnityRelease.ps1
+      - tools/Verify-UnityPackage.ps1
+      - .github/workflows/unity.yml
+  pull_request:
+    paths:
+      - SocketJack.Unity/**
+      - SocketJack.Unity.Tests/**
+      - tools/Unity.Multiplayer.Bench/**
+      - tools/Verify-UnityRelease.ps1
+      - tools/Verify-UnityPackage.ps1
+      - .github/workflows/unity.yml
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the verified Unity package to NuGet and a GitHub Release
+        type: boolean
+        required: true
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: socketjack-unity-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  validate:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Test multiplayer and transport contracts
+        run: dotnet test SocketJack.Unity.Tests/SocketJack.Unity.Tests.csproj -c Release
+      - name: Pack portable Unity library
+        if: matrix.os == 'ubuntu-latest'
+        run: dotnet pack SocketJack.Unity/SocketJack.Unity.csproj -c Release -p:RepositoryCommit=${{ github.sha }} -o ./artifacts/unity
+      - name: Exercise 2000 UDP peers
+        if: matrix.os == 'ubuntu-latest'
+        run: dotnet run --project tools/Unity.Multiplayer.Bench/Unity.Multiplayer.Bench.csproj -c Release -- 2000 2
+      - name: Verify package contents
+        if: matrix.os == 'ubuntu-latest'
+        shell: pwsh
+        run: |
+          $packages = @(Get-ChildItem ./artifacts/unity/SocketJack.Unity.*.nupkg)
+          if ($packages.Count -ne 1) { throw 'Expected exactly one Unity package.' }
+          ./tools/Verify-UnityPackage.ps1 -Package $packages[0].FullName
+          $hash = (Get-FileHash $packages[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $($packages[0].Name)" | Set-Content ./artifacts/unity/SHA256SUMS -Encoding utf8NoBOM
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'ubuntu-latest'
+        with:
+          name: socketjack-unity-${{ github.sha }}
+          path: artifacts/unity/*
+          if-no-files-found: error
+  publish:
+    if: startsWith(github.ref, 'refs/tags/socketjack-unity-v') || (github.event_name == 'workflow_dispatch' && inputs.publish && github.ref == 'refs/heads/master')
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - uses: actions/download-artifact@v4
+        with:
+          name: socketjack-unity-${{ github.sha }}
+          path: artifacts/unity
+      - name: Verify immutable release version
+        shell: pwsh
+        run: |
+          ./tools/Verify-UnityRelease.ps1
+          [xml]$project = Get-Content ./SocketJack.Unity/SocketJack.Unity.csproj -Raw
+          $version = $project.SelectSingleNode('/Project/PropertyGroup/Version').InnerText.Trim()
+          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne "socketjack-unity-v$version") { throw 'Unity release tag must match the package version.' }
+      - uses: NuGet/login@v1
+        id: nuget-login
+        with:
+          user: Pathogenix
+      - name: Publish and verify NuGet download
+        shell: pwsh
+        env:
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $package = @(Get-ChildItem ./artifacts/unity/*.nupkg)
+          if ($package.Count -ne 1) { throw 'Unexpected package count.' }
+          dotnet nuget push $package[0].FullName --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json
+          if ($LASTEXITCODE -ne 0) { throw 'Unity package publication failed.' }
+          [xml]$project = Get-Content ./SocketJack.Unity/SocketJack.Unity.csproj -Raw
+          $version = [Version]$project.SelectSingleNode('/Project/PropertyGroup/Version').InnerText
+          $normalized = if ($version.Revision -eq 0) { $version.ToString(3) } else { $version.ToString(4) }
+          $uri = "https://api.nuget.org/v3-flatcontainer/socketjack.unity/$normalized/socketjack.unity.$normalized.nupkg"
+          $download = Join-Path $env:RUNNER_TEMP 'socketjack-unity-feed.nupkg'
+          $verified = $false
+          for ($attempt = 0; $attempt -lt 30; $attempt++) {
+            try {
+              Invoke-WebRequest $uri -OutFile $download
+              ./tools/Verify-UnityPackage.ps1 -Package $download -ExpectedPackage $package[0].FullName
+              $verified = $true
+              if ($verified) { break }
+            } catch { }
+            Start-Sleep -Seconds 10
+          }
+          if (!$verified) { throw 'Published NuGet package download was not verified.' }
+      - name: Publish Unity GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          [xml]$project = Get-Content ./SocketJack.Unity/SocketJack.Unity.csproj -Raw
+          $version = $project.SelectSingleNode('/Project/PropertyGroup/Version').InnerText.Trim()
+          $notes = Join-Path $env:RUNNER_TEMP 'unity-release.md'
+          @('Portable multiplayer runtime, UDP/TCP transports, authoritative objects and Unity component sources.', '', 'Install SocketJack.Unity from NuGet. Follow the package README for Unity source adapter installation and the two-player example.') | Set-Content $notes
+          gh release create "socketjack-unity-v$version" ./artifacts/unity/*.nupkg ./artifacts/unity/SHA256SUMS --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "SocketJack.Unity $version" --notes-file $notes --latest=false
+          if ($LASTEXITCODE -ne 0) { throw 'Unity GitHub release publication failed.' }
