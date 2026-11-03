@@ -6,8 +6,10 @@
 | --- | --- | --- |
 | Primary: Unity 6.3 LTS | **6000.3.27f2** | Component/sample and both guide examples compile; authority checks, Windows x64 Mono build and a server/two-client physics run pass. |
 | Compatibility: Unity 2022.3 LTS | **2022.3.17f1** | Component/sample and both guide examples compile; authority checks, Windows x64 Mono build and a server/two-client physics run pass. |
+| Unity 6 rendering smoke | **6000.3.27f2**, URP/HDRP **17.3.0** | Actual GPU camera renders of the sample material factory in Built-in, URP, HDRP and a minimal custom SRP with its own material; no missing-shader pixels. |
+| Configurable member sync | **6000.3.27f2** and **2022.3.17f1** | Six Editor Play Mode and six native-player cases per Editor: UDP/TCP, default/custom serializers, field/property authority, serialized prefab bindings, host mode and late joins. |
 
-Both player checks use Built-in rendering assets and headless loopback processes for 20 seconds of client movement; neither client required a hard correction. These checks do not establish Internet behavior or production capacity. Other Editor patches, render pipelines, platforms and scripting backends require acceptance with your actual game.
+Both physics player checks use Built-in rendering assets and headless loopback processes for 20 seconds of client movement; neither client required a hard correction. The separate rendering smoke uses Direct3D 11 and checks shader selection, visible geometry and the material override; it is not a complete SRP player-build or custom-renderer test matrix. These checks do not establish Internet behavior or production capacity. Validate other Editor patches, platform/backends, shader stripping and your own render-pipeline configuration with your actual game.
 
 SocketJack.Unity supplies connections, replicated objects, ownership and state delivery. Your game supplies its levels, player prefabs, input and game rules. This guide converts a small single-player Rigidbody game into a host-and-peer game, then explains where custom integration is needed.
 
@@ -21,9 +23,11 @@ Choose the distribution format for your project:
 
 In Unity, select **.NET Standard 2.1** under **Edit > Project Settings > Player > Other Settings > Configuration > API Compatibility Level**. See Unity's [.NET compatibility documentation](https://docs.unity3d.com/6000.0/Documentation/Manual/dotnet-profile-support.html) for the setting. This guide's `Samples/Physics` and `Documentation/...` paths refer to the Asset Store layout; the runtime documentation is the NuGet `README.md` and the sample documentation is in the repository's example README.
 
-The supplied physics sample uses 3D Rigidbody physics, IMGUI for its menu, Unity's legacy `UnityEngine.Input` API and Built-in Render Pipeline materials. For its keyboard controls, set **Active Input Handling** to **Input Manager (Old)** or **Both**, including in Unity 6. A project using only **Input System Package (New)** should disable **Read Keyboard** on its own network prefab and feed `SocketJackObject.SetInput` from its existing actions, as shown below. The package does not install the Input System or change input settings for you. Unity documents these choices in the [Input System installation guide](https://docs.unity3d.com/Packages/com.unity.inputsystem@1.11/manual/Installation.html).
+The supplied physics sample uses 3D Rigidbody physics, IMGUI for its menu and Unity's legacy `UnityEngine.Input` API. For its keyboard controls, set **Active Input Handling** to **Input Manager (Old)** or **Both**, including in Unity 6. A project using only **Input System Package (New)** should disable **Read Keyboard** on its own network prefab and feed `SocketJackObject.SetInput` from its existing actions, as shown below. The package does not install the Input System or change input settings for you. Unity documents these choices in the [Input System installation guide](https://docs.unity3d.com/Packages/com.unity.inputsystem@1.11/manual/Installation.html).
 
-The networking runtime does not depend on a render pipeline. The sample's Standard material does: in a URP or HDRP project, supply compatible sample materials and adapt its material creation before judging the visuals. A pink Built-in material is a shader compatibility issue, not evidence that peers failed to connect. See Unity's [URP material conversion guide](https://docs.unity3d.com/6000.0/Documentation/Manual/urp/upgrading-your-shaders.html). URP/HDRP sample visuals are not part of the verified matrix above.
+The networking runtime works independently of **Built-in, HDRP, URP and Custom RP**. The sample detects Built-in/URP/HDRP and chooses a compatible shader without requiring those SRP packages in every project. Its `PhysicsGame` Inspector exposes **Sample Material**: assign a material for your active pipeline to override its generated materials. A custom render pipeline should provide its own compatible material there. The template is cloned rather than modifying your source asset.
+
+Include the chosen material/shader in player builds. The explicit sample build helper retains its selected material through a referenced resource; when building another scene or using another build process, retain your template on the scene's `PhysicsGame` or through your own shader inclusion setup. A pink material indicates shader compatibility or stripping, so verify the active pipeline, template and build inclusion. The package does not replace your project's render pipeline or install URP/HDRP for you. Unity documents [how the active pipeline is selected](https://docs.unity.com/en-us/engine/6000.0/manual/render-pipelines/choose-a-render-pipeline/srp-setting-render-pipeline-asset).
 
 ## 2. Try the included game first
 
@@ -46,8 +50,9 @@ There is one session manager and a small set of components on each replicated pr
 | `NetworkIdentity` | Each network object | Holds its network ID, owner, room and authority policy. |
 | `SocketJackObject` | A Rigidbody object using the supplied motor | Sends owner movement intent, simulates local physics and applies sparse authoritative repairs. Adding it automatically adds required `NetworkIdentity` and `Rigidbody` components if absent. |
 | `NetworkTransform` | An object using your own movement logic | Replicates position, rotation and local scale; observers interpolate received transforms. Adding it automatically adds its required `NetworkIdentity` if absent. |
+| `SocketJackMemberSync` | A network prefab with selected gameplay state | Opt-in field/property replication, independently configured for each member; can accompany either movement component or be used on an otherwise stationary object. |
 
-Use **one synchronization component per object**. Do not combine `SocketJackObject` and `NetworkTransform` on the same prefab. `NetworkTransform` does not supply a Rigidbody motor or automatically decide how your existing controller should simulate.
+Use **one movement synchronization component per object**. Do not combine `SocketJackObject` and `NetworkTransform` on the same prefab. `SocketJackMemberSync` can accompany either one because it uses separate messages for selected gameplay values. `NetworkTransform` does not supply a Rigidbody motor or automatically decide how your existing controller should simulate.
 
 Component scripts use `SocketJack.Multiplayer.Components`; the portable runtime uses `SocketJack.Multiplayer`. The product, NuGet package and DLL remain named `SocketJack.Unity`.
 
@@ -248,7 +253,48 @@ With **Server Authority** enabled, owner input predicts movement locally, the se
 
 An object's Authority can **Inherit Manager**, select **Server**, or select **Owner**. The server records that policy when spawning; respawn after changing it. Owner authority permits the object's owner to submit canonical state. The server checks ownership and format and can apply `OwnerStateValidator`, but a valid format alone cannot prove a movement or combat claim is honest. Server-owned objects retain server authority. Use server authority where the game must enforce trusted rules.
 
-The supplied adapters synchronize their documented physics or transform state. They do not automatically synchronize health, inventory, animation parameters, quests, score, NPC decisions or every C# field. Define an explicit game protocol using the runtime's bounded binary state and `SendMessage` APIs. Keep authoritative durable state on the server and provide it to late joiners; an ephemeral custom event alone is not a saved-state baseline. Do not overwrite a `SocketJackObject` physics payload with unrelated health bytes. Application message ID `60001` is reserved by its physics input relay. See `Documentation/Runtime.md` for custom messages, state limits, delivery modes and rooms.
+### Turn on field and property syncing
+
+Add **SocketJackMemberSync** to the same network prefab as its `NetworkIdentity`. It can accompany `SocketJackObject` or `NetworkTransform`; member values use separate messages and do not overwrite a movement snapshot. Use it on an otherwise stationary network object as well.
+
+For example, keep your existing `PlayerStats` component with its `Health` property and `DisplayName` field. In the member-sync Inspector, choose that component and select its eligible members. Newly discovered entries are disabled until you opt in. Configure `Health` as **Server** authority and `DisplayName` as **Owner** authority. Spawn the prefab through the manager as before. The server's health changes then replicate to observers; only the owning client can propose a display-name change. This policy is independent of whether movement uses server or owner authority.
+
+Each entry has its own settings:
+
+| Setting | Meaning |
+| --- | --- |
+| Enabled | Opt this member into the prefab's synchronization schema. |
+| Target and Member | Select a component on this object's hierarchy and a specific field or readable/writable property. |
+| Authority | **Server** accepts changes from the server; **Owner** accepts proposals from the object's owning client, with the server checking identity, room and configured permission. An object without a client owner remains server controlled. |
+| Send Interval | Normal interval between successful captures/sends. Budgets or backpressure can delay delivery; pending retries may re-read the getter. Tune a cosmetic value differently from a frequently changing value. |
+| Only When Changed | Avoid sending identical values at every capture. Replication represents current state, so several changes can coalesce into the latest value. |
+| Max Bytes | Bound the serialized value. A larger logical value can span multiple UDP frames; it must still fit the configured member/session limits. |
+
+The server maintains canonical values and supplies a baseline when a peer first sees the object or returns to its room. Owners wait for their baseline before proposing changes. Per-member revisions reject stale updates, and a new view token prevents delayed packets from a previous room/view from applying to the current instance. Backpressure retries the latest pending state within bounded work limits.
+
+Keep the same prefab/member schema and serializer configuration on every participant. Configure entries before starting the session; restart/respawn after schema changes. A client's Inspector cannot grant permission that is absent from the server's prefab. Client authority is a deliberate trust decision: validate gameplay commands on the server when they affect damage, inventory, currency or progression.
+
+For additional owner-value rules, assign the manager's `MemberValueValidator` before starting. It receives the authoritative object, the configured member ID (the Inspector entry number) and the decoded value. Check allowed ranges, string lengths and game permissions there; returning `false` rejects the write and disconnects the sender. A selected property setter may also enforce local data invariants, but state replication does not replace a validated command protocol for purchases, damage or inventory transactions.
+
+The selector supports eligible instance fields and properties with both a getter and a setter. Static fields, constants, readonly fields, init-only properties, indexers and compiler-generated backing fields are excluded. Values must be supported by the selected serializer. A reference to a GameObject, Component, texture or another arbitrary object graph is not automatically transferred. Represent such references with game/network IDs and resolve them through your game logic. Do not sync a Rigidbody position a second time through member syncing when a movement component already controls it.
+
+Property getters/setters execute on Unity's main thread and may have game-specific side effects. Prefer simple data properties; use explicit commands/events for one-shot effects. For IL2CPP or aggressive managed stripping, preserve the selected component members with your game's `link.xml` or preservation attributes; the SDK cannot preserve arbitrary user assemblies in advance.
+
+### Choose a serializer
+
+The manager defaults to **Binary formatter (SocketJack)**: `SocketJack.Multiplayer.Serialization.SocketJackBinaryFormatter`. This is SocketJack's bounded, typed game-state format; it does not use .NET's `System.Runtime.Serialization.Formatters.Binary.BinaryFormatter`, transmitted CLR type names or automatic object activation.
+
+Use the manager's **Custom provider** selection and assign a component implementing `INetworkSerializerProvider`, or set `network.Serializer` to your `INetworkSerializer` before starting. A provider returns an `INetworkSerializer` with a stable `ProtocolId`, `CanSerialize(Type)`, `Serialize` and `Deserialize`. Implementations must honor the supplied byte limit and return the requested local schema type. Give different wire-affecting settings different protocol IDs. A mismatch is rejected rather than guessed.
+
+The default formatter supports booleans, integer types, float/double/decimal, char/string, enums, `Guid`, `byte[]`, date/time values, `TimeSpan`, System.Numerics vectors/quaternions and nullable supported value types. The Unity default adds explicit codecs for Unity's Vector2/3/4, Quaternion, Color and Color32. Unknown classes, other arrays, collections and nested object graphs need an explicitly registered bounded codec or a custom serializer.
+
+For a custom type, register a bounded writer/reader with `SocketJackBinaryFormatter.Register<T>` using a unique ID and a stable schema ID. IDs below 256 are built-in; Unity reserves IDs 256–261, so use IDs of **1024 or higher** for your game. The manager registers its Unity codecs automatically only for the default formatter. If your provider/override creates a `SocketJackBinaryFormatter`, call `NetworkManager.RegisterUnityTypes(formatter)` yourself when you need those Unity types. Finish registering before the first `ProtocolId` read: that freezes the registry. Register the same codecs in every build. Do not use runtime type discovery from received data.
+
+Serializer choice applies to member values. Session framing, lifecycle messages and the compact physics/transform codecs retain their specified binary protocol, preserving packet budgeting and interoperability checks. Match release, prefab schema and serializer settings across the server and clients.
+
+Each object supports up to 64 enabled members. A member defaults to a 256-byte serialized limit and can be configured up to 8,192 bytes, including its formatter header. This is a logical value limit, separate from the full UDP/IP frame budget; larger accepted values use automatic bounded reconstruction. The server's canonical cache and subscriptions have separate resource limits. Client member requests/proposals share a 120-message/s budget with a burst of 32 to leave room for physics input under the session's admission limits.
+
+For custom game commands or state that does not fit member syncing, define an explicit protocol with the runtime's bounded binary state and `SendMessage` APIs. Keep durable state on the server and provide it to late joiners; an ephemeral event alone is not a saved-state baseline. Application message IDs `60001` (physics relay) and `60003`/`60004` (member request/update) are reserved. The demo uses `60002` for round-trip measurements. Do not overwrite a `SocketJackObject` physics payload with unrelated health bytes.
 
 ## 8. Keep the level and simulation consistent
 
@@ -268,13 +314,17 @@ The supplied physics example predicts local movement and applies sparse repairs.
 
 ## 10. Transport, Internet and capacity
 
-UDP is the normal realtime transport. Reliable delivery is unordered unless ordering is requested explicitly. TCP is available for an ordered stream; requesting an unreliable mode over TCP does not remove stream blocking. Large logical messages are split automatically into bounded frames only when one frame is too small. Included UDP object frames stay below 999 bytes for the configured full IP packet budget, including reserved headers; logical-message limits are configured separately.
+Select **Transport > Udp** or **Tcp** on the scene's `NetworkManager` before starting. Code can set `network.Transport = SocketJack.Multiplayer.Transport.TransportType.Tcp`; call `Shutdown` first when reconfiguring an existing session. Set the same transport and port on every participant. Topology (host/peer or dedicated server/client) is a separate choice; TCP works with both.
+
+UDP is the default realtime transport. Reliable delivery is unordered unless ordering is requested explicitly. TCP supplies a reliable ordered stream; requesting an unreliable mode over TCP does not remove stream blocking. SocketJack never silently changes from UDP to TCP. Large logical messages are split automatically into bounded frames only when one frame is too small. Included UDP object frames stay below 999 bytes for the configured full IP packet budget, including reserved headers; logical-message limits are configured separately.
 
 Permit the selected UDP or TCP port through the host/server firewall. When enabled, the manager attempts automatic UPnP port mapping and reports/renews/releases its lease. Only the host/server requests a listening-port mapping; peers/clients initiate outbound connections. Mapping depends on the router and network and cannot bypass carrier-grade NAT or an inbound-blocking policy. There is no bundled hosted relay, matchmaking or account service. Provide manual forwarding, a reachable dedicated server or a separate relay when necessary.
 
 The included transports carry plaintext game data. For restricted admission, validate short-lived game tickets with `ConnectionValidator`; do not send reusable passwords. Use a separately secured transport or tunnel where confidentiality is required.
 
 The default peer cap of 4,096 is a configured resource limit, not a guaranteed production player count. Partition rooms/interest, budget bandwidth and test the actual simulation. `SetPeerRoom` and `SetObjectRoom` on the server control room visibility; they do not load scenes or authorize player actions. The host renders its authoritative world once, so game-specific local rendering filters are needed to hide other rooms from the host player. A 2,000-peer loopback transport check does not establish that a physics world supports 2,000 mutually visible players.
+
+The member/serializer checks include a 6,000-byte baseline, a 6,100-byte owner update and an observer/late join receiving the canonical replacement through real UDP and TCP. Reusable acceptance tools live under `tools/Unity.MemberSync.Acceptance` and `tools/Test-UnityRenderPipelines.ps1` in the source repository; their test components and generated outputs are excluded from the product packages.
 
 The tested Unity 6 and Unity 2022.3 configurations are recorded at the beginning of this guide. Mobile, consoles, IL2CPP and other player targets require platform-specific acceptance. Web builds lack raw UDP/TCP sockets and need a browser transport bridge.
 

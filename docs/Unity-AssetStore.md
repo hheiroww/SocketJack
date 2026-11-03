@@ -6,9 +6,9 @@
 pwsh -File tools/Export-UnityAssetStore.ps1 -OutputDirectory <owned-staging-directory>
 ```
 
-Use an activated Unity 2022.3.17f1 Editor with Windows Standalone support. The output directory holds one export project, one fresh-import project, the package, manifests, hashes and Editor logs. Dependencies are reused from the installed Editor/global NuGet cache; no existing `Library` folder or player/runtime installation is copied. Generated files are retained for review; this script performs no cleanup deletion.
+Use an activated Unity Editor from the intended support bracket with Windows Standalone support; pass its executable explicitly for Unity 6. The output directory holds one export project, one fresh-import project, the package, manifests, hashes and Editor logs. Dependencies are reused from the installed Editor/global NuGet cache; no existing `Library` folder or player/runtime installation is copied. Generated files are retained for review; this script performs no cleanup deletion.
 
-Unity 6 is the primary support bracket; Unity 2022.3 LTS remains the compatibility bracket. Export the shared archive using the 2022.3 baseline to preserve its scene/material serialization, then import and test it in Unity 6 separately. Do not upgrade the 2022 export project to Unity 6. The customer setup guide records exact verified versions and separates that evidence from broader support targets.
+Unity 6 is the primary support bracket; Unity 2022.3 LTS remains the compatibility bracket. Produce the primary archive with Unity 6 and a separate 2022.3-authored archive for the older bracket, using distinct owned output directories. Upload through the corresponding Editor so the Publisher Portal records the correct Unity version. Do not upgrade or reuse the 2022 export project for the Unity 6 export. The customer setup guide records exact verified versions and separates that evidence from broader support targets.
 
 `tools/Test-UnityEditorCompatibility.ps1` creates one isolated source-sample project for an explicit Editor and verified runtime. It also compiles the two complete C# examples from the setup guide, checks transform authority and optionally builds/runs the server-plus-two-client physics acceptance. Run it with a separate owned output directory for each bracket:
 
@@ -30,7 +30,7 @@ Public runtime exports exclude machine/task debug paths. Source builds disable d
 
 Archive verification reads the gzip/tar structure, validates Unity GUID records and canonical asset paths, rejects unlisted entries and compares packaged payload hashes to the staged source assets. Fresh import is a separate real Editor launch so imported C# scripts compile before acceptance is recorded. These checks establish an importable artifact; they do not establish Unity Asset Store approval or acceptance on every player platform.
 
-`Unity-AssetStore-QuickStart.md` is the offline customer quick start. `Unity-AssetStore-listing-draft.md` contains suggested listing text, compatibility boundaries, AI-assistance disclosure and a pricing field to complete before submission.
+`Unity-AssetStore-QuickStart.md` is the offline customer quick start. `Unity-AssetStore-listing.md` contains the current listing text, compatibility boundaries, AI-assistance disclosure, release notes and price. The older listing-draft document is historical preparation material.
 
 The shipped API uses `SocketJack.Multiplayer` and `SocketJack.Multiplayer.Components`; product/assembly paths retain `SocketJack.Unity`. Sample code has its own `SocketJack.Samples.Physics` namespaces and editor actions live under **Tools → SocketJack**. `Unity-Third-Party-Notices.txt` records the first-party MIT code and Unity-provided dependencies without bundling engine or publishing-tool binaries.
 

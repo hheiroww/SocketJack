@@ -1,10 +1,10 @@
 # SocketJack
 
-Category: Tools / Network. Paid price: USD 4.99. Store release version: 2026.11.3. Package/runtime version: 2026.11.3.1.
+Category: Tools / Network. Paid price: USD 4.99. Store release version: 2026.11.3. Package/runtime version: 2026.11.3.2.
 
 ## Summary
 
-Turn your Unity game into a multiplayer game. Add networked objects, responsive local physics and smooth movement with reliable UDP, configurable authority and a playable demo.
+Easily turn your Unity game into a multiplayer game. Sync objects, physics and selected fields/properties over UDP or TCP, with interpolation, configurable authority and your choice of serializer.
 
 ## Description
 
@@ -16,7 +16,7 @@ SocketJack makes it easy to bring multiplayer to the game you are already buildi
 
 1. Add NetworkManager and register the prefabs your game will spawn. Choose player-hosted Host / Peer or Dedicated Server / Client, then select UDP or TCP.
 2. Add SocketJackObject to objects that need synchronized 3D Rigidbody physics. It adds the required NetworkIdentity and Rigidbody. Use NetworkTransform when you want simpler transform replication.
-3. Spawn objects through the manager, assign their owners, and use the included WASD/arrow-key controls or connect your own controller through SetInput and the session APIs.
+3. Spawn objects through the manager, assign their owners, and use the included WASD/arrow-key controls or connect your own controller through SetInput and the session APIs. Add SocketJackMemberSync to select gameplay fields and properties that should travel with each object.
 
 The included sliding-cube game demonstrates the complete flow: host or join, move with physics, jump, collide with obstacles and see other players in the same world. Editable scripts and an offline quick start make the example a starting point for your own game.
 
@@ -36,6 +36,12 @@ UDP uses reliable unordered delivery by default, with explicit ordered, unreliab
 
 Object ownership, spawning, despawning, room visibility and streamed late-join baselines are included. Bounded queues, configurable work budgets and a manually pumped runtime avoid allocating a thread for every player. Automatic UPnP mapping attempts to open the host/server's chosen service port on supported routers and reports its status.
 
+### Sync the values your game needs
+
+Add SocketJackMemberSync and opt into individual fields or readable/writable properties on a network prefab's components. Each entry has its own server or owning-client authority, capture interval, change-only setting and serialized byte limit. Keep health server controlled while allowing the owner to change a cosmetic value on the same object. The server checks permissions against its configured prefab schema; late joiners and room entrants receive current values. Pending state coalesces under backpressure and revisions reject stale updates.
+
+The default is Binary formatter (SocketJack), a bounded typed binary game-state format. Supply your own serializer provider or register explicit value codecs for your game's types. Peers must share compatible serializer settings and member schemas. Session framing and compact movement codecs remain fixed. Static/readonly/indexed members and automatic Unity asset/object graph transfer are excluded; custom rules, commands and events remain your game's responsibility.
+
 ### Grow with your game
 
 Partition players and objects into rooms, control how much each player can see, and tune tick, snapshot and queue limits for your workload. The default 4,096-peer cap is configurable. A 2,000-peer loopback transport test has passed; production capacity depends on simulation, visibility, bandwidth and hosting. Large shared worlds need measured interest management and, where appropriate, multiple server processes.
@@ -43,15 +49,15 @@ Partition players and objects into rooms, control how much each player can see, 
 ### What you get
 
 - Portable .NET Standard 2.1 runtime with no third-party runtime NuGet dependencies.
-- Editable NetworkManager, NetworkIdentity, SocketJackObject, NetworkTransform and example controller scripts.
+- Editable NetworkManager, NetworkIdentity, SocketJackObject, SocketJackMemberSync, NetworkTransform and example controller scripts.
 - A playable 3D physics demo with host, peer, server and client roles.
 - Inspector configuration, binary codecs, offline documentation and source links.
 
 ### Integration and platform notes
 
-Your game supplies its prefabs, player intent and gameplay rules. The supplied physics component targets 3D Rigidbody physics; custom controllers, 2D physics and game-specific state use the runtime APIs and your own integration. PhysX is not deterministic: prediction uses sparse repair rather than full rollback or complete collision replay.
+Your game supplies its prefabs, player intent and gameplay rules. The supplied physics component targets 3D Rigidbody physics; custom controllers, 2D physics and game-specific commands use the runtime APIs and your own integration. Selected gameplay fields/properties use the optional member synchronizer. PhysX is not deterministic: prediction uses sparse repair rather than full rollback or complete collision replay.
 
-Unity 6 is the primary target, with a Unity 2022.3 LTS compatibility bracket. Tested Editors are 6000.3.27f2 and 2022.3.17f1, with Built-in assets and Windows x64 Mono. The demo uses legacy input/IMGUI; the setup guide includes an Input System bridge. Other backends/platforms require testing; WebGL needs a browser bridge.
+Unity 6 is the primary target, with a Unity 2022.3 LTS compatibility bracket. Tested Editors are 6000.3.27f2 and 2022.3.17f1. Networking is independent of Built-in, HDRP, URP and Custom RP. The demo selects compatible shaders for Built-in/URP/HDRP and accepts a material override for a custom pipeline; include the chosen material/shader in your player build. The demo uses legacy input/IMGUI; the setup guide includes an Input System bridge. Player acceptance targets Windows x64 Mono. Other backends/platforms require testing; WebGL needs a browser bridge.
 
 Included UDP/TCP traffic is plaintext. No hosted relay, matchmaking, accounts, persistence service or universal anti-cheat is included. UPnP depends on the router and cannot bypass carrier-grade NAT or firewall policy. A reachable server, manual forwarding or a separate relay may be needed for Internet play.
 
@@ -65,7 +71,8 @@ Source and issue tracking: https://github.com/hheiroww/SocketJack
 - Verified Editors: Unity 6.3 LTS 6000.3.27f2 and Unity 2022.3.17f1.
 - Windows x64 Mono actual-player validation; portable runtime tests on Windows and Linux.
 - No third-party runtime NuGet dependencies. Managed SocketJack.Unity.dll; code namespace SocketJack.Multiplayer.
-- Built-in Render Pipeline demo; physics, IMGUI and JSON serialization modules; legacy input API.
+- Renderer-independent networking: Built-in, HDRP, URP and Custom RP. Demo material selection for Built-in/URP/HDRP; material override for custom pipelines. No SRP package dependency is imposed on consumers.
+- Physics, IMGUI and JSON serialization modules; legacy input API, plus a documented Input System bridge.
 
 ### Network and physics
 
@@ -75,11 +82,13 @@ Source and issue tracking: https://github.com/hheiroww/SocketJack
 - 15-byte binary input and 70-byte physics snapshots before protocol headers; input on change with keepalive; sparse repair keyframes.
 - Local prediction, interpolation, capped extrapolation, velocity repair and optional visual smoothing.
 - Server-assigned ownership and authority, room visibility, late-join baselines, bounded queues and per-update work limits.
+- Optional member synchronization with per-field/property enable, authority, interval, change-only and byte-limit controls; schema validation, revision filtering and late-join/room baselines.
+- Default SocketJack binary formatter; custom serializer provider and explicitly registered value codecs. Matching schema and serializer configuration required on every participant.
 - Automatic finite UPnP leases with conflict/ownership checks, renewal and release on supported gateways.
 
 ### Validation and limits
 
-92 managed runtime tests plus 26 focused reconstruction/security tests; actual Unity server/two-client physics acceptance and fresh-package import compilation. A 2,000-peer loopback transport exercise passed; this is not a guarantee for 2,000 physics players in one world. Real-router/WAN and other player backends/platforms remain unverified.
+116 managed runtime tests plus 26 focused reconstruction/security tests; actual Unity server/two-client physics acceptance and fresh-package import compilation. Real UDP/TCP custom-serializer tests deliver 6,000-byte baselines, 6,100-byte owner updates and current late-join values through automatic framing. Unity 6 GPU material probes cover all four pipeline categories; these are separate from native player checks. A 2,000-peer loopback transport exercise passed; this is not a guarantee for 2,000 physics players in one world. Real-router/WAN and other player backends/platforms remain unverified.
 
 Documentation and source: https://github.com/hheiroww/SocketJack
 
@@ -98,6 +107,13 @@ OpenAI Codex assisted with generating and refactoring networking and component c
 - Added a portable .NET Standard 2.1 runtime, owned network objects, authoritative spawning/despawning, room visibility and streamed late-join baselines.
 - Added independent Host / Peer and Dedicated Server / Client topology with explicit UDP / TCP selection.
 - Server Authority is enabled by default. Per-object server/owner authority is assigned by the server and checked alongside ownership, room, sequence and message limits. Games can add their own state validators.
+
+#### Configurable gameplay state and serialization
+
+- Added optional SocketJackMemberSync with an Inspector member selector for eligible fields and readable/writable properties on prefab components. Each member can be enabled independently with server or owning-client authority, a capture interval, change-only behavior and a byte limit.
+- Kept member authority independent of movement authority. The server validates the configured schema, ownership, room and revisions before accepting owner proposals; current canonical state supplies late-join/room-entry baselines.
+- Added Binary formatter (SocketJack) as the default bounded typed member serializer, custom serializer providers and explicit value codec registration. This does not use .NET BinaryFormatter or activate transmitted CLR types.
+- Retained the explicit UDP and TCP transport choices in both topologies. TCP remains an ordered stream; reliable UDP remains unordered by default.
 
 #### Client-simulated physics
 
@@ -123,6 +139,7 @@ OpenAI Codex assisted with generating and refactoring networking and component c
 #### Unity package and demo
 
 - Prioritized Unity 6.3 LTS and retained the Unity 2022.3 LTS compatibility bracket. Conditional physics-material and Rigidbody APIs preserve both versions.
+- Added pipeline-aware sample materials for Built-in/URP/HDRP, plus an explicit custom-pipeline material override. Networking components have no SRP runtime dependency.
 - Expanded the offline setup guide into a complete single-player conversion: required components, prefab registration/spawning, host/join code, custom input, local cameras, authority, scene consistency and verification. Included the guide in the NuGet archive as QuickStart.md.
 - Fixed player-build receipt paths for both repository and imported Asset Store layouts. New-Input-System-only projects can use SetInput without legacy keyboard polling exceptions.
 - Included editable networking components, the sliding-cube physics scene, an explicit player-build helper, offline quick-start/runtime guides and the monochrome SocketJack logo.
@@ -131,8 +148,10 @@ OpenAI Codex assisted with generating and refactoring networking and component c
 
 #### Verification
 
-- 92 managed runtime tests and 26 focused core reconstruction/security tests pass on Windows and Linux.
+- 116 managed runtime tests cover transport/session behavior, member authority, schema/serializer mismatch, late joins, room transitions, backpressure, traffic/memory budgets and malformed data. The 26 focused core reconstruction/security checks also pass. Windows/Linux release validation runs separately before publication.
 - Actual Unity 6.3 LTS 6000.3.27f2 and Unity 2022.3.17f1 Windows Mono server/two-client physics runs passed with zero hard corrections. Both setup-guide C# examples compile in each Editor. Fresh exported-package imports are checked separately.
+- New component acceptance passed six Editor Play Mode and six native-player cases in each Editor, covering UDP/TCP, default/custom serializers, host mode, serialized prefab bindings, selected fields/properties, per-member authority, 6,000/6,100-byte values and late joins.
+- Actual Unity 6 Direct3D 11 material renders passed for Built-in, URP 17.3.0, HDRP 17.3.0 and a minimal Custom RP with a supplied material. These rendering probes are separate from native physics-player acceptance.
 - A 2,000-peer loopback UDP transport exercise passed; it does not establish 2,000 physics players in one world.
 
 #### Known integration boundaries

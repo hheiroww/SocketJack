@@ -149,7 +149,7 @@ namespace SocketJack.Publishing.Editor
         private static bool TryGetCompiledTypes(out string[] types)
         {
             var compiled = new System.Collections.Generic.List<string>();
-            foreach (string name in new[] { "NetworkManager", "NetworkIdentity", "NetworkTransform", "SocketJackObject", "ExamplePlayerController" })
+            foreach (string name in new[] { "NetworkManager", "NetworkIdentity", "NetworkTransform", "SocketJackObject", "SocketJackMemberSync", "ExamplePlayerController" })
             {
                 var script = AssetDatabase.LoadAssetAtPath<MonoScript>(Root + "/Runtime/Components/" + name + ".cs");
                 Type type = script == null ? null : script.GetClass();

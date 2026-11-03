@@ -5,6 +5,7 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using SocketJack.Multiplayer.Transport;
+using SocketJack.Multiplayer.Serialization;
 using UnityEngine;
 using RuntimeObject = SocketJack.Multiplayer.NetworkObject;
 
@@ -34,6 +35,12 @@ namespace SocketJack.Multiplayer.Components
         [SerializeField] private int snapshotRate = 5;
         [SerializeField] private int maxEventsPerFrame = 4096;
         [SerializeField] private GameObject[] prefabs = Array.Empty<GameObject>();
+        [Header("Member synchronization serializer")]
+        [SerializeField, InspectorName("Serializer")] private NetworkSerializerKind serializerKind = NetworkSerializerKind.BinaryFormatterSocketJack;
+        [SerializeField, Tooltip("Must implement INetworkSerializerProvider. Used by the Custom Provider serializer option.")]
+        private MonoBehaviour serializerProvider;
+        private INetworkSerializer runtimeSerializer;
+        private NetworkMemberSyncOptions memberSyncOptions = new NetworkMemberSyncOptions();
         private readonly Dictionary<ulong, NetworkIdentity> instances = new Dictionary<ulong, NetworkIdentity>();
         private readonly List<ulong> removed = new List<ulong>();
         private sealed class PhysicsRelay
@@ -55,6 +62,25 @@ namespace SocketJack.Multiplayer.Components
 
         public NetworkServer Server { get; private set; }
         public NetworkClient Client { get; private set; }
+        public NetworkMemberServer MemberServer { get; private set; }
+        public NetworkMemberClient MemberClient { get; private set; }
+        /// <summary>Optional runtime serializer override. Configure while stopped, before any schema is bound.</summary>
+        public INetworkSerializer Serializer
+        {
+            get
+            {
+                if (runtimeSerializer != null) return runtimeSerializer;
+                if (serializerKind == NetworkSerializerKind.BinaryFormatterSocketJack) return runtimeSerializer = CreateDefaultSerializer();
+                if (!(serializerProvider is INetworkSerializerProvider provider)) throw new InvalidOperationException("Custom serializer provider must implement INetworkSerializerProvider.");
+                return runtimeSerializer = provider.CreateSerializer() ?? throw new InvalidOperationException("Serializer provider returned null.");
+            }
+            set { RequireStopped(); runtimeSerializer = value ?? throw new ArgumentNullException(nameof(value)); }
+        }
+        public NetworkSerializerKind SerializerKind { get => serializerKind; set { RequireStopped(); serializerKind = value; runtimeSerializer = null; } }
+        public MonoBehaviour SerializerProvider { get => serializerProvider; set { RequireStopped(); serializerProvider = value; runtimeSerializer = null; } }
+        /// <summary>Configure before starting. Coordinators snapshot these bounded work/traffic limits.</summary>
+        public NetworkMemberSyncOptions MemberSyncOptions { get => memberSyncOptions; set { RequireStopped(); memberSyncOptions = value ?? throw new ArgumentNullException(nameof(value)); } }
+        public Func<RuntimeObject, ushort, object, bool> MemberValueValidator { get; set; }
         public bool IsServer => Server != null && Server.IsRunning;
         public bool IsClient => Client != null && Client.IsConnected;
         public ulong LocalPeerId => Client == null ? 0 : Client.LocalPeerId;
@@ -100,11 +126,16 @@ namespace SocketJack.Multiplayer.Components
         {
             RequireStopped();
             CheckPlatform();
+            ValidateMemberPrefabs();
             var endpoint = new IPEndPoint(IPAddress.Any, port);
             var serverTransport = GameTransport.Create(transport, NewTransportOptions());
             try
             {
                 Server = new NetworkServer(serverTransport, NewSessionOptions());
+                MemberServer = new NetworkMemberServer(Server, memberSyncOptions);
+                MemberServer.BindingError += OnMemberError;
+                MemberServer.OwnerValueValidator = (obj, member, value) => MemberValueValidator == null || MemberValueValidator(obj, member, value);
+                MemberServer.ApplyOwnerValue = obj => Client == null || !Client.IsConnected || obj.OwnerId != Client.LocalPeerId;
                 Server.InputReceived += OnServerInput;
                 Server.ObjectChanged += OnServerObjectChanged;
                 Server.OwnerStateValidator = ValidateOwnerState;
@@ -113,7 +144,7 @@ namespace SocketJack.Multiplayer.Components
                 Server.Start(endpoint);
                 BeginPortMapping();
             }
-            catch { Server?.Dispose(); Server = null; serverTransport.Dispose(); throw; }
+            catch { MemberServer?.Dispose(); MemberServer = null; Server?.Dispose(); Server = null; serverTransport.Dispose(); throw; }
         }
 
         public void StartClient(byte[] connectionData = null)
@@ -139,10 +170,14 @@ namespace SocketJack.Multiplayer.Components
 
         private void StartClientCore(byte[] connectionData, IPAddress target = null)
         {
+            ValidateMemberPrefabs();
             var clientTransport = GameTransport.Create(transport, NewTransportOptions());
             try
             {
                 Client = new NetworkClient(clientTransport, NewSessionOptions());
+                MemberClient = new NetworkMemberClient(Client, memberSyncOptions);
+                MemberClient.ApplyValues = !IsServer;
+                MemberClient.BindingError += OnMemberError;
                 Client.Connected += () => ClientConnected?.Invoke();
                 Client.Disconnected += reason => ClientDisconnected?.Invoke(reason);
                 Client.ObjectSpawned += OnObjectSpawned;
@@ -152,7 +187,7 @@ namespace SocketJack.Multiplayer.Components
                 int targetPort = target != null && Server != null ? Server.Transport.LocalEndPoint.Port : port;
                 Client.Connect(new IPEndPoint(target ?? IPAddress.Parse(address), targetPort), connectionData);
             }
-            catch { Client?.Dispose(); Client = null; clientTransport.Dispose(); throw; }
+            catch { MemberClient?.Dispose(); MemberClient = null; Client?.Dispose(); Client = null; clientTransport.Dispose(); throw; }
         }
 
         /// <summary>Instantiate and replicate a registered prefab. IDs start at one.</summary>
@@ -170,12 +205,17 @@ namespace SocketJack.Multiplayer.Components
             var synchronizer = instance.GetComponent<NetworkTransform>();
             var physicsObject = instance.GetComponent<SocketJackObject>();
             bool objectServerAuthority = physicsObject == null ? serverAuthority : physicsObject.ResolveServerAuthority(serverAuthority);
-            RuntimeObject state;
-            try { state = Server.Spawn(prefabId, ownerId, roomId, physicsObject != null ? physicsObject.CaptureState() :
-                synchronizer == null ? Array.Empty<byte>() : synchronizer.CaptureState(), objectServerAuthority); }
-            catch { Destroy(instance); throw; }
-            identity.Bind(this, state);
-            instances.Add(state.Id, identity);
+            RuntimeObject state = null;
+            try
+            {
+                var memberSync = instance.GetComponent<SocketJackMemberSync>();
+                var schema = memberSync == null ? null : memberSync.CreateSchema(Serializer);
+                state = Server.Spawn(prefabId, ownerId, roomId, physicsObject != null ? physicsObject.CaptureState() :
+                    synchronizer == null ? Array.Empty<byte>() : synchronizer.CaptureState(), objectServerAuthority);
+                identity.Bind(this, state); instances.Add(state.Id, identity);
+                if (schema != null) { MemberServer.RegisterObject(state.Id, schema); memberSync.MarkBound(); }
+            }
+            catch { if (state != null) { Server.Despawn(state.Id); instances.Remove(state.Id); MemberServer.RemoveObject(state.Id); } Destroy(instance); throw; }
             instance.SetActive(true);
             return identity;
         }
@@ -219,9 +259,11 @@ namespace SocketJack.Multiplayer.Components
                     else pair.Value.Bind(this, state);
                 }
                 foreach (var id in removed) RemoveInstance(id);
+                MemberServer?.Update(Time.unscaledDeltaTime);
             }
             Client?.Update(Time.unscaledDeltaTime, maxEventsPerFrame);
             CaptureOwnerTransforms();
+            MemberClient?.Update(Time.unscaledDeltaTime);
         }
 
         private void BeginPortMapping()
@@ -272,7 +314,12 @@ namespace SocketJack.Multiplayer.Components
 
         private void OnObjectSpawned(RuntimeObject state)
         {
-            if (IsServer) return; // Host renders the authoritative world once.
+            if (IsServer)
+            {
+                // Host renders the authoritative world once, but its local client still submits owner members.
+                if (instances.TryGetValue(state.Id, out var existing)) BindClientMembers(existing);
+                return;
+            }
             GameObject prefab;
             try { prefab = FindPrefab(state.PrefabId); }
             catch (InvalidOperationException error)
@@ -286,6 +333,7 @@ namespace SocketJack.Multiplayer.Components
             identity.Bind(this, state);
             instances.Add(state.Id, identity);
             instance.SetActive(true);
+            BindClientMembers(identity);
             var physicsObject = instance.GetComponent<SocketJackObject>();
             if (physicsObject != null) physicsObject.ApplyState(state.State, true);
             else instance.GetComponent<NetworkTransform>()?.ApplyState(state.State, true);
@@ -424,6 +472,7 @@ namespace SocketJack.Multiplayer.Components
         private void OnObjectDespawned(ulong objectId) { if (!IsServer) RemoveInstance(objectId); }
         private void RemoveInstance(ulong id)
         {
+            MemberServer?.RemoveObject(id); MemberClient?.RemoveObject(id);
             if (!instances.TryGetValue(id, out var identity)) return;
             instances.Remove(id);
             if (identity != null) Destroy(identity.gameObject);
@@ -435,7 +484,37 @@ namespace SocketJack.Multiplayer.Components
             return prefabs[id - 1];
         }
         private TransportOptions NewTransportOptions() => new TransportOptions { MaxPeers = maxPlayers, ConnectionValidator = ConnectionValidator };
-        private NetworkSessionOptions NewSessionOptions() => new NetworkSessionOptions { TickRate = tickRate, SnapshotRate = Math.Min(snapshotRate, tickRate), MaxPeers = maxPlayers, ServerAuthority = serverAuthority };
+        private NetworkSessionOptions NewSessionOptions() => new NetworkSessionOptions { TickRate = tickRate, SnapshotRate = Math.Min(snapshotRate, tickRate), MaxPeers = maxPlayers, ServerAuthority = serverAuthority, MaxMessageBytes = 40 + NetworkMemberSyncOptions.AbsoluteMaxMemberBytes };
+        private void ValidateMemberPrefabs()
+        {
+            foreach (var prefab in prefabs) if (prefab != null) prefab.GetComponent<SocketJackMemberSync>()?.CreateSchema(Serializer);
+        }
+        private void BindClientMembers(NetworkIdentity identity)
+        {
+            try
+            {
+                var component = identity.GetComponent<SocketJackMemberSync>();
+                var schema = component == null ? null : component.CreateSchema(Serializer);
+                if (schema != null) { MemberClient.RegisterObject(identity.ObjectId, schema); component.MarkBound(); }
+            }
+            catch (Exception error) { OnMemberError(identity.ObjectId, error); Client.Stop(); }
+        }
+        private void OnMemberError(ulong objectId, Exception error) => Debug.LogException(new InvalidOperationException("Member synchronization failed for object " + objectId, error), this);
+
+        public static SocketJackBinaryFormatter CreateDefaultSerializer()
+        { var formatter = new SocketJackBinaryFormatter(); RegisterUnityTypes(formatter); return formatter; }
+        /// <summary>Register these stable codecs before ProtocolId is read. Custom providers opt in explicitly.
+        /// IDs 256..261 are reserved for Unity Vector2/3/4, Quaternion, Color and Color32.</summary>
+        public static void RegisterUnityTypes(SocketJackBinaryFormatter formatter)
+        {
+            if (formatter == null) throw new ArgumentNullException(nameof(formatter));
+            formatter.Register<Vector2>(256, "unity.vector2.f32.v1", (w, v) => { w.Write(v.x); w.Write(v.y); }, r => new Vector2(r.ReadSingle(), r.ReadSingle()));
+            formatter.Register<Vector3>(257, "unity.vector3.f32.v1", (w, v) => { w.Write(v.x); w.Write(v.y); w.Write(v.z); }, r => new Vector3(r.ReadSingle(), r.ReadSingle(), r.ReadSingle()));
+            formatter.Register<Vector4>(258, "unity.vector4.f32.v1", (w, v) => { w.Write(v.x); w.Write(v.y); w.Write(v.z); w.Write(v.w); }, r => new Vector4(r.ReadSingle(), r.ReadSingle(), r.ReadSingle(), r.ReadSingle()));
+            formatter.Register<Quaternion>(259, "unity.quaternion.f32.v1", (w, v) => { w.Write(v.x); w.Write(v.y); w.Write(v.z); w.Write(v.w); }, r => new Quaternion(r.ReadSingle(), r.ReadSingle(), r.ReadSingle(), r.ReadSingle()));
+            formatter.Register<Color>(260, "unity.color.f32.v1", (w, v) => { w.Write(v.r); w.Write(v.g); w.Write(v.b); w.Write(v.a); }, r => new Color(r.ReadSingle(), r.ReadSingle(), r.ReadSingle(), r.ReadSingle()));
+            formatter.Register<Color32>(261, "unity.color32.u8.v1", (w, v) => { w.Write(v.r); w.Write(v.g); w.Write(v.b); w.Write(v.a); }, r => new Color32(r.ReadByte(), r.ReadByte(), r.ReadByte(), r.ReadByte()));
+        }
         private void OnValidate()
         {
             if (topology != previousTopology && topology == NetworkTopology.DedicatedServerClient) serverAuthority = true;
@@ -462,6 +541,8 @@ namespace SocketJack.Multiplayer.Components
         public void Shutdown()
         {
             StopPortMapping();
+            MemberClient?.Dispose(); MemberClient = null;
+            MemberServer?.Dispose(); MemberServer = null;
             Client?.Dispose(); Client = null;
             Server?.Dispose(); Server = null;
             foreach (var pair in instances) if (pair.Value != null) Destroy(pair.Value.gameObject);

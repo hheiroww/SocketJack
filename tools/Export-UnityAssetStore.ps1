@@ -78,8 +78,7 @@ function Invoke-Editor([string]$Project, [string]$Method, [string]$Log, [string[
     $process = Start-Process -FilePath $Editor -ArgumentList $arguments -WindowStyle Hidden -PassThru
     Write-Host "Unity $Method started (PID $($process.Id)); log $Log"
     if (!$process.WaitForExit(600000)) {
-        $process.Kill()
-        throw "The owned batch Editor exceeded ten minutes; inspect $Log."
+        throw "The owned batch Editor exceeded ten minutes; retained PID $($process.Id). Inspect $Log; no process was stopped."
     }
     if (!(Test-Path -LiteralPath $Log)) { throw 'Unity did not write an Editor log.' }
     $logText = [IO.File]::ReadAllText($Log)
@@ -115,6 +114,7 @@ $sources = [ordered]@{
     'Runtime/Components/NetworkIdentity.cs' = (Join-Path $repository 'SocketJack.Unity/Unity/NetworkIdentity.cs')
     'Runtime/Components/NetworkTransform.cs' = (Join-Path $repository 'SocketJack.Unity/Unity/NetworkTransform.cs')
     'Runtime/Components/SocketJackObject.cs' = (Join-Path $repository 'SocketJack.Unity/Unity/SocketJackObject.cs')
+    'Runtime/Components/SocketJackMemberSync.cs' = (Join-Path $repository 'SocketJack.Unity/Unity/SocketJackMemberSync.cs')
     'Runtime/Components/ExamplePlayerController.cs' = (Join-Path $repository 'SocketJack.Unity/Unity/ExamplePlayerController.cs')
     'Runtime/Components/link.xml' = (Join-Path $repository 'SocketJack.Unity/Unity/link.xml')
     'Samples/Physics/Scripts/PhysicsGame.cs' = (Join-Path $repository 'Examples/UnityPhysics/Assets/Scripts/PhysicsGame.cs')
@@ -250,6 +250,7 @@ $original = Get-Content -LiteralPath $exportReceipt -Raw | ConvertFrom-Json
 if ($imported.packageSha256 -ne $packageHash -or $imported.runtimeSha256 -ne $original.runtimeSha256) { throw 'Fresh import differs from the verified package/runtime.' }
 $expectedTypes = @('SocketJack.Multiplayer.Components.NetworkManager', 'SocketJack.Multiplayer.Components.NetworkIdentity',
     'SocketJack.Multiplayer.Components.NetworkTransform', 'SocketJack.Multiplayer.Components.SocketJackObject',
+    'SocketJack.Multiplayer.Components.SocketJackMemberSync',
     'SocketJack.Multiplayer.Components.ExamplePlayerController', 'SocketJack.Samples.Physics.PhysicsGame')
 if (@($imported.compiledTypes).Count -ne $expectedTypes.Count -or @(Compare-Object $expectedTypes @($imported.compiledTypes)).Count -ne 0) {
     throw 'Fresh import component/sample namespaces differ from the published API contract.'

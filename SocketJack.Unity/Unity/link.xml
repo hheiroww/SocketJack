@@ -1,5 +1,6 @@
 <linker>
-  <!-- Explicit binary codecs need no reflection. Preserve the public API when game code
-       obtains entry points through Unity events or an external scripting integration. -->
+  <!-- Fixed session/physics codecs need no reflection. Preserve this SDK's runtime API.
+       Optional member syncing reflects explicitly selected GAME component members;
+       preserve those members in the game's own link.xml or with preservation attributes. -->
   <assembly fullname="SocketJack.Unity" preserve="all" />
 </linker>

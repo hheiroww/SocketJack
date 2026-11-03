@@ -38,7 +38,7 @@ function Read-PackageEntries([string]$Path) {
         foreach ($entry in $zip.Entries) {
             $name = $entry.FullName
             if ($name -eq '.signature.p7s') { continue } # NuGet may repository-sign the published archive.
-            if ($name -notmatch '^(SocketJack\.Unity\.nuspec|\[Content_Types\]\.xml|_rels/\.rels|package/services/metadata/core-properties/[^/]+\.psmdcp|lib/netstandard2\.1/SocketJack\.Unity\.(dll|xml)|README\.md|QuickStart\.md|LICENSE|SocketJackUnityIcon\.png|contentFiles/any/any/SocketJack\.Unity/(NetworkManager\.cs|NetworkIdentity\.cs|NetworkTransform\.cs|SocketJackObject\.cs|ExamplePlayerController\.cs|link\.xml))$') {
+            if ($name -notmatch '^(SocketJack\.Unity\.nuspec|\[Content_Types\]\.xml|_rels/\.rels|package/services/metadata/core-properties/[^/]+\.psmdcp|lib/netstandard2\.1/SocketJack\.Unity\.(dll|xml)|README\.md|QuickStart\.md|LICENSE|SocketJackUnityIcon\.png|contentFiles/any/any/SocketJack\.Unity/(NetworkManager\.cs|NetworkIdentity\.cs|NetworkTransform\.cs|SocketJackObject\.cs|SocketJackMemberSync\.cs|ExamplePlayerController\.cs|link\.xml))$') {
                 throw "Unexpected Unity package entry: $name"
             }
             if ($entries.ContainsKey($name)) { throw "Duplicate Unity package entry: $name" }
@@ -56,6 +56,7 @@ function Read-PackageEntries([string]$Path) {
             'README.md', 'QuickStart.md', 'LICENSE', 'SocketJackUnityIcon.png', 'contentFiles/any/any/SocketJack.Unity/NetworkManager.cs',
             'contentFiles/any/any/SocketJack.Unity/NetworkIdentity.cs', 'contentFiles/any/any/SocketJack.Unity/NetworkTransform.cs',
             'contentFiles/any/any/SocketJack.Unity/SocketJackObject.cs',
+            'contentFiles/any/any/SocketJack.Unity/SocketJackMemberSync.cs',
             'contentFiles/any/any/SocketJack.Unity/ExamplePlayerController.cs', 'contentFiles/any/any/SocketJack.Unity/link.xml')) {
             if (!$entries.ContainsKey($required)) { throw "Missing required Unity package entry: $required" }
         }

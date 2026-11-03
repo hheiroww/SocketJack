@@ -18,6 +18,10 @@ namespace SocketJack.Samples.Physics
     /// <summary>Small, executable Unity game. One binary can host, join, or run as a headless server.</summary>
     public sealed class PhysicsGame : MonoBehaviour
     {
+        [SerializeField, Tooltip("Optional material for the active render pipeline. Assign your custom pipeline's material here; the sample clones it without changing the asset.")]
+        private Material sampleMaterial;
+        /// <summary>Optional pipeline-compatible template, also used to retain its shader in a player build.</summary>
+        public Material SampleMaterial { get => sampleMaterial; set => sampleMaterial = value; }
         [Serializable] public sealed class RunMetrics
         {
             public string role, transport;
@@ -160,19 +164,9 @@ namespace SocketJack.Samples.Physics
             light.intensity = 1.1f; light.transform.rotation = Quaternion.Euler(50, -30, 0);
             RenderSettings.ambientLight = new Color(0.45f, 0.45f, 0.5f);
         }
-        private static Material NewMaterial(Color color)
+        private Material NewMaterial(Color color)
         {
-            if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null) return null;
-            var template = Resources.Load<Material>("SocketJackPhysicsStandard");
-            Material material;
-            if (template != null) material = new Material(template);
-            else
-            {
-                var shader = Shader.Find("Standard");
-                if (shader == null) return null; // A headless graphics device does not need a render material.
-                material = new Material(shader);
-            }
-            material.color = color; return material;
+            return PhysicsSampleMaterialFactory.Create(color, sampleMaterial);
         }
 
         private void Update()
@@ -202,7 +196,8 @@ namespace SocketJack.Samples.Physics
                                 sync.SetInput(phase == 0 ? 1 : phase == 2 ? -1 : 0, phase == 1 ? 1 : phase == 3 ? -1 : 0);
                             }
                             var renderer = identity.GetComponentInChildren<Renderer>();
-                            if (renderer != null && renderer.material != null) renderer.material.color = new Color(0.95f, 0.65f, 0.2f);
+                            if (renderer != null && renderer.material != null)
+                                PhysicsSampleMaterialFactory.SetColor(renderer.material, new Color(0.95f, 0.65f, 0.2f));
                         }
                     }
             ObserveCounters();
@@ -298,5 +293,51 @@ namespace SocketJack.Samples.Physics
                 }
         }
         private void OnApplicationQuit() { if (!exiting && network != null) WriteMetrics(); }
+    }
+
+    /// <summary>Sample visuals only. Networking has no dependency on a particular render pipeline.</summary>
+    public static class PhysicsSampleMaterialFactory
+    {
+        private static readonly string[] ColorProperties = { "_Color", "_BaseColor", "_UnlitColor" };
+        /// <summary>Clones an explicit template or selects the active pipeline's unlit shader. Custom pipelines can supply their own default material or an Inspector override.</summary>
+        public static Material Create(Color color, Material template = null, bool allowHeadlessEditor = false)
+        {
+            bool headless = SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null;
+            if (headless && !allowHeadlessEditor) return null;
+            var pipeline = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline;
+            if (template == null)
+            {
+                string type = pipeline == null ? "" : pipeline.GetType().FullName;
+                string shaderName = pipeline == null ? "Standard" :
+                    type.Contains("UniversalRenderPipelineAsset") ? "Universal Render Pipeline/Unlit" :
+                    type.Contains("HDRenderPipelineAsset") ? "HDRP/Unlit" : null;
+                if (shaderName == null) template = pipeline.defaultMaterial;
+                else
+                {
+                    var resource = Resources.Load<Material>("SocketJackPhysicsStandard");
+                    if (resource != null && resource.shader != null && resource.shader.name == shaderName) template = resource;
+                    else
+                    {
+                        var shader = Shader.Find(shaderName);
+                        if (shader != null && (headless || shader.isSupported))
+                        {
+                            var selected = new Material(shader);
+                            SetColor(selected, color); return selected;
+                        }
+                    }
+                }
+            }
+            if (template == null || template.shader == null || (!headless && !template.shader.isSupported))
+                throw new InvalidOperationException("Assign a supported material to PhysicsGame's Sample Material for this render pipeline. Include that material in the player build to retain its shader.");
+            var material = new Material(template);
+            SetColor(material, color); return material;
+        }
+        /// <summary>Sets the conventional Built-in, URP and HDRP color properties where present.</summary>
+        public static void SetColor(Material material, Color color)
+        {
+            if (material == null) return;
+            foreach (string property in ColorProperties)
+                if (material.HasProperty(property)) material.SetColor(property, color);
+        }
     }
 }

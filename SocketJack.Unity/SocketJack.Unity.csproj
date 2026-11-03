@@ -5,18 +5,18 @@
     <Nullable>disable</Nullable>
     <RootNamespace>SocketJack.Multiplayer</RootNamespace>
     <AssemblyName>SocketJack.Unity</AssemblyName>
-    <Version>2026.11.03.1</Version>
+    <Version>2026.11.03.2</Version>
     <Authors>hheiroww</Authors>
-    <Description>Authoritative multiplayer networking for Unity and dedicated .NET servers. Bounded UDP and TCP transports, rooms, ownership, replicated state and main-thread Unity adapters.</Description>
+    <Description>Multiplayer networking for Unity 6, Unity 2022.3 and dedicated .NET servers. UDP/TCP transports, locally predicted physics, selected field/property replication, per-member authority and configurable serializers.</Description>
     <PackageId>SocketJack.Unity</PackageId>
-    <PackageTags>Unity;Multiplayer;Networking;UDP;TCP;Game;DedicatedServer</PackageTags>
+    <PackageTags>Unity;Unity6;Multiplayer;Networking;UDP;TCP;Game;DedicatedServer;StateSync;Serialization</PackageTags>
     <RepositoryUrl>https://github.com/hheiroww/SocketJack</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageProjectUrl>https://github.com/hheiroww/SocketJack</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>SocketJackUnityIcon.png</PackageIcon>
-    <PackageReleaseNotes>Prioritizes Unity 6 while retaining the Unity 2022.3 LTS compatibility bracket. Adds version-specific physics API compatibility and a complete single-player conversion guide covering scene/session setup, networked prefabs, ownership, custom input, local cameras and validation. The offline setup guide is included in this package. Existing consumers use SocketJack.Multiplayer and SocketJack.Multiplayer.Components namespaces; product and assembly identity remain SocketJack.Unity.</PackageReleaseNotes>
+    <PackageReleaseNotes>Adds opt-in field/property replication with per-member authority and a configurable game-state serializer. SocketJack binary formatting is the default. Includes UDP and TCP transport choices, Unity 6 primary support, a Unity 2022.3 LTS compatibility bracket, render-pipeline-independent networking and an expanded offline setup guide. Use matching builds, prefab schemas and serializer settings on every participant.</PackageReleaseNotes>
     <IsPackable>true</IsPackable>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>

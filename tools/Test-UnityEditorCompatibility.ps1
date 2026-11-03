@@ -51,6 +51,7 @@ $sources = [ordered]@{
     'Assets/SocketJack.Unity/NetworkIdentity.cs' = (Join-Path $repository 'SocketJack.Unity/Unity/NetworkIdentity.cs')
     'Assets/SocketJack.Unity/NetworkTransform.cs' = (Join-Path $repository 'SocketJack.Unity/Unity/NetworkTransform.cs')
     'Assets/SocketJack.Unity/SocketJackObject.cs' = (Join-Path $repository 'SocketJack.Unity/Unity/SocketJackObject.cs')
+    'Assets/SocketJack.Unity/SocketJackMemberSync.cs' = (Join-Path $repository 'SocketJack.Unity/Unity/SocketJackMemberSync.cs')
     'Assets/SocketJack.Unity/ExamplePlayerController.cs' = (Join-Path $repository 'SocketJack.Unity/Unity/ExamplePlayerController.cs')
     'Assets/SocketJack.Unity/link.xml' = (Join-Path $repository 'SocketJack.Unity/Unity/link.xml')
     'Assets/Scripts/PhysicsGame.cs' = (Join-Path $repository 'Examples/UnityPhysics/Assets/Scripts/PhysicsGame.cs')

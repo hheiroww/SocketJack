@@ -32,14 +32,16 @@ namespace SocketJack.Samples.Physics.Editor
             VerifyObjectConfiguration();
             Directory.CreateDirectory("Assets/Scenes");
             Directory.CreateDirectory("Assets/Resources");
-            if (AssetDatabase.LoadAssetAtPath<Material>("Assets/Resources/SocketJackPhysicsStandard.mat") == null)
+            const string materialPath = "Assets/Resources/SocketJackPhysicsStandard.mat";
+            var existingMaterial = AssetDatabase.LoadAssetAtPath<Material>(materialPath);
+            var preparedMaterial = PhysicsSampleMaterialFactory.Create(Color.white, allowHeadlessEditor: true);
+            if (existingMaterial == null)
             {
-                var shader = Shader.Find("Standard");
-                if (shader == null) throw new InvalidOperationException("The built-in Standard shader is unavailable in this Editor.");
-                AssetDatabase.CreateAsset(new Material(shader), "Assets/Resources/SocketJackPhysicsStandard.mat");
+                AssetDatabase.CreateAsset(preparedMaterial, materialPath);
             }
+            else { existingMaterial.shader = preparedMaterial.shader; PhysicsSampleMaterialFactory.SetColor(existingMaterial, Color.white); UnityEngine.Object.DestroyImmediate(preparedMaterial); }
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-            new GameObject("SocketJack Physics Game").AddComponent<PhysicsGame>();
+            new GameObject("SocketJack Physics Game").AddComponent<PhysicsGame>().SampleMaterial = AssetDatabase.LoadAssetAtPath<Material>(materialPath);
             EditorSceneManager.SaveScene(scene, "Assets/Scenes/Physics.unity");
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene("Assets/Scenes/Physics.unity", true) };
             PlayerSettings.companyName = "SocketJack"; PlayerSettings.productName = "SocketJack Physics Multiplayer";

@@ -1,17 +1,17 @@
 # SocketJack.Unity
 
-![SocketJack.Unity](https://raw.githubusercontent.com/hheiroww/SocketJack/socketjack-unity-v2026.11.03.1/SocketJack.Unity/SocketJackUnityIcon.png)
+![SocketJack.Unity](https://raw.githubusercontent.com/hheiroww/SocketJack/socketjack-unity-v2026.11.03.2/SocketJack.Unity/SocketJackUnityIcon.png)
 
 Portable multiplayer networking for Unity games and dedicated .NET servers. Targets .NET Standard 2.1 with no third-party dependencies and no UnityEngine dependency in the runtime DLL.
 
-The package supplies the networking foundation: independent topology/transport choices, server or opted-in owner authority, object spawning and state, player ownership, room-based visibility, fixed simulation ticks, bounded queues and Unity component sources. Game code defines its prefabs, input, simulation rules and replicated state. Adding a package alone cannot make arbitrary single-player game logic multiplayer.
+The package supplies independent topology/transport choices, server or opted-in owner authority, object spawning and state, player ownership, room visibility, fixed simulation ticks, bounded queues and Unity component sources. Add the supplied components to bring multiplayer to an existing game, then select the fields/properties to replicate. Game code defines its prefabs, input and simulation rules; arbitrary single-player logic still needs ownership and rule integration.
 
 ## Install
 
 For a dedicated .NET server or a non-Unity integration:
 
 ```sh
-dotnet add package SocketJack.Unity --version 2026.11.03.1
+dotnet add package SocketJack.Unity --version 2026.11.03.2
 ```
 
 Unity 6 is the primary support target, with Unity 2022.3 LTS retained as a compatibility bracket. Use the .NET Standard 2.1 API compatibility level in either bracket. The included `QuickStart.md` explains the version matrix, required components and a complete single-player-to-multiplayer conversion, including host/join setup, prefab spawning, input and local cameras. Its acceptance matrix records the exact Editor/player versions actually verified.
@@ -56,7 +56,7 @@ public sealed class GameBootstrap : MonoBehaviour
 
 `SocketJackObject` reads WASD and arrow keys by default, with Space for jumping. Owner input takes effect immediately in local Rigidbody simulation. The owner sends 15-byte binary intent on changes, capped at 30 messages/s, with a 5 Hz keepalive; it does not transmit position every render/physics frame. The server validates ownership and bounded intent, simulates the same forces, and relays intent only to peers in the same room. Other clients also simulate their local Rigidbody from that intent.
 
-Sparse 70-byte binary keyframes (5 Hz by default) repair physics divergence. Client correction uses capped extrapolation, bounded velocity correction, Rigidbody interpolation and optional child-visual smoothing. PhysX is not deterministic across machines: this is predictive local simulation with authoritative repair, rather than deterministic lockstep or full rollback. All byte counts above exclude protocol/IP headers. The component reserves application message ID `60001` for its input relay; use other IDs for game messages. Reliable relay backpressure is retained in a bounded retry queue, with overflow disconnecting a peer instead of silently losing accepted messages. Queued, unsent relay messages are revoked when the peer or object leaves the applicable room.
+Sparse 70-byte binary keyframes (5 Hz by default) repair physics divergence. Client correction uses capped extrapolation, bounded velocity correction, Rigidbody interpolation and optional child-visual smoothing. PhysX is not deterministic across machines: this is predictive local simulation with authoritative repair, rather than deterministic lockstep or full rollback. All byte counts above exclude protocol/IP headers. The physics component reserves application message ID `60001` for its input relay; member synchronization reserves `60003` and `60004`. The demo uses `60002` for RTT measurements; choose other IDs for game messages. Reliable relay backpressure is retained in a bounded retry queue, with overflow disconnecting a peer instead of silently losing accepted messages. Queued, unsent relay messages are revoked when the peer or object leaves the applicable room.
 
 Configure movement mode, authority inheritance, input rate/keepalive, movement force/ForceMode, maximum speed, jump force, keyframe rate, timeout, correction limits, extrapolation, owner correction weight and visual smoothing in the Inspector. Movement uses ForceMode.Force by default, so the native Rigidbody mass affects acceleration. Rigidbody mass, drag, angular drag, gravity, constraints, collision mode, interpolation and Collider material/friction remain the object's native settings; the component does not replace them. Enable Rigidbody interpolation in its own Inspector when desired. For the Input System or a custom controller, disable **Read Keyboard** and call `SetInput(horizontal, vertical, jump)` on the owning object's component. Assign a child renderer transform as **Visual** to absorb rare large corrections without moving the collider for rendering alone. Do not add `NetworkTransform` to the same Rigidbody: the manager rejects conflicting controllers.
 
@@ -77,7 +77,21 @@ For objects that only need server-driven transform replication, the separate `Ne
 
 Destroy network objects through `NetworkManager.Despawn` on the server. Call `Shutdown` before restarting or reconfiguring the manager. Shutdown destroys managed instances and disposes both host/client transports. Callbacks execute on the thread pumping `Update`; the Unity manager does so on Unity's main thread.
 
+## Selected fields, properties and serializers
+
+Add `SocketJackMemberSync` to a network prefab to replicate selected fields and readable/writable properties on its components. It can accompany either movement synchronizer without replacing the physics/transform payload. Discover members in the Inspector, then opt in individually and select **Server** or owning-client (**Owner**) authority, send interval, change-only behavior and serialized byte limit. The server's schema controls permissions independently for each member, including when movement retains server authority.
+
+Canonical values have late-join/room-entry baselines, per-member revisions and view tokens; pending state coalesces and retries under backpressure. This is current-state replication rather than an event log. Static/readonly/indexed members and automatic Unity asset/object graph transfer are excluded. A custom serializer or registered codec can add supported value types. Preserve reflected game members when using managed stripping/IL2CPP, and validate trusted gameplay decisions on the server.
+
+The manager defaults to **Binary formatter (SocketJack)**, the bounded typed `SocketJack.Multiplayer.Serialization.SocketJackBinaryFormatter`. It is independent of .NET `BinaryFormatter`. Choose a custom provider implementing `INetworkSerializerProvider` or set the manager's serializer override before starting. `INetworkSerializer` exposes a stable `ProtocolId`, support checks and bounded serialization/deserialization. Peers must use the same serializer settings and prefab schema. Register custom default-formatter codecs before the registry freezes on its first `ProtocolId` read. Custom serializers apply to member values; lifecycle and physics wire formats remain explicit binary protocols.
+
+See the included `QuickStart.md` for the component settings and a single-player conversion example, including server-controlled health and an owner-controlled display name.
+
+Standalone .NET integrations can use `NetworkMemberSchema`, `NetworkMemberBinding` and the manually pumped `NetworkMemberServer`/`NetworkMemberClient`. Build identical explicit schema keys and formatter registries on both ends; a plain runtime formatter does not automatically register Unity types. Set the session's `MaxMessageBytes` to at least `40 +` the largest selected member limit (the Unity manager uses 8,232). Dispose/recreate the member coordinators whenever their session is stopped/restarted, so a new object-ID space gets fresh subscriptions and view history. Work, traffic, cache and subscription limits are configured through `NetworkMemberSyncOptions` before starting.
+
 ## Transport contracts
+
+Choose **Udp** (default) or **Tcp** in the manager's Transport setting, or set `NetworkManager.Transport` before starting. Both work with host/peer and dedicated server/client sessions. All participants must use the same transport; there is no automatic fallback.
 
 | Type | Behavior | Use |
 | --- | --- | --- |
@@ -156,7 +170,7 @@ The source checkout includes a real Unity/PhysX cube game in [`Examples/UnityPhy
 ```sh
 dotnet test SocketJack.Unity.Tests/SocketJack.Unity.Tests.csproj -c Release
 dotnet pack SocketJack.Unity/SocketJack.Unity.csproj -c Release -o ./artifacts/unity
-pwsh -File tools/Verify-UnityPackage.ps1 -Package ./artifacts/unity/SocketJack.Unity.2026.11.3.1.nupkg
+pwsh -File tools/Verify-UnityPackage.ps1 -Package ./artifacts/unity/SocketJack.Unity.2026.11.3.2.nupkg
 ```
 
 From a repository checkout with Unity installed, compile component sources against the real Editor reference assemblies:

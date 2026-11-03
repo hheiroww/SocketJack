@@ -4,6 +4,7 @@ param(
     [int]$Port = 7777,
     [ValidateRange(8, 120)][int]$Duration = 20,
     [switch]$HeadlessClients,
+    [ValidateSet('Udp', 'Tcp')][string]$Transport = 'Udp',
     [switch]$OwnerAuthority,
     [ValidateSet('DedicatedServerClient', 'HostPeer')][string]$Topology = 'DedicatedServerClient'
 )
@@ -19,8 +20,9 @@ $serverLog = Join-Path $output 'server.log'
 $serverRole = if ($Topology -eq 'HostPeer') { '-host' } else { '-server' }
 $clientRole = if ($Topology -eq 'HostPeer') { '-peer' } else { '-client' }
 $authorityArguments = if ($OwnerAuthority) { @('-owner-authority') } else { @() }
+$transportArguments = if ($Transport -eq 'Tcp') { @('-tcp') } else { @() }
 $serverArguments = @('-batchmode', '-nographics', $serverRole, '-no-upnp', '-port', $Port,
-    '-duration', ($Duration + 4), '-metrics', ('"' + $serverMetrics + '"'), '-logFile', ('"' + $serverLog + '"')) + $authorityArguments
+    '-duration', ($Duration + 4), '-metrics', ('"' + $serverMetrics + '"'), '-logFile', ('"' + $serverLog + '"')) + $authorityArguments + $transportArguments
 $server = Start-Process -FilePath $playerPath -ArgumentList $serverArguments -WindowStyle Hidden -PassThru
 Write-Host "Actual Unity server started: PID $($server.Id); log $serverLog"
 $deadline = [DateTime]::UtcNow.AddSeconds(30)
@@ -36,7 +38,7 @@ foreach ($index in 1..2) {
     $metrics = Join-Path $output "client-$index.json"
     $clientLog = Join-Path $output "client-$index.log"
     $arguments = @($clientRole, '-no-upnp', '-address', '127.0.0.1', '-port', $Port, '-autoplay', '-duration', $Duration,
-        '-metrics', ('"' + $metrics + '"'), '-logFile', ('"' + $clientLog + '"')) + $authorityArguments
+        '-metrics', ('"' + $metrics + '"'), '-logFile', ('"' + $clientLog + '"')) + $authorityArguments + $transportArguments
     if ($HeadlessClients) { $arguments = @('-batchmode', '-nographics') + $arguments }
     $style = if ($HeadlessClients) { 'Hidden' } else { 'Normal' }
     $clientProcess = Start-Process -FilePath $playerPath -ArgumentList $arguments -WindowStyle $style -PassThru
@@ -55,6 +57,7 @@ foreach ($name in @('server.json', 'client-1.json', 'client-2.json')) {
     $results += Get-Content -LiteralPath $file -Raw | ConvertFrom-Json
 }
 $serverResult = $results[0]
+foreach ($result in $results) { if ($result.transport -ne $Transport) { throw 'Actual player transport differs from the requested test.' } }
 if ($serverResult.automaticPortForwarding -or $serverResult.serverAuthority -eq $OwnerAuthority.IsPresent -or $serverResult.topology -ne $Topology) { throw 'Actual listening role topology/authority/no-UPnP configuration did not match the requested test.' }
 if ($OwnerAuthority -and $serverResult.keyframesReceived -lt 10) { throw 'The listening host/server did not apply canonical owner keyframes.' }
 foreach ($client in $results[1..2]) {
