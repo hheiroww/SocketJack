@@ -3,11 +3,20 @@ using System.IO;
 using SocketJack.Unity.Physics;
 using SocketJack.Unity.Transport;
 using UnityEngine;
+using UnityEngine.Serialization;
 using NumericsVector3 = System.Numerics.Vector3;
 using NumericsQuaternion = System.Numerics.Quaternion;
 
 namespace SocketJack.Unity.Components
 {
+    public enum ObjectMovementMode
+    {
+        [InspectorName("Static w/Colliders Enabled")] StaticWithColliders = 0,
+        [InspectorName("Static")] Static = 1,
+        [InspectorName("Physics Enabled")] PhysicsEnabled = 2,
+        [InspectorName("Physics w/Colliders Enabled")] PhysicsWithColliders = 3
+    }
+    public enum ObjectAuthority { InheritManager = 0, Server = 1, Owner = 2 }
     /// <summary>Opt-in Rigidbody networking. Every peer simulates local physics from compact owner intent.
     /// The server relays validated input and sends sparse binary keyframes to repair divergence.
     /// Do not combine this component with NetworkTransform on the same object.</summary>
@@ -16,13 +25,18 @@ namespace SocketJack.Unity.Components
     public sealed class SocketJackObject : MonoBehaviour
     {
         internal const ushort InputRelayMessageId = 60001;
+        [Header("Object networking")]
+        [SerializeField] private ObjectMovementMode movementMode = ObjectMovementMode.PhysicsWithColliders;
+        [SerializeField, Tooltip("The server chooses this policy when the prefab is spawned. Respawn after changing it.")]
+        private ObjectAuthority authority = ObjectAuthority.InheritManager;
         [Header("Input and local physics")]
         [SerializeField] private bool readKeyboard = true;
         [SerializeField] private bool simulatePhysics = true;
         [SerializeField, Min(1)] private float inputSendRate = 30;
         [SerializeField] private bool sendInputOnChange = true;
         [SerializeField, Range(2, 20)] private float inputKeepAliveRate = 5;
-        [SerializeField, Min(0)] private float acceleration = 25;
+        [SerializeField, Min(0), FormerlySerializedAs("acceleration")] private float movementForce = 25;
+        [SerializeField] private ForceMode movementForceMode = ForceMode.Force;
         [SerializeField, Min(0)] private float maxSpeed = 6;
         [SerializeField, Min(0)] private float jumpVelocity = 5;
         [SerializeField, Min(0.1f)] private float inputTimeout = 0.5f;
@@ -39,7 +53,6 @@ namespace SocketJack.Unity.Components
         [SerializeField, Range(0, 0.25f)] private float estimatedOneWayLatency = 0.02f;
         [SerializeField, Range(0, 1)] private float ownerCorrectionWeight = 0.35f;
         [SerializeField, Min(0)] private float smoothingSpeed = 15;
-        [SerializeField] private bool interpolateRigidbody = true;
         [SerializeField] private Transform visual = null;
         private NetworkIdentity identity;
         private Rigidbody body;
@@ -55,6 +68,7 @@ namespace SocketJack.Unity.Components
         private Quaternion visualRotation;
         private Vector3 previousVisualPosition;
         private bool observedVisual;
+        private bool movementModeDirty = true;
         public long InputsSent { get; private set; }
         public long InputsReceived { get; private set; }
         public long KeyframesReceived { get; private set; }
@@ -63,7 +77,14 @@ namespace SocketJack.Unity.Components
         public float PeakPositionError { get; private set; }
         public float PeakNetworkVelocityCorrection { get; private set; }
         public float PeakVisualStep { get; private set; }
+        public long OwnerStatesSent { get; private set; }
         public bool IsOwner => identity != null && identity.IsOwner;
+        public bool UsesServerAuthority => identity != null && identity.Manager != null ? identity.ServerAuthority :
+            ResolveServerAuthority(true);
+        public bool HasStateAuthority => identity != null && identity.Manager != null &&
+            (UsesServerAuthority || identity.OwnerId == 0 ? identity.IsServer : identity.IsOwner);
+        public ObjectMovementMode MovementMode { get => movementMode; set { movementMode = value; movementModeDirty = true; } }
+        public ObjectAuthority Authority { get => authority; set => authority = value; }
         public float KeyframeRate { get => keyframeRate; set => keyframeRate = Mathf.Clamp(value, 1, 20); }
         public bool ReadKeyboard { get => readKeyboard; set => readKeyboard = value; }
         public Transform Visual
@@ -75,7 +96,7 @@ namespace SocketJack.Unity.Components
         private void Awake()
         {
             identity = GetComponent<NetworkIdentity>(); body = GetComponent<Rigidbody>();
-            if (interpolateRigidbody) body.interpolation = RigidbodyInterpolation.Interpolate;
+            ApplyMovementMode();
             if (visual != null) { visualOrigin = visual.localPosition; visualRotation = visual.localRotation; }
             if (GetComponent<NetworkTransform>() != null)
                 Debug.LogError("SocketJackObject and NetworkTransform must not control the same Rigidbody.", this);
@@ -90,7 +111,13 @@ namespace SocketJack.Unity.Components
         }
         private void Update()
         {
+            if (movementModeDirty) ApplyMovementMode();
+            if (identity != null && identity.IsOwner && !UsesServerAuthority && CaptureEligible(Time.unscaledTimeAsDouble))
+            {
+                if (identity.Manager.Client.SendOwnerState(identity.ObjectId, CaptureState())) OwnerStatesSent++;
+            }
             if (identity == null || !identity.IsOwner) return;
+            if (body.isKinematic) return;
             if (readKeyboard)
             {
                 float h = (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow) ? 1 : 0) -
@@ -145,18 +172,30 @@ namespace SocketJack.Unity.Components
         private void FixedUpdate()
         {
             physicsTick = unchecked(physicsTick + 1);
-            if (!simulatePhysics || identity == null || identity.Manager == null || body.isKinematic) return;
-            if (hasInput && Time.unscaledTimeAsDouble - lastInputAt <= Math.Max(inputTimeout, 2f / Math.Max(2, inputKeepAliveRate)))
+            if (identity == null || identity.Manager == null) return;
+            if (simulatePhysics && !body.isKinematic && hasInput &&
+                Time.unscaledTimeAsDouble - lastInputAt <= Math.Max(inputTimeout, 2f / Math.Max(2, inputKeepAliveRate)))
             {
                 var direction = Vector3.ClampMagnitude(new Vector3(intent.Horizontal, 0, intent.Vertical), 1);
-                body.AddForce(direction * Mathf.Max(0, acceleration), ForceMode.Acceleration);
+                body.AddForce(direction * Mathf.Max(0, movementForce), movementForceMode);
                 var velocity = body.velocity;
                 var planar = Vector3.ClampMagnitude(new Vector3(velocity.x, 0, velocity.z), Mathf.Max(0, maxSpeed));
                 body.velocity = new Vector3(planar.x, velocity.y, planar.z);
                 if (jumpPending && Grounded()) body.velocity = new Vector3(body.velocity.x, jumpVelocity, body.velocity.z);
             }
             jumpPending = false;
-            if (!identity.IsServer && hasSnapshot && reconcile) Reconcile();
+            if (!HasStateAuthority && hasSnapshot && reconcile) Reconcile();
+        }
+        internal bool ResolveServerAuthority(bool managerAuthority) => authority == ObjectAuthority.InheritManager ? managerAuthority : authority == ObjectAuthority.Server;
+        private void OnValidate() { movementModeDirty = true; }
+        private void ApplyMovementMode()
+        {
+            if (body == null) body = GetComponent<Rigidbody>();
+            if (body == null) return;
+            body.isKinematic = movementMode == ObjectMovementMode.Static || movementMode == ObjectMovementMode.StaticWithColliders;
+            bool collidersEnabled = movementMode == ObjectMovementMode.StaticWithColliders || movementMode == ObjectMovementMode.PhysicsWithColliders;
+            foreach (var collider in GetComponentsInChildren<Collider>(true)) collider.enabled = collidersEnabled;
+            movementModeDirty = false;
         }
         private bool Grounded()
         {
@@ -173,7 +212,7 @@ namespace SocketJack.Unity.Components
         {
             if (body == null) body = GetComponent<Rigidbody>();
             return PhysicsBinarySerializer.SerializeSnapshot(new PhysicsSnapshot { Tick = physicsTick,
-                LastInputSequence = lastAcceptedSequence, Time = Time.fixedTimeAsDouble,
+                LastInputSequence = UsesServerAuthority ? lastAcceptedSequence : nextSequence, Time = Time.fixedTimeAsDouble,
                 Position = ToNumerics(body.position), Rotation = ToNumerics(body.rotation),
                 Velocity = ToNumerics(body.velocity), AngularVelocity = ToNumerics(body.angularVelocity) });
         }
@@ -188,7 +227,7 @@ namespace SocketJack.Unity.Components
             {
                 transform.SetPositionAndRotation(ToUnity(snapshot.Position), ToUnity(snapshot.Rotation));
                 body.position = ToUnity(snapshot.Position); body.rotation = ToUnity(snapshot.Rotation);
-                body.velocity = ToUnity(snapshot.Velocity); body.angularVelocity = ToUnity(snapshot.AngularVelocity);
+                if (!body.isKinematic) { body.velocity = ToUnity(snapshot.Velocity); body.angularVelocity = ToUnity(snapshot.AngularVelocity); }
             }
         }
         private void Reconcile()
@@ -206,11 +245,18 @@ namespace SocketJack.Unity.Components
                 Vector3 oldVisualPosition = visual == null ? Vector3.zero : visual.position;
                 Quaternion oldVisualRotation = visual == null ? Quaternion.identity : visual.rotation;
                 body.position = targetPosition; body.rotation = ToUnity(target.Rotation);
-                body.velocity = ToUnity(target.Velocity); body.angularVelocity = ToUnity(target.AngularVelocity);
+                if (!body.isKinematic) { body.velocity = ToUnity(target.Velocity); body.angularVelocity = ToUnity(target.AngularVelocity); }
                 if (visual != null) { visual.position = oldVisualPosition; visual.rotation = oldVisualRotation; }
                 HardCorrections++; return;
             }
             if (error <= correctionDeadZone) return;
+            if (body.isKinematic)
+            {
+                float factor = PhysicsReconciler.SmoothingFactor(smoothingSpeed, Time.fixedDeltaTime);
+                body.MovePosition(Vector3.Lerp(body.position, targetPosition, factor));
+                body.MoveRotation(Quaternion.Slerp(body.rotation, ToUnity(target.Rotation), factor));
+                return;
+            }
             var corrected = PhysicsReconciler.CalculateVelocityCorrection(ToNumerics(body.position), ToNumerics(body.velocity),
                 target, Mathf.Max(0.02f, correctionTime), Mathf.Max(0, maxCorrectionSpeed));
             float weight = identity.IsOwner ? ownerCorrectionWeight : 1;

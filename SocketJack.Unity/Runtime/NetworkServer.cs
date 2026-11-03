@@ -10,7 +10,8 @@ namespace SocketJack.Unity
 {
     /// <summary>Single-threaded authoritative server with explicit room interest and bounded per-peer queues.
     /// Pump Update from a Unity Update method or a dedicated server loop. Objects are replicated only to
-    /// peers in the same room. Game code validates input and calls SetState; clients cannot write state.</summary>
+    /// peers in the same room. Game code validates input and calls SetState. Owner state updates
+    /// require an explicit server-assigned owner-authority mode; server authority is the default.</summary>
     public sealed class NetworkServer : IDisposable
     {
         private sealed class Peer
@@ -47,6 +48,10 @@ namespace SocketJack.Unity
         public event Action<ulong, string> PeerDisconnected;
         public event Action<NetworkInput> InputReceived;
         public event Action<NetworkMessage> MessageReceived;
+        public event Action<NetworkObject> ObjectChanged;
+        /// <summary>Optional game-specific validation for owner-authoritative state. Ownership,
+        /// room, size, sequence and the server-assigned authority flag are always enforced first.</summary>
+        public Func<NetworkObject, byte[], bool> OwnerStateValidator { get; set; }
         public event Action<uint, float> Ticked;
 
         public NetworkServer(IGameTransport transport, NetworkSessionOptions options = null)
@@ -100,6 +105,10 @@ namespace SocketJack.Unity
         }
 
         public NetworkObject Spawn(uint prefabId, ulong ownerId = 0, int roomId = 0, byte[] state = null)
+            => Spawn(prefabId, ownerId, roomId, state, null);
+
+        /// <summary>Creates an object with explicit canonical state authority. Unowned objects remain server-authoritative.</summary>
+        public NetworkObject Spawn(uint prefabId, ulong ownerId, int roomId, byte[] state, bool? serverAuthority)
         {
             RequireRunning();
             var payload = SessionWire.Copy(state, _options.MaxStateBytes, nameof(state));
@@ -108,7 +117,8 @@ namespace SocketJack.Unity
             if (ownerId != 0 && (!_peers.TryGetValue(ownerId, out var owner) || owner.Room != roomId))
                 throw new ArgumentException("The owner must be a connected peer in this room.", nameof(ownerId));
             var obj = new NetworkObject { Id = checked(++_nextId), PrefabId = prefabId, OwnerId = ownerId,
-                RoomId = roomId, Revision = 1, Tick = Tick, StateData = payload };
+                RoomId = roomId, Revision = 1, Tick = Tick, StateData = payload,
+                ServerAuthority = ownerId == 0 || (serverAuthority ?? _options.ServerAuthority) };
             _objects.Add(obj.Id, obj); RoomObjects(roomId).Add(obj.Id);
             if (ownerId != 0)
             {
@@ -126,6 +136,7 @@ namespace SocketJack.Unity
             var payload = SessionWire.Copy(state, _options.MaxStateBytes, nameof(state));
             if (obj.StateData.SequenceEqual(payload)) return;
             obj.StateData = payload; obj.Revision = unchecked(obj.Revision + 1); obj.Tick = Tick;
+            ObjectChanged?.Invoke(obj);
         }
 
         public bool Despawn(ulong objectId)
@@ -237,6 +248,15 @@ namespace SocketJack.Unity
                             ushort messageId = reader.ReadUInt16(); var message = SessionWire.Bytes(reader, _options.MaxMessageBytes); SessionWire.End(reader);
                             callback = () => MessageReceived?.Invoke(new NetworkMessage { PeerId = sender.Id, MessageId = messageId, Payload = message, Delivery = ev.Delivery, Channel = ev.Channel });
                             break;
+                        case SessionWire.Kind.OwnerState:
+                            if (ev.Channel != 2) throw new InvalidDataException();
+                            ulong ownerObjectId = reader.ReadUInt64(); uint ownerSequence = reader.ReadUInt32();
+                            var ownerState = SessionWire.Bytes(reader, _options.MaxStateBytes); SessionWire.End(reader);
+                            if (!_objects.TryGetValue(ownerObjectId, out var ownerObject) || ownerObject.ServerAuthority ||
+                                ownerObject.OwnerId != sender.Id || ownerObject.RoomId != sender.Room)
+                            { Disconnect(sender.Id, "Owner state authority denied"); return; }
+                            callback = () => ApplyOwnerState(sender.Id, ownerObject, ownerSequence, ownerState);
+                            break;
                         default: throw new InvalidDataException();
                     }
                 }
@@ -244,6 +264,19 @@ namespace SocketJack.Unity
             catch (Exception error) when (error is InvalidDataException || error is EndOfStreamException)
             { Disconnect(ev.PeerId, "Invalid session packet"); return; }
             callback?.Invoke();
+        }
+
+        private void ApplyOwnerState(ulong peerId, NetworkObject obj, uint sequence, byte[] state)
+        {
+            if (obj.HasOwnerStateSequence && !SessionWire.Newer(sequence, obj.LastOwnerStateSequence)) return;
+            bool accepted;
+            try { accepted = OwnerStateValidator == null || OwnerStateValidator(obj, state); }
+            catch { accepted = false; }
+            if (!IsRunning || !_peers.TryGetValue(peerId, out var currentPeer) || !_objects.TryGetValue(obj.Id, out var current) ||
+                !ReferenceEquals(current, obj) || obj.ServerAuthority || obj.OwnerId != peerId || obj.RoomId != currentPeer.Room) return;
+            if (!accepted) { Disconnect(peerId, "Owner state validation denied"); return; }
+            obj.HasOwnerStateSequence = true; obj.LastOwnerStateSequence = sequence;
+            SetState(obj.Id, state);
         }
 
         private void RemovePeer(ulong id, string reason)

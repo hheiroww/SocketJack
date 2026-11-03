@@ -7,9 +7,9 @@ namespace SocketJack.Unity
     // A deliberately closed binary protocol: no CLR type names, reflection, or object activation.
     internal static class SessionWire
     {
-        internal const byte Version = 1;
-        internal const int SpawnHeaderSize = 36;
-        internal enum Kind : byte { Welcome = 1, Spawn = 2, Despawn = 3, State = 4, Input = 5, Message = 6, ClearView = 7 }
+        internal const byte Version = 2;
+        internal const int SpawnHeaderSize = 37;
+        internal enum Kind : byte { Welcome = 1, Spawn = 2, Despawn = 3, State = 4, Input = 5, Message = 6, ClearView = 7, OwnerState = 8 }
 
         internal static byte[] Write(Kind kind, Action<BinaryWriter> fields)
         {
@@ -44,7 +44,7 @@ namespace SocketJack.Unity
         internal static bool Newer(uint value, uint previous) => unchecked((int)(value - previous)) > 0;
 
         internal static byte[] Spawn(NetworkObject obj) => Write(Kind.Spawn, w =>
-        { w.Write(obj.Id); w.Write(obj.PrefabId); w.Write(obj.OwnerId); w.Write(obj.RoomId); w.Write(obj.Revision); w.Write(obj.Tick); Bytes(w, obj.StateData); });
+        { w.Write(obj.Id); w.Write(obj.PrefabId); w.Write(obj.OwnerId); w.Write(obj.RoomId); w.Write(obj.Revision); w.Write(obj.Tick); w.Write(obj.ServerAuthority); Bytes(w, obj.StateData); });
         internal static byte[] State(NetworkObject obj) => Write(Kind.State, w =>
         { w.Write(obj.Id); w.Write(obj.Revision); w.Write(obj.Tick); Bytes(w, obj.StateData); });
         internal static byte[] Despawn(ulong id) => Write(Kind.Despawn, w => w.Write(id));

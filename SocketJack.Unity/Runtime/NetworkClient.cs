@@ -18,6 +18,7 @@ namespace SocketJack.Unity
         private int _beforeWelcomeBytes;
         private bool _disposed, _updating, _connectionActive;
         private uint _connectionGeneration;
+        private uint _nextOwnerStateSequence;
 
         public bool IsRunning => _transport.IsRunning && !_transport.IsServer;
         public bool IsConnected { get; private set; }
@@ -44,7 +45,7 @@ namespace SocketJack.Unity
         {
             ThrowIfDisposed();
             if (_transport.IsRunning) throw new InvalidOperationException("Transport is already running.");
-            _objects.Clear(); LocalPeerId = 0; ServerTick = 0; IsConnected = false;
+            _objects.Clear(); LocalPeerId = 0; ServerTick = 0; IsConnected = false; _nextOwnerStateSequence = 0;
             _connectionActive = true; _connectionGeneration = unchecked(_connectionGeneration + 1);
             try { _transport.StartClient(endpoint, connectionData); }
             catch { _connectionActive = false; throw; }
@@ -68,6 +69,20 @@ namespace SocketJack.Unity
             if (!IsConnected || !_objects.TryGetValue(objectId, out var obj) || obj.OwnerId != LocalPeerId) return false;
             var packet = SessionWire.Write(SessionWire.Kind.Input, w => { w.Write(objectId); SessionWire.Bytes(w, bytes); });
             return _transport.Send(0, new ArraySegment<byte>(packet), delivery, 2);
+        }
+
+        /// <summary>Sends canonical state only for an owned object whose authority was explicitly
+        /// assigned to its owner by the server. Dedicated-server objects reject this operation.</summary>
+        public bool SendOwnerState(ulong objectId, byte[] state, DeliveryMode delivery = DeliveryMode.ReliableUnordered)
+        {
+            ThrowIfDisposed();
+            var bytes = SessionWire.Copy(state, _options.MaxStateBytes, nameof(state));
+            if (!IsConnected || !_objects.TryGetValue(objectId, out var obj) || obj.OwnerId != LocalPeerId || obj.ServerAuthority) return false;
+            uint sequence = unchecked(_nextOwnerStateSequence + 1);
+            var packet = SessionWire.Write(SessionWire.Kind.OwnerState, w => { w.Write(objectId); w.Write(sequence); SessionWire.Bytes(w, bytes); });
+            if (!_transport.Send(0, new ArraySegment<byte>(packet), delivery, 2)) return false;
+            _nextOwnerStateSequence = sequence;
+            return true;
         }
 
         /// <summary>Returns false on backpressure. Retry reliable application messages after a later Update.</summary>
@@ -166,13 +181,13 @@ namespace SocketJack.Unity
         private Action ReadSpawn(BinaryReader reader)
         {
             var obj = new NetworkObject { Id = reader.ReadUInt64(), PrefabId = reader.ReadUInt32(), OwnerId = reader.ReadUInt64(),
-                RoomId = reader.ReadInt32(), Revision = reader.ReadUInt32(), Tick = reader.ReadUInt32(), StateData = SessionWire.Bytes(reader, _options.MaxStateBytes) };
+                RoomId = reader.ReadInt32(), Revision = reader.ReadUInt32(), Tick = reader.ReadUInt32(), ServerAuthority = reader.ReadBoolean(), StateData = SessionWire.Bytes(reader, _options.MaxStateBytes) };
             SessionWire.End(reader);
             if (obj.Id == 0) throw new InvalidDataException();
             AdvanceTick(obj.Tick);
             if (_objects.TryGetValue(obj.Id, out var previous))
             {
-                if (previous.PrefabId != obj.PrefabId || previous.OwnerId != obj.OwnerId || previous.RoomId != obj.RoomId) throw new InvalidDataException();
+                if (previous.PrefabId != obj.PrefabId || previous.OwnerId != obj.OwnerId || previous.RoomId != obj.RoomId || previous.ServerAuthority != obj.ServerAuthority) throw new InvalidDataException();
                 if (SessionWire.Newer(obj.Revision, previous.Revision))
                 { previous.StateData = obj.StateData; previous.Revision = obj.Revision; previous.Tick = obj.Tick; return () => ObjectChanged?.Invoke(previous); }
                 return null;

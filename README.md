@@ -35,7 +35,7 @@ dotnet add package SocketJack --version 2026.10.28.0
 |---|---|---|
 | **[SocketJack](https://www.nuget.org/packages/SocketJack/2026.10.28.0)** | .NET Standard 2.1 | Core networking library; this release is **2026.10.28.0**. |
 | **[SocketJack.WPF](https://www.nuget.org/packages/SocketJack.WPF/2026.10.28.0)** | Windows / WPF | Companion package for live control capture and remote input; this release is **2026.10.28.0**. |
-| **[SocketJack.Unity](https://www.nuget.org/packages/SocketJack.Unity/2026.11.2.2)** | .NET Standard 2.1 / Unity 2022.3+ | Standalone multiplayer runtime, client physics, UDP/TCP transports, rooms and owned objects. See the [Unity installation and two-player guide](SocketJack.Unity/README.md). |
+| **[SocketJack.Unity](https://www.nuget.org/packages/SocketJack.Unity/2026.11.2.3)** | .NET Standard 2.1 / Unity 2022.3+ | Standalone multiplayer runtime, client physics, UDP/TCP transports, rooms and owned objects. See the [Unity installation and two-player guide](SocketJack.Unity/README.md). |
 
 ### Unity multiplayer
 

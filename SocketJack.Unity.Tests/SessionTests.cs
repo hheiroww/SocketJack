@@ -246,7 +246,7 @@ namespace SocketJack.Unity.Tests
         }
 
         private static byte[] Packet(byte kind, Action<BinaryWriter> fields)
-        { using var stream = new MemoryStream(); using var writer = new BinaryWriter(stream); writer.Write((byte)1); writer.Write(kind); fields(writer); return stream.ToArray(); }
+        { using var stream = new MemoryStream(); using var writer = new BinaryWriter(stream); writer.Write((byte)2); writer.Write(kind); fields(writer); return stream.ToArray(); }
         private static byte[] Frame(byte[] payload, DeliveryMode mode, byte channel)
         {
             using var stream = new MemoryStream(); using var writer = new BinaryWriter(stream);

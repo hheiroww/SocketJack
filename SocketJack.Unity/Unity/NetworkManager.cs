@@ -2,17 +2,30 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
+using System.Threading;
+using System.Threading.Tasks;
 using SocketJack.Unity.Transport;
 using UnityEngine;
 using RuntimeObject = SocketJack.Unity.NetworkObject;
 
 namespace SocketJack.Unity.Components
 {
+    public enum NetworkTopology
+    {
+        [InspectorName("Host / Peer")] HostPeer = 0,
+        [InspectorName("Dedicated Server / Client")] DedicatedServerClient = 1
+    }
     /// <summary>Scene entry point. Register prefabs in the same order in every build.
     /// All networking and callbacks are pumped by Update on Unity's main thread.</summary>
     [DisallowMultipleComponent]
     public sealed class NetworkManager : MonoBehaviour
     {
+        [Header("Session topology and authority")]
+        [SerializeField] private NetworkTopology topology = NetworkTopology.DedicatedServerClient;
+        [SerializeField] private bool serverAuthority = true;
+        [SerializeField, HideInInspector] private NetworkTopology previousTopology = NetworkTopology.DedicatedServerClient;
+        [Header("Transport (independent of topology)")]
+        [SerializeField] private bool enableAutomaticPortForwarding = true;
         [SerializeField] private TransportType transport = TransportType.Udp;
         [SerializeField] private string address = "127.0.0.1";
         [SerializeField] private int port = 7777;
@@ -33,6 +46,12 @@ namespace SocketJack.Unity.Components
         private int relayCursor;
         private const int MaxPhysicsRelaysPerPeer = 256;
         private float captureAccumulator;
+        private float ownerTransformAccumulator;
+        private CancellationTokenSource mappingCancellation;
+        private Task<PortMappingLease> mappingTask;
+        private PortMappingLease mappingLease;
+        private INatPortMapper activeMapper;
+        private bool ownsMapper;
 
         public NetworkServer Server { get; private set; }
         public NetworkClient Client { get; private set; }
@@ -44,6 +63,20 @@ namespace SocketJack.Unity.Components
         public int Port { get => port; set { RequireStopped(); port = value; } }
         public int SimulationTickRate { get => tickRate; set { RequireStopped(); tickRate = value; } }
         public int SnapshotRate { get => snapshotRate; set { RequireStopped(); snapshotRate = value; } }
+        public NetworkTopology Topology
+        {
+            get => topology;
+            set { RequireStopped(); topology = previousTopology = value; if (value == NetworkTopology.DedicatedServerClient) serverAuthority = true; }
+        }
+        public bool ServerAuthority { get => serverAuthority; set { RequireStopped(); serverAuthority = value; } }
+        public bool EnableAutomaticPortForwarding { get => enableAutomaticPortForwarding; set { RequireStopped(); enableAutomaticPortForwarding = value; } }
+        /// <summary>Optional caller-owned mapper, useful for platform integrations and deterministic tests.</summary>
+        public INatPortMapper PortMapper { get; set; }
+        public string PortMappingStatus { get; private set; } = "Not listening";
+        public bool IsPortMapped { get; private set; }
+        public string ExternalEndpoint { get; private set; } = "";
+        /// <summary>Additional game validation for opted-in owner-authoritative state. Physics/transform codecs are always checked first.</summary>
+        public Func<RuntimeObject, byte[], bool> OwnerStateValidator { get; set; }
         /// <summary>Set before StartServer/StartHost. Validate short-lived game tickets here.</summary>
         public Func<IPEndPoint, byte[], bool> ConnectionValidator { get; set; }
         public event Action<NetworkInput> InputReceived;
@@ -60,6 +93,11 @@ namespace SocketJack.Unity.Components
 
         public void StartServer()
         {
+            if (topology != NetworkTopology.DedicatedServerClient) throw new InvalidOperationException("Select Dedicated Server / Client topology to start a dedicated server.");
+            StartListener();
+        }
+        private void StartListener()
+        {
             RequireStopped();
             CheckPlatform();
             var endpoint = new IPEndPoint(IPAddress.Any, port);
@@ -68,15 +106,19 @@ namespace SocketJack.Unity.Components
             {
                 Server = new NetworkServer(serverTransport, NewSessionOptions());
                 Server.InputReceived += OnServerInput;
+                Server.ObjectChanged += OnServerObjectChanged;
+                Server.OwnerStateValidator = ValidateOwnerState;
                 Server.PeerConnected += peer => PeerConnected?.Invoke(peer);
                 Server.PeerDisconnected += (peer, reason) => { physicsRelays.Remove(peer); PeerDisconnected?.Invoke(peer, reason); };
                 Server.Start(endpoint);
+                BeginPortMapping();
             }
             catch { Server?.Dispose(); Server = null; serverTransport.Dispose(); throw; }
         }
 
         public void StartClient(byte[] connectionData = null)
         {
+            if (topology != NetworkTopology.DedicatedServerClient) throw new InvalidOperationException("Use StartPeer with Host / Peer topology.");
             RequireStopped();
             CheckPlatform();
             StartClientCore(connectionData);
@@ -84,9 +126,15 @@ namespace SocketJack.Unity.Components
 
         public void StartHost(byte[] connectionData = null)
         {
-            StartServer();
+            if (topology != NetworkTopology.HostPeer) throw new InvalidOperationException("Select Host / Peer topology to start a host.");
+            StartListener();
             try { StartClientCore(connectionData, IPAddress.Loopback); }
             catch { Shutdown(); throw; }
+        }
+        public void StartPeer(byte[] connectionData = null)
+        {
+            if (topology != NetworkTopology.HostPeer) throw new InvalidOperationException("Select Host / Peer topology to start a peer.");
+            RequireStopped(); CheckPlatform(); StartClientCore(connectionData);
         }
 
         private void StartClientCore(byte[] connectionData, IPAddress target = null)
@@ -121,9 +169,10 @@ namespace SocketJack.Unity.Components
             var identity = instance.GetComponent<NetworkIdentity>() ?? instance.AddComponent<NetworkIdentity>();
             var synchronizer = instance.GetComponent<NetworkTransform>();
             var physicsObject = instance.GetComponent<SocketJackObject>();
+            bool objectServerAuthority = physicsObject == null ? serverAuthority : physicsObject.ResolveServerAuthority(serverAuthority);
             RuntimeObject state;
             try { state = Server.Spawn(prefabId, ownerId, roomId, physicsObject != null ? physicsObject.CaptureState() :
-                synchronizer == null ? Array.Empty<byte>() : synchronizer.CaptureState()); }
+                synchronizer == null ? Array.Empty<byte>() : synchronizer.CaptureState(), objectServerAuthority); }
             catch { Destroy(instance); throw; }
             identity.Bind(this, state);
             instances.Add(state.Id, identity);
@@ -142,6 +191,7 @@ namespace SocketJack.Unity.Components
 
         private void Update()
         {
+            UpdatePortMapping();
             if (IsServer)
             {
                 captureAccumulator += Time.unscaledDeltaTime;
@@ -153,7 +203,8 @@ namespace SocketJack.Unity.Components
                         if (pair.Value == null) continue;
                         var synchronizer = pair.Value.GetComponent<NetworkTransform>();
                         var physicsObject = pair.Value.GetComponent<SocketJackObject>();
-                        if (physicsObject != null && Server.Objects.ContainsKey(pair.Key) && physicsObject.CaptureEligible(Time.unscaledTimeAsDouble))
+                        if (!Server.Objects.TryGetValue(pair.Key, out var current) || (!current.ServerAuthority && current.OwnerId != 0)) continue;
+                        if (physicsObject != null && physicsObject.CaptureEligible(Time.unscaledTimeAsDouble))
                             Server.SetState(pair.Key, physicsObject.CaptureState());
                         else if (physicsObject == null && synchronizer != null && Server.Objects.ContainsKey(pair.Key))
                             Server.SetState(pair.Key, synchronizer.CaptureState());
@@ -170,6 +221,53 @@ namespace SocketJack.Unity.Components
                 foreach (var id in removed) RemoveInstance(id);
             }
             Client?.Update(Time.unscaledDeltaTime, maxEventsPerFrame);
+            CaptureOwnerTransforms();
+        }
+
+        private void BeginPortMapping()
+        {
+            if (!enableAutomaticPortForwarding) { PortMappingStatus = "Disabled"; return; }
+            try
+            {
+                mappingCancellation = new CancellationTokenSource();
+                activeMapper = PortMapper ?? new UpnpPortMapper(); ownsMapper = PortMapper == null;
+                PortMappingStatus = "Discovering router";
+                // Only a bound listener reaches this path. A peer/client never opens or maps a service port.
+                mappingTask = activeMapper.RequestMappingAsync(Server.Transport.LocalEndPoint.Port, transport, mappingCancellation.Token);
+            }
+            catch { PortMappingStatus = "Failed: automatic router mapping could not start"; }
+        }
+        private void UpdatePortMapping()
+        {
+            if (mappingTask != null && mappingTask.IsCompleted)
+            {
+                var completed = mappingTask; mappingTask = null;
+                try
+                {
+                    mappingLease = completed.GetAwaiter().GetResult();
+                    IsPortMapped = mappingLease.IsMapped;
+                    ExternalEndpoint = mappingLease.ExternalEndpoint == null ? "" : mappingLease.ExternalEndpoint.ToString();
+                    PortMappingStatus = mappingLease.Status + (string.IsNullOrEmpty(mappingLease.Error) ? "" : ": " + mappingLease.Error);
+                }
+                catch { IsPortMapped = false; PortMappingStatus = "Failed: automatic router mapping did not complete"; }
+            }
+            if (mappingLease != null && !string.IsNullOrEmpty(mappingLease.RenewalError))
+            { IsPortMapped = false; PortMappingStatus = "Renewal stopped: " + mappingLease.RenewalError; }
+        }
+        private void StopPortMapping()
+        {
+            mappingCancellation?.Cancel(); mappingCancellation?.Dispose(); mappingCancellation = null;
+            var pending = mappingTask; mappingTask = null;
+            if (pending != null)
+                _ = pending.ContinueWith(task =>
+                {
+                    if (task.Status == TaskStatus.RanToCompletion) task.Result?.Dispose();
+                    else { var observed = task.Exception; }
+                }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+            mappingLease?.Dispose(); mappingLease = null;
+            if (ownsMapper && activeMapper is IDisposable disposable) disposable.Dispose();
+            activeMapper = null; ownsMapper = false;
+            IsPortMapped = false; ExternalEndpoint = ""; PortMappingStatus = "Not listening";
         }
 
         private void OnObjectSpawned(RuntimeObject state)
@@ -197,9 +295,47 @@ namespace SocketJack.Unity.Components
         {
             if (IsServer || !instances.TryGetValue(state.Id, out var identity) || identity == null) return;
             identity.Bind(this, state);
+            if (!state.ServerAuthority && identity.IsOwner) return;
             var physicsObject = identity.GetComponent<SocketJackObject>();
             if (physicsObject != null) physicsObject.ApplyState(state.State, false);
             else identity.GetComponent<NetworkTransform>()?.ApplyState(state.State, false);
+        }
+
+        private void OnServerObjectChanged(RuntimeObject state)
+        {
+            if (state.ServerAuthority || !instances.TryGetValue(state.Id, out var identity) || identity == null) return;
+            identity.Bind(this, state);
+            var physicsObject = identity.GetComponent<SocketJackObject>();
+            if (physicsObject != null) { if (!physicsObject.HasStateAuthority) physicsObject.ApplyState(state.State, false); }
+            else if (!identity.IsOwner) identity.GetComponent<NetworkTransform>()?.ApplyState(state.State, false);
+        }
+        private bool ValidateOwnerState(RuntimeObject state, byte[] bytes)
+        {
+            if (!instances.TryGetValue(state.Id, out var identity) || identity == null) return false;
+            if (identity.GetComponent<SocketJackObject>() != null)
+            {
+                try { Physics.PhysicsBinarySerializer.DeserializeSnapshot(bytes); }
+                catch (Exception error) when (error is ArgumentException || error is IOException || error is InvalidDataException) { return false; }
+            }
+            else if (identity.GetComponent<NetworkTransform>() != null)
+            {
+                if (!NetworkTransform.IsValidState(bytes)) return false;
+            }
+            else return OwnerStateValidator != null && OwnerStateValidator(state, bytes);
+            return OwnerStateValidator == null || OwnerStateValidator(state, bytes);
+        }
+        private void CaptureOwnerTransforms()
+        {
+            if (!IsClient) return;
+            ownerTransformAccumulator += Time.unscaledDeltaTime;
+            if (ownerTransformAccumulator < 1f / snapshotRate) return;
+            ownerTransformAccumulator %= 1f / snapshotRate;
+            foreach (var pair in instances)
+            {
+                if (pair.Value == null || !pair.Value.IsOwner || pair.Value.ServerAuthority || pair.Value.GetComponent<SocketJackObject>() != null) continue;
+                var synchronizer = pair.Value.GetComponent<NetworkTransform>();
+                if (synchronizer != null) Client.SendOwnerState(pair.Key, synchronizer.CaptureState());
+            }
         }
 
         private void OnServerInput(NetworkInput input)
@@ -299,7 +435,12 @@ namespace SocketJack.Unity.Components
             return prefabs[id - 1];
         }
         private TransportOptions NewTransportOptions() => new TransportOptions { MaxPeers = maxPlayers, ConnectionValidator = ConnectionValidator };
-        private NetworkSessionOptions NewSessionOptions() => new NetworkSessionOptions { TickRate = tickRate, SnapshotRate = Math.Min(snapshotRate, tickRate), MaxPeers = maxPlayers };
+        private NetworkSessionOptions NewSessionOptions() => new NetworkSessionOptions { TickRate = tickRate, SnapshotRate = Math.Min(snapshotRate, tickRate), MaxPeers = maxPlayers, ServerAuthority = serverAuthority };
+        private void OnValidate()
+        {
+            if (topology != previousTopology && topology == NetworkTopology.DedicatedServerClient) serverAuthority = true;
+            previousTopology = topology;
+        }
         private void RequireStopped()
         {
             if (Server != null || Client != null) throw new InvalidOperationException("Call Shutdown before starting or reconfiguring networking.");
@@ -320,10 +461,12 @@ namespace SocketJack.Unity.Components
         }
         public void Shutdown()
         {
+            StopPortMapping();
             Client?.Dispose(); Client = null;
             Server?.Dispose(); Server = null;
             foreach (var pair in instances) if (pair.Value != null) Destroy(pair.Value.gameObject);
             instances.Clear(); captureAccumulator = 0;
+            ownerTransformAccumulator = 0;
             physicsRelays.Clear(); relayCursor = 0;
         }
         private void OnDestroy() => Shutdown();

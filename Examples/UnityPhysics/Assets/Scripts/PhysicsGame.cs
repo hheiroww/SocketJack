@@ -21,6 +21,9 @@ public sealed class PhysicsGame : MonoBehaviour
         public float peakNetworkVelocityCorrection, peakVisualStep;
         public int roundTrips, pingSendRejected;
         public double rttMeanMilliseconds, rttP95Milliseconds, rttMaxMilliseconds;
+        public string topology;
+        public bool serverAuthority, automaticPortForwarding;
+        public long ownerStatesSent;
     }
     private NetworkManager network;
     private GameObject template;
@@ -37,11 +40,6 @@ public sealed class PhysicsGame : MonoBehaviour
     private float nextPing;
     private int pingSendRejected;
 
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void Bootstrap()
-    {
-        if (FindObjectOfType<PhysicsGame>() == null) new GameObject("SocketJack Physics Game").AddComponent<PhysicsGame>();
-    }
     private void Start()
     {
         Application.runInBackground = true; Application.targetFrameRate = 120;
@@ -57,6 +55,9 @@ public sealed class PhysicsGame : MonoBehaviour
         network = new GameObject("NetworkManager").AddComponent<NetworkManager>();
         network.Address = address; network.Port = int.Parse(portText);
         network.Transport = Has(args, "-tcp") ? TransportType.Tcp : TransportType.Udp;
+        network.Topology = Has(args, "-host") || Has(args, "-peer") ? NetworkTopology.HostPeer : NetworkTopology.DedicatedServerClient;
+        network.ServerAuthority = !Has(args, "-owner-authority");
+        network.EnableAutomaticPortForwarding = !Has(args, "-no-upnp");
         network.SimulationTickRate = 60; network.SnapshotRate = 5;
         CreateWorld(); template = CreatePlayerTemplate(); network.RegisterPrefabs(template);
         network.PeerConnected += SpawnPlayer;
@@ -64,6 +65,7 @@ public sealed class PhysicsGame : MonoBehaviour
         if (Has(args, "-server")) Begin("server");
         else if (Has(args, "-client")) Begin("client");
         else if (Has(args, "-host")) Begin("host");
+        else if (Has(args, "-peer")) Begin("peer");
     }
     private static bool Has(string[] args, string key) => Array.IndexOf(args, key) >= 0;
     private static string Argument(string[] args, string key, string fallback)
@@ -77,6 +79,7 @@ public sealed class PhysicsGame : MonoBehaviour
             network.Address = address; network.Port = int.Parse(portText);
             if (selected == "server") network.StartServer();
             else if (selected == "host") network.StartHost();
+            else if (selected == "peer") network.StartPeer();
             else network.StartClient();
             if (network.Server != null) network.Server.MessageReceived += message =>
             {
@@ -111,6 +114,7 @@ public sealed class PhysicsGame : MonoBehaviour
         collider.sharedMaterial = material;
         var body = player.AddComponent<Rigidbody>();
         body.mass = 1; body.drag = 0.6f; body.angularDrag = 0.8f;
+        body.interpolation = RigidbodyInterpolation.Interpolate;
         body.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
         body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
         var visible = GameObject.CreatePrimitive(PrimitiveType.Cube); visible.name = "Interpolated visual";
@@ -145,7 +149,7 @@ public sealed class PhysicsGame : MonoBehaviour
     private static Material NewMaterial(Color color)
     {
         if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null) return null;
-        var template = Resources.Load<Material>("PhysicsStandard");
+        var template = Resources.Load<Material>("SocketJackPhysicsStandard");
         Material material;
         if (template != null) material = new Material(template);
         else
@@ -199,14 +203,29 @@ public sealed class PhysicsGame : MonoBehaviour
         GUILayout.Label("15-byte owner intent · 5 Hz sparse 70-byte corrections");
         if (role == "menu")
         {
+            int selectedTopology = GUILayout.Toolbar((int)network.Topology, new[] { "Host / Peer", "Server / Client" });
+            if (selectedTopology != (int)network.Topology) network.Topology = (NetworkTopology)selectedTopology;
+            bool selectedAuthority = GUILayout.Toggle(network.ServerAuthority, "Server authority");
+            if (selectedAuthority != network.ServerAuthority) network.ServerAuthority = selectedAuthority;
+            bool selectedMapping = GUILayout.Toggle(network.EnableAutomaticPortForwarding, "Automatic router forwarding (listening role only)");
+            if (selectedMapping != network.EnableAutomaticPortForwarding) network.EnableAutomaticPortForwarding = selectedMapping;
             address = GUILayout.TextField(address); portText = GUILayout.TextField(portText);
-            if (GUILayout.Button("Host + play")) Begin("host");
-            if (GUILayout.Button("Join server")) Begin("client");
-            if (GUILayout.Button("Dedicated server")) Begin("server");
+            if (network.Topology == NetworkTopology.HostPeer)
+            {
+                if (GUILayout.Button("Host + play")) Begin("host");
+                if (GUILayout.Button("Join host as peer")) Begin("peer");
+            }
+            else
+            {
+                if (GUILayout.Button("Dedicated server")) Begin("server");
+                if (GUILayout.Button("Join server as client")) Begin("client");
+            }
         }
         else
         {
             GUILayout.Label("Role: " + role + " · " + network.Transport + " · peer " + network.LocalPeerId);
+            GUILayout.Label(network.Topology + " · server authority: " + network.ServerAuthority);
+            GUILayout.Label("Router: " + network.PortMappingStatus);
             GUILayout.Label("Objects: " + (network.IsServer ? network.Server.Objects.Count : network.Client == null ? 0 : network.Client.Objects.Count));
             GUILayout.Label("Mean correction error: " + (errorSamples == 0 ? 0 : errorSum / errorSamples).ToString("F3") + " m");
         }
@@ -220,7 +239,8 @@ public sealed class PhysicsGame : MonoBehaviour
             clientConnected = everConnected, connectedPeers = network.IsServer ? network.Server.Peers.Count : 0,
             objects = network.IsServer ? network.Server.Objects.Count : network.Client == null ? 0 : network.Client.Objects.Count,
             meanPositionError = errorSamples == 0 ? 0 : errorSum / errorSamples,
-            maxObjects = maxObjects, maxConnectedPeers = maxConnectedPeers };
+            maxObjects = maxObjects, maxConnectedPeers = maxConnectedPeers, topology = network.Topology.ToString(),
+            serverAuthority = network.ServerAuthority, automaticPortForwarding = network.EnableAutomaticPortForwarding };
         roundTrips.Sort(); metrics.roundTrips = roundTrips.Count; metrics.pingSendRejected = pingSendRejected;
         if (roundTrips.Count > 0)
         {
@@ -233,6 +253,7 @@ public sealed class PhysicsGame : MonoBehaviour
         {
             metrics.inputsSent += values.inputsSent; metrics.inputsReceived += values.inputsReceived;
             metrics.keyframesReceived += values.keyframesReceived; metrics.hardCorrections += values.hardCorrections;
+            metrics.ownerStatesSent += values.ownerStatesSent;
             metrics.peakPositionError = Mathf.Max(metrics.peakPositionError, values.peakPositionError);
             metrics.peakNetworkVelocityCorrection = Mathf.Max(metrics.peakNetworkVelocityCorrection, values.peakNetworkVelocityCorrection);
             metrics.peakVisualStep = Mathf.Max(metrics.peakVisualStep, values.peakVisualStep);
@@ -257,6 +278,7 @@ public sealed class PhysicsGame : MonoBehaviour
                 if (!totals.TryGetValue(state.Id, out var values)) { values = new RunMetrics(); totals.Add(state.Id, values); }
                 values.inputsSent = sync.InputsSent; values.inputsReceived = sync.InputsReceived;
                 values.keyframesReceived = sync.KeyframesReceived; values.hardCorrections = sync.HardCorrections;
+                values.ownerStatesSent = sync.OwnerStatesSent;
                 values.peakPositionError = sync.PeakPositionError;
                 values.peakNetworkVelocityCorrection = sync.PeakNetworkVelocityCorrection; values.peakVisualStep = sync.PeakVisualStep;
             }

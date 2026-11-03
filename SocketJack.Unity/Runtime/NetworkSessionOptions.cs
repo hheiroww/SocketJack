@@ -6,6 +6,8 @@ namespace SocketJack.Unity
     /// <summary>Limits for a manually pumped authoritative session. A session requires four transport channels.</summary>
     public sealed class NetworkSessionOptions
     {
+        /// <summary>Default canonical state authority for owned objects. Dedicated servers should keep this enabled.</summary>
+        public bool ServerAuthority { get; set; } = true;
         public int TickRate { get; set; } = 30;
         public int SnapshotRate { get; set; } = 10;
         public int MaxCatchUpTicks { get; set; } = 4;
@@ -42,6 +44,9 @@ namespace SocketJack.Unity
         public int RoomId { get; internal set; }
         public uint Revision { get; internal set; }
         public uint Tick { get; internal set; }
+        public bool ServerAuthority { get; internal set; } = true;
+        internal uint LastOwnerStateSequence;
+        internal bool HasOwnerStateSequence;
         internal byte[] StateData = Array.Empty<byte>();
         public byte[] State => (byte[])StateData.Clone();
     }

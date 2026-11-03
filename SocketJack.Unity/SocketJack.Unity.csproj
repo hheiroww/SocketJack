@@ -5,7 +5,7 @@
     <Nullable>disable</Nullable>
     <RootNamespace>SocketJack.Unity</RootNamespace>
     <AssemblyName>SocketJack.Unity</AssemblyName>
-    <Version>2026.11.02.2</Version>
+    <Version>2026.11.02.3</Version>
     <Authors>hheiroww</Authors>
     <Description>Authoritative multiplayer networking for Unity and dedicated .NET servers. Bounded UDP and TCP transports, rooms, ownership, replicated state and main-thread Unity adapters.</Description>
     <PackageId>SocketJack.Unity</PackageId>
@@ -16,7 +16,7 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>SocketJackUnityIcon.png</PackageIcon>
-    <PackageReleaseNotes>Adds SocketJackObject local physics prediction, compact binary input and sparse correction keyframes; reliable unordered UDP by default; MTU-aware automatic object framing using the shared SocketJack object rebuilder; and a configurable physics cube sample.</PackageReleaseNotes>
+    <PackageReleaseNotes>Adds independent topology and transport configuration, server/owner authority, native-physics movement modes and automatic UPnP port mapping. Includes SocketJackObject prediction, compact binary input, sparse correction keyframes, reliable unordered UDP and MTU-safe object reconstruction.</PackageReleaseNotes>
     <IsPackable>true</IsPackable>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
@@ -25,6 +25,10 @@
     <Deterministic>true</Deterministic>
     <DefineConstants>$(DefineConstants);SOCKETJACK_UNITY</DefineConstants>
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Transport/**/*.cs" />

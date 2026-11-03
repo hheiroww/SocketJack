@@ -47,6 +47,23 @@ These results passed the unchanged loopback acceptance limits. They do not estab
 
 The final source, including room/object revocation for queued physics relays, was rebuilt into a separate Windows player and retested with a real headless Unity server and two headless Unity clients. That 20-second client run also passed: zero hard corrections, p95 RTT 17.14/17.80 ms, maximum RTT 25.82/19.77 ms, mean position error 0.322/0.248 m, and peak error 1.691/1.166 m. Each client sent 99 owner inputs, received 99 relayed inputs and 196 keyframes. This final run exercises the same PhysX/game code without a rendered client window; the preceding visible run provides the rendering check.
 
+## Topology, authority and Inspector extension
+
+The 2026.11.02.3 source adds separate topology, transport and authority settings. Its actual Unity configuration probe checked all four movement modes and verified that Rigidbody mass, drag, angular drag, gravity, interpolation and collider-material friction remained unchanged. The movement controller defaults to `ForceMode.Force`, so native mass affects applied movement forces.
+
+Two additional 20-second actual-player scenarios passed with zero hard corrections:
+
+| Configuration | Measured client RTT p95 | Largest client visual-frame movement |
+| --- | --- | --- |
+| Dedicated Server / Client, server authority | 16.92 / 9.12 ms | approximately 0.060 m |
+| Host / Peer, owner authority | 9.12 / 9.14 ms | 0.059 / 0.059 m |
+
+The owner-authority peers each sent 100 canonical owner snapshots and the host applied 200, demonstrating that the authority switch changes canonical-state behavior. Dedicated configurations default to server authority. Hosts and peers in this mode still communicate through the host; this is not a full-mesh or hosted relay service.
+
+Release builds omit debug symbols and machine-specific CodeView paths. The resulting clean runtime DLL was rebuilt into the actual player and retested for 20 seconds with a dedicated server and two headless clients: zero hard corrections, p95 RTT 16.86/16.76 ms, and mean position error 0.211/0.191 m. The raw runtime DLL and the DLL in that tested player have identical SHA-256 digests. The Asset Store export uses that same verified binary and rejects absolute machine/debug paths.
+
+The managed suite now includes five owner-authority checks and 22 offline UPnP tests. Those cover ownership/room validation, stale state, dedicated-server write rejection, gateway restrictions, mapping conflicts, finite leases, cancellation, renewal and verified cleanup. Automated player runs explicitly disabled UPnP; no real router mapping or Internet reachability is claimed. The Asset Store archive separately passed strict file/path/hash checks and real Unity fresh-import compilation; that is not Asset Store submission approval.
+
 ## Sizing a game
 
 Keep authoritative input validation, partition visibility into rooms, and measure bytes and CPU per visible object at the game's tick and snapshot rates. Start with multiple room/server processes for thousands of total users. A large mutually visible world requires additional spatial interest filtering, packet aggregation and/or sharding. This release supplies local physics prediction with sparse authoritative repair; it does not supply hosted orchestration, matchmaking, NAT traversal, collision rollback or an encrypted game transport. See the [package guide](../SocketJack.Unity/README.md) for the integration contract and limits.

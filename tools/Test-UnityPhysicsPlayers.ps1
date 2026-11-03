@@ -3,7 +3,9 @@ param(
     [Parameter(Mandatory = $true)][string]$OutputDirectory,
     [int]$Port = 7777,
     [ValidateRange(8, 120)][int]$Duration = 20,
-    [switch]$HeadlessClients
+    [switch]$HeadlessClients,
+    [switch]$OwnerAuthority,
+    [ValidateSet('DedicatedServerClient', 'HostPeer')][string]$Topology = 'DedicatedServerClient'
 )
 $ErrorActionPreference = 'Stop'
 $playerPath = (Resolve-Path -LiteralPath $Player).Path
@@ -14,14 +16,18 @@ $runStartedUtc = [DateTime]::UtcNow;
     Set-Content -LiteralPath (Join-Path $output 'ownership-manifest.txt')
 $serverMetrics = Join-Path $output 'server.json'
 $serverLog = Join-Path $output 'server.log'
-$server = Start-Process -FilePath $playerPath -ArgumentList @('-batchmode', '-nographics', '-server', '-port', $Port,
-    '-duration', ($Duration + 4), '-metrics', ('"' + $serverMetrics + '"'), '-logFile', ('"' + $serverLog + '"')) -WindowStyle Hidden -PassThru
+$serverRole = if ($Topology -eq 'HostPeer') { '-host' } else { '-server' }
+$clientRole = if ($Topology -eq 'HostPeer') { '-peer' } else { '-client' }
+$authorityArguments = if ($OwnerAuthority) { @('-owner-authority') } else { @() }
+$serverArguments = @('-batchmode', '-nographics', $serverRole, '-no-upnp', '-port', $Port,
+    '-duration', ($Duration + 4), '-metrics', ('"' + $serverMetrics + '"'), '-logFile', ('"' + $serverLog + '"')) + $authorityArguments
+$server = Start-Process -FilePath $playerPath -ArgumentList $serverArguments -WindowStyle Hidden -PassThru
 Write-Host "Actual Unity server started: PID $($server.Id); log $serverLog"
 $deadline = [DateTime]::UtcNow.AddSeconds(30)
 do {
     if ($server.HasExited) { throw "Server exited before startup. Inspect $serverLog" }
     if ((Test-Path -LiteralPath $serverLog) -and (Get-Item -LiteralPath $serverLog).LastWriteTimeUtc -ge $runStartedUtc -and
-        (Select-String -LiteralPath $serverLog -SimpleMatch 'SOCKETJACK_PHYSICS_ROLE server' -Quiet)) { break }
+        (Select-String -LiteralPath $serverLog -SimpleMatch ("SOCKETJACK_PHYSICS_ROLE " + $serverRole.TrimStart('-')) -Quiet)) { break }
     Start-Sleep -Milliseconds 100
 } while ([DateTime]::UtcNow -lt $deadline)
 if ([DateTime]::UtcNow -ge $deadline) { throw "Server readiness timed out; retained PID $($server.Id)." }
@@ -29,8 +35,8 @@ $clients = @()
 foreach ($index in 1..2) {
     $metrics = Join-Path $output "client-$index.json"
     $clientLog = Join-Path $output "client-$index.log"
-    $arguments = @('-client', '-address', '127.0.0.1', '-port', $Port, '-autoplay', '-duration', $Duration,
-        '-metrics', ('"' + $metrics + '"'), '-logFile', ('"' + $clientLog + '"'))
+    $arguments = @($clientRole, '-no-upnp', '-address', '127.0.0.1', '-port', $Port, '-autoplay', '-duration', $Duration,
+        '-metrics', ('"' + $metrics + '"'), '-logFile', ('"' + $clientLog + '"')) + $authorityArguments
     if ($HeadlessClients) { $arguments = @('-batchmode', '-nographics') + $arguments }
     $style = if ($HeadlessClients) { 'Hidden' } else { 'Normal' }
     $clientProcess = Start-Process -FilePath $playerPath -ArgumentList $arguments -WindowStyle $style -PassThru
@@ -49,7 +55,11 @@ foreach ($name in @('server.json', 'client-1.json', 'client-2.json')) {
     $results += Get-Content -LiteralPath $file -Raw | ConvertFrom-Json
 }
 $serverResult = $results[0]
+if ($serverResult.automaticPortForwarding -or $serverResult.serverAuthority -eq $OwnerAuthority.IsPresent -or $serverResult.topology -ne $Topology) { throw 'Actual listening role topology/authority/no-UPnP configuration did not match the requested test.' }
+if ($OwnerAuthority -and $serverResult.keyframesReceived -lt 10) { throw 'The listening host/server did not apply canonical owner keyframes.' }
 foreach ($client in $results[1..2]) {
+    if ($client.automaticPortForwarding -or $client.serverAuthority -eq $OwnerAuthority.IsPresent -or $client.topology -ne $Topology) { throw 'Actual Unity player topology/authority/no-UPnP configuration did not match the requested test.' }
+    if ($OwnerAuthority -and $client.ownerStatesSent -lt 10) { throw 'Owner-authoritative clients did not send canonical owner keyframes.' }
     if (!$client.clientConnected -or $client.maxObjects -lt 2 -or $client.inputsSent -lt 10 -or $client.inputsReceived -lt 10 -or $client.keyframesReceived -lt 10) {
         throw 'Unity clients did not demonstrate input relay, local physics and sparse correction reception.'
     }

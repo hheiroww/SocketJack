@@ -4,8 +4,8 @@ using UnityEngine;
 
 namespace SocketJack.Unity.Components
 {
-    /// <summary>Server-authoritative position, rotation and local scale replication.
-    /// Client transforms interpolate received state; game scripts submit inputs to the server.</summary>
+    /// <summary>Canonical server- or owner-authoritative position, rotation and local scale.
+    /// The authority controls its transform directly; observing clients/server interpolate received state.</summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(NetworkIdentity))]
     public sealed class NetworkTransform : MonoBehaviour
@@ -45,10 +45,24 @@ namespace SocketJack.Unity.Components
                 if (immediate || Vector3.Distance(transform.position, p) > teleportDistance) Snap();
             }
         }
-        private void Update()
+        internal static bool IsValidState(byte[] state)
         {
-            if (!hasTarget || (identity != null && identity.IsServer)) return;
-            float blend = 1f - Mathf.Exp(-Mathf.Max(0, interpolationSpeed) * Time.unscaledDeltaTime);
+            if (state == null || state.Length != 40) return false;
+            using (var stream = new MemoryStream(state, false))
+            using (var reader = new BinaryReader(stream))
+            {
+                float q = 0;
+                for (int i = 0; i < 10; i++)
+                { float value = reader.ReadSingle(); if (!Finite(value)) return false; if (i >= 3 && i <= 6) q += value * value; }
+                return Finite(q) && q >= 0.0001f;
+            }
+        }
+        private void Update()
+        { Interpolate(Time.unscaledDeltaTime); }
+        private void Interpolate(float deltaSeconds)
+        {
+            if (!hasTarget || (identity != null && identity.HasStateAuthority)) return;
+            float blend = 1f - Mathf.Exp(-Mathf.Max(0, interpolationSpeed) * Mathf.Max(0, deltaSeconds));
             transform.position = Vector3.Lerp(transform.position, targetPosition, blend);
             transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, blend);
             transform.localScale = Vector3.Lerp(transform.localScale, targetScale, blend);

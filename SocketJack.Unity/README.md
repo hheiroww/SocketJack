@@ -1,17 +1,17 @@
 # SocketJack.Unity
 
-![SocketJack.Unity](https://raw.githubusercontent.com/hheiroww/SocketJack/socketjack-unity-v2026.11.02.2/SocketJack.Unity/SocketJackUnityIcon.png)
+![SocketJack.Unity](https://raw.githubusercontent.com/hheiroww/SocketJack/socketjack-unity-v2026.11.02.3/SocketJack.Unity/SocketJackUnityIcon.png)
 
 Portable multiplayer networking for Unity games and dedicated .NET servers. Targets .NET Standard 2.1 with no third-party dependencies and no UnityEngine dependency in the runtime DLL.
 
-The package supplies the networking foundation: explicit UDP/TCP transports, authoritative object spawning and state, player ownership, room-based visibility, fixed simulation ticks, bounded queues and Unity component sources. Game code defines its prefabs, input, simulation rules and replicated state. Adding a package alone cannot make arbitrary single-player game logic multiplayer.
+The package supplies the networking foundation: independent topology/transport choices, server or opted-in owner authority, object spawning and state, player ownership, room-based visibility, fixed simulation ticks, bounded queues and Unity component sources. Game code defines its prefabs, input, simulation rules and replicated state. Adding a package alone cannot make arbitrary single-player game logic multiplayer.
 
 ## Install
 
 For a dedicated .NET server or a non-Unity integration:
 
 ```sh
-dotnet add package SocketJack.Unity --version 2026.11.02.2
+dotnet add package SocketJack.Unity --version 2026.11.02.3
 ```
 
 For Unity 2022.3 or later, use the .NET Standard 2.1 API compatibility level. Open the `.nupkg` as a ZIP archive, then copy:
@@ -25,7 +25,7 @@ The component sources intentionally ship as content, rather than a DLL referenci
 
 Create a prefab with a collider and add `SocketJackObject` from `SocketJack.Unity.Components`. Unity adds its required `NetworkIdentity` and `Rigidbody`. Add `NetworkManager` to an empty scene object. Register the same prefab list in the same order in every build; prefab IDs start at `1`. The prefab must be spawned by the authoritative manager: adding a component alone does not assign an existing scene object a shared network identity.
 
-Wire a menu or script to `StartHost()` on one instance and `StartClient()` on another. Both default to UDP and `127.0.0.1:7777`. For LAN/Internet clients set `Address` before starting. The server binds all IPv4 interfaces. Open the selected UDP or TCP port on the server's firewall and router as appropriate.
+Choose **Host / Peer** topology for `StartHost()` and `StartPeer()`, or **Dedicated Server / Client** for `StartServer()` and `StartClient()`. Topology is independent of the UDP/TCP transport setting. Dedicated mode defaults to server authority. Both modes default to UDP and `127.0.0.1:7777`. For LAN/Internet peers/clients set `Address` before starting. Only the host/server opens a listening service and requests router forwarding. A peer/client uses an outbound connection and its normal return-traffic socket; it does not listen for new game connections or map a service port.
 
 ```csharp
 using SocketJack.Unity.Components;
@@ -39,12 +39,13 @@ public sealed class GameBootstrap : MonoBehaviour
     void Awake()
     {
         network.RegisterPrefabs(playerPrefab);
+        network.Topology = NetworkTopology.HostPeer;
         network.PeerConnected += peer =>
             network.Spawn(1, new Vector3(0, 0.6f, 0), Quaternion.identity, ownerId: peer);
     }
 
     public void Host() => network.StartHost();
-    public void Join() => network.StartClient();
+    public void Join() => network.StartPeer();
 
 }
 ```
@@ -53,7 +54,20 @@ public sealed class GameBootstrap : MonoBehaviour
 
 Sparse 70-byte binary keyframes (5 Hz by default) repair physics divergence. Client correction uses capped extrapolation, bounded velocity correction, Rigidbody interpolation and optional child-visual smoothing. PhysX is not deterministic across machines: this is predictive local simulation with authoritative repair, rather than deterministic lockstep or full rollback. All byte counts above exclude protocol/IP headers. The component reserves application message ID `60001` for its input relay; use other IDs for game messages. Reliable relay backpressure is retained in a bounded retry queue, with overflow disconnecting a peer instead of silently losing accepted messages. Queued, unsent relay messages are revoked when the peer or object leaves the applicable room.
 
-Configure input rate/keepalive, acceleration, maximum speed, jump force, keyframe rate, timeout, correction limits, extrapolation, owner correction weight and visual smoothing in the Inspector. For the Input System or a custom controller, disable **Read Keyboard** and call `SetInput(horizontal, vertical, jump)` on the owning object's component. Assign a child renderer transform as **Visual** to absorb rare large corrections without moving the collider for rendering alone. Do not add `NetworkTransform` to the same Rigidbody: the manager rejects conflicting controllers.
+Configure movement mode, authority inheritance, input rate/keepalive, movement force/ForceMode, maximum speed, jump force, keyframe rate, timeout, correction limits, extrapolation, owner correction weight and visual smoothing in the Inspector. Movement uses ForceMode.Force by default, so the native Rigidbody mass affects acceleration. Rigidbody mass, drag, angular drag, gravity, constraints, collision mode, interpolation and Collider material/friction remain the object's native settings; the component does not replace them. Enable Rigidbody interpolation in its own Inspector when desired. For the Input System or a custom controller, disable **Read Keyboard** and call `SetInput(horizontal, vertical, jump)` on the owning object's component. Assign a child renderer transform as **Visual** to absorb rare large corrections without moving the collider for rendering alone. Do not add `NetworkTransform` to the same Rigidbody: the manager rejects conflicting controllers.
+
+| SocketJackObject movement option | Rigidbody | Existing colliders |
+| --- | --- | --- |
+| Static w/Colliders Enabled | Kinematic | Enabled |
+| Static | Kinematic | Disabled |
+| Physics Enabled | Dynamic | Disabled |
+| Physics w/Colliders Enabled (default) | Dynamic | Enabled |
+
+These modes change only `isKinematic` and collider enabled flags. They do not set Unity's lightmapping/static-batching flags or invent collider shapes. Configure the object's native Rigidbody and colliders for its game role.
+
+**Server Authority** controls whose state is canonical. When enabled, the server simulates/validates game state and repairs client prediction. When disabled for an owned object, its owner sends bounded binary keyframes through `SendOwnerState`; the server checks ownership, room, sequence, limits and the configured validator, then relays that canonical owner state. It does not overwrite those objects with its own simulation snapshots. Owner clients do not reconcile against their own echoed state. Other clients and the server still simulate from input and repair toward the owner's keyframes. Server-owned objects always retain server authority. Keep server authority for an MMO or other game that must enforce authoritative game rules; owner authority is an explicit trust choice for cooperative/peer games.
+
+Objects default to **Inherit Manager** authority, with per-prefab **Server** or **Owner** overrides. The server selects the policy at spawn and transmits it to clients; changing a client's Inspector cannot grant authority. Respawn after changing an object's authority configuration. The Unity manager validates physical/transform binary data; custom owner-state codecs must supply `OwnerStateValidator`.
 
 For objects that only need server-driven transform replication, the separate `NetworkTransform` and `ExamplePlayerController` remain available. That simpler 40-byte transform codec interpolates position/rotation/scale and does not simulate client physics. Use your own codec/controller for game-specific state, prediction or lag compensation.
 
@@ -88,7 +102,7 @@ Logical message, per-peer queued/reassembly byte counts, concurrent objects and 
 
 The session reserves channel `0` for reliable lifecycle messages, `1` for state snapshots and `2` for owner inputs. Application messages use channel `3` by default. A custom transport must provide at least these four channels and preserve the delivery contracts.
 
-Both built-in endpoints must use the same `MaxPacketSize` and `Channels` settings; a mismatch is rejected during the transport handshake. They use a game-specific wire protocol and do not interoperate with the base library's `UdpClient`/`UdpServer` or reliable bulk-transfer protocol.
+Both built-in endpoints must use the same `MaxPacketSize` and `Channels` settings; a mismatch is rejected during the transport handshake. This release uses session protocol version 2 for server-assigned authority, so update every peer and server together; earlier session versions are rejected. They use a game-specific wire protocol and do not interoperate with the base library's `UdpClient`/`UdpServer` or reliable bulk-transfer protocol.
 
 ## Authoritative runtime
 
@@ -115,7 +129,7 @@ server.Update(deltaSeconds: 1.0 / 30, maxEvents: 4096);
 
 Continue pumping the server in a real loop; the final line above illustrates one iteration. Dispose sessions on shutdown. All transport and session operations belong to one thread. No per-player thread or background simulation is created.
 
-State consists of bounded `byte[]` messages with explicit binary framing. There is no automatic CLR type activation, RPC reflection or runtime code generation. Clients send inputs for owned objects; the server decides what state to apply. Use `SendMessage(ushort messageId, byte[] payload, ...)` for explicitly defined application commands/events.
+State consists of bounded `byte[]` messages with explicit binary framing. There is no automatic CLR type activation, RPC reflection or runtime code generation. Clients send inputs for owned objects; server-authoritative objects take canonical state from the server, while explicitly owner-authoritative objects accept validated owner keyframes. Use `SendMessage(ushort messageId, byte[] payload, ...)` for explicitly defined application commands/events.
 
 Late joiners receive reliable object baselines, streamed within the per-update budget. `SetPeerRoom` clears the old room view and streams reliable baselines for the new room; client despawn callbacks remove the old objects. `SetObjectRoom` moves an object's visibility. Move an owning peer to the destination room before moving its object. A disconnected owner's objects are despawned. Rooms are a visibility partition, not an authentication or authorization system: only trusted server code assigns them. The supplied host manager renders the authoritative world once; game-specific local rendering filters are needed if the host's view should hide other rooms.
 
@@ -127,6 +141,8 @@ Defaults allow 4,096 connected peers, but this is a capacity limit, not a promis
 
 UDP admission uses an endpoint-bound cookie challenge before allocating peer state. Set `TransportOptions.ConnectionValidator` (or the Unity manager's `ConnectionValidator`) before starting to validate a short-lived game ticket. Both included transports carry plaintext game data. They do not provide encryption or protection from an on-path attacker; use a trusted encrypted tunnel or an audited secure transport implementation when that is required. Never transmit reusable account passwords through `connectionData`. The package includes neither a matchmaking service nor hosted relay/NAT traversal, persistence, account management or multi-process orchestration.
 
+**Automatic Port Forwarding** is enabled by default and runs only after a host/server has bound its listening port. It asynchronously discovers a UPnP gateway and requests that exact UDP/TCP service mapping, with a finite renewable lease. A peer/client never requests a mapping. Results and the external endpoint are collected on the Unity main thread through `PortMappingStatus`, `IsPortMapped` and `ExternalEndpoint`; mapping failure does not stop LAN/local gameplay. Shutdown cancels discovery and releases mappings this instance owns. An existing compatible mapping is reused without being claimed, renewed or deleted. Automated sample checks explicitly disable UPnP so tests do not alter a real router. Gateways without UPnP, upstream carrier NAT and Windows firewall policy still require an appropriate network arrangement.
+
 WebGL cannot use raw UDP/TCP sockets. The built-in Unity manager rejects it with a clear exception; provide a browser-specific transport/bridge through the runtime API for browser games. Other platform acceptance, including IL2CPP, mobile and consoles, requires testing the actual player build and the platform's networking requirements. The runtime avoids reflection serialization to make that integration practical.
 
 ## Build and verification
@@ -136,7 +152,7 @@ The source checkout includes a real Unity/PhysX cube game in [`Examples/UnityPhy
 ```sh
 dotnet test SocketJack.Unity.Tests/SocketJack.Unity.Tests.csproj -c Release
 dotnet pack SocketJack.Unity/SocketJack.Unity.csproj -c Release -o ./artifacts/unity
-pwsh -File tools/Verify-UnityPackage.ps1 -Package ./artifacts/unity/SocketJack.Unity.2026.11.2.2.nupkg
+pwsh -File tools/Verify-UnityPackage.ps1 -Package ./artifacts/unity/SocketJack.Unity.2026.11.2.3.nupkg
 ```
 
 From a repository checkout with Unity installed, compile component sources against the real Editor reference assemblies:

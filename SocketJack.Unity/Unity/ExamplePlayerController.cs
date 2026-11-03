@@ -4,7 +4,8 @@ using UnityEngine;
 namespace SocketJack.Unity.Components
 {
     /// <summary>Optional two-axis movement example. Wire SetMoveIntent from your input system.
-    /// The owner sends intent; the server applies a fixed maximum speed on simulation ticks.</summary>
+    /// Server authority sends owner intent for server simulation; owner authority simulates locally
+    /// and replicates canonical transform keyframes through the manager.</summary>
     [RequireComponent(typeof(NetworkIdentity), typeof(NetworkTransform))]
     public sealed class ExamplePlayerController : MonoBehaviour
     {
@@ -16,7 +17,7 @@ namespace SocketJack.Unity.Components
         private void Start()
         {
             identity = GetComponent<NetworkIdentity>();
-            if (identity.IsServer)
+            if (identity.IsServer && identity.ServerAuthority)
             {
                 identity.Manager.InputReceived += OnInput;
                 identity.Manager.Server.Ticked += OnTick;
@@ -32,7 +33,7 @@ namespace SocketJack.Unity.Components
 
         private void Update()
         {
-            if (identity == null || !identity.IsOwner || Time.unscaledTime < nextInput) return;
+            if (identity == null || !identity.IsOwner || !identity.ServerAuthority || Time.unscaledTime < nextInput) return;
             nextInput = Time.unscaledTime + 1f / 30f;
             var bytes = new byte[2];
             bytes[0] = (byte)Mathf.RoundToInt((localIntent.x + 1f) * 127f);
@@ -42,15 +43,23 @@ namespace SocketJack.Unity.Components
 
         private void OnInput(NetworkInput input)
         {
-            if (input.ObjectId != identity.ObjectId || input.Payload.Length != 2) return;
+            if (!identity.HasStateAuthority || !identity.ServerAuthority || input.ObjectId != identity.ObjectId || input.Payload.Length != 2) return;
             serverIntent = Vector2.ClampMagnitude(new Vector2(input.Payload[0] / 127f - 1f, input.Payload[1] / 127f - 1f), 1f);
             lastInput = Time.unscaledTime;
         }
 
         private void OnTick(uint tick, float delta)
+        { SimulateServer(delta); }
+        private void SimulateServer(float delta)
         {
-            if (Time.unscaledTime - lastInput > 0.25f) return;
+            if (!identity.HasStateAuthority || !identity.ServerAuthority || Time.unscaledTime - lastInput > 0.25f) return;
             transform.position += new Vector3(serverIntent.x, 0, serverIntent.y) * Mathf.Max(0, speed) * delta;
+        }
+        private void FixedUpdate() { SimulateOwner(Time.fixedDeltaTime); }
+        private void SimulateOwner(float delta)
+        {
+            if (identity == null || !identity.HasStateAuthority || identity.ServerAuthority) return;
+            transform.position += new Vector3(localIntent.x, 0, localIntent.y) * Mathf.Max(0, speed) * delta;
         }
 
         private void OnDestroy()
