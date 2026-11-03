@@ -51,8 +51,8 @@ namespace SocketJack.Unity
 
         public NetworkServer(IGameTransport transport, NetworkSessionOptions options = null)
         {
-            _transport = transport ?? throw new ArgumentNullException(nameof(transport));
-            _options = (options ?? new NetworkSessionOptions()).Snapshot(transport);
+            _transport = ObjectFrameTransport.Wrap(transport ?? throw new ArgumentNullException(nameof(transport)));
+            _options = (options ?? new NetworkSessionOptions()).Snapshot(_transport);
             _objectView = new ReadOnlyDictionary<ulong, NetworkObject>(_objects);
             _transport.EventReceived += OnTransportEvent;
         }
@@ -170,7 +170,7 @@ namespace SocketJack.Unity
         }
 
         public bool SendMessage(ulong peerId, ushort messageId, byte[] payload,
-            DeliveryMode delivery = DeliveryMode.ReliableOrdered, byte channel = 3)
+            DeliveryMode delivery = DeliveryMode.ReliableUnordered, byte channel = 3)
         {
             RequireRunning(); ValidateUserChannel(channel);
             var copy = SessionWire.Copy(payload, _options.MaxMessageBytes, nameof(payload));

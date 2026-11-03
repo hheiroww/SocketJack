@@ -11,15 +11,18 @@ namespace SocketJack.Unity.Transport
 {
     /// <summary>
     /// A manually pumped, bounded datagram transport for native Unity players and dedicated servers.
-    /// Provides independent reliable ordered and unreliable sequenced channels without a thread per peer.
+    /// Provides reliable unordered delivery by default, explicit reliable ordered delivery,
+    /// and unreliable sequenced channels without a thread per peer.
     /// Cookies prevent off-path source spoofing from allocating a connection. This protocol does not encrypt traffic.
     /// </summary>
     public sealed class UdpGameTransport : IGameTransport
     {
-        // SJG1, wire version 1. Integer fields are little endian, independent of host architecture.
+        // SJG1 protocol family, wire version 2. Integer fields are little endian.
         private const uint Magic = 0x31474a53;
-        private const int HeaderSize = 40;
+        private const byte WireVersion = 2;
+        private const int HeaderSize = PacketBudget.ReliableHeaderSize;
         private const int CookieSize = 24;
+        private const int SettingsSize = 5;
         private enum Kind : byte { Hello = 1, Challenge, Connect, Welcome, Reject, Data, Ack, Heartbeat, Disconnect }
 
         private sealed class Pending
@@ -33,10 +36,13 @@ namespace SocketJack.Unity.Transport
         private sealed class ChannelState
         {
             public uint NextSendReliable = 1;
+            public uint NextSendUnordered = 1;
             public uint NextSendSequenced;
             public uint NextReceiveReliable = 1;
             public uint LastReceiveSequenced;
             public bool HasReceiveSequenced;
+            public uint NextReceiveUnordered = 1;
+            public readonly HashSet<uint> ReceivedUnordered = new HashSet<uint>();
             public readonly Dictionary<uint, byte[]> Reordered = new Dictionary<uint, byte[]>();
         }
 
@@ -89,6 +95,8 @@ namespace SocketJack.Unity.Transport
         public UdpGameTransport(TransportOptions options = null)
         {
             _options = (options ?? new TransportOptions()).Snapshot();
+            _options.ValidateUdp();
+            Budget = PacketBudget.FromOptions(_options);
             // One extra byte detects oversize datagrams on platforms that truncate instead of throwing.
             _receive = new byte[_options.MaxPacketSize + 1];
         }
@@ -99,6 +107,7 @@ namespace SocketJack.Unity.Transport
         public ulong LocalPeerId { get; private set; }
         public IPEndPoint LocalEndPoint => _socket?.LocalEndPoint as IPEndPoint;
         public int MaxPayloadSize => _options.MaxPacketSize - HeaderSize;
+        public PacketBudget Budget { get; }
         public event Action<TransportEvent> EventReceived;
 
         public void StartServer(IPEndPoint endpoint)
@@ -173,29 +182,30 @@ namespace SocketJack.Unity.Transport
             finally { _polling = false; }
         }
 
-        public bool Send(ulong peerId, ArraySegment<byte> payload, DeliveryMode delivery = DeliveryMode.ReliableOrdered, byte channel = 0)
+        public bool Send(ulong peerId, ArraySegment<byte> payload, DeliveryMode delivery = DeliveryMode.ReliableUnordered, byte channel = 0)
         {
             if (_disposed) throw new ObjectDisposedException(nameof(UdpGameTransport));
             if (payload.Array == null && payload.Count != 0) throw new ArgumentException("Invalid payload.", nameof(payload));
             if (payload.Count > MaxPayloadSize) throw new ArgumentOutOfRangeException(nameof(payload), "Fragment application data to fit MaxPayloadSize.");
             if (channel >= _options.Channels) throw new ArgumentOutOfRangeException(nameof(channel));
-            if ((byte)delivery > (byte)DeliveryMode.ReliableOrdered) throw new ArgumentOutOfRangeException(nameof(delivery));
+            if ((byte)delivery > (byte)DeliveryMode.ReliableUnordered) throw new ArgumentOutOfRangeException(nameof(delivery));
             if (!_peers.TryGetValue(peerId, out var peer)) return false;
             if (channel >= peer.Channels.Length || payload.Count > peer.PacketSize - HeaderSize) return false;
             var state = peer.Channels[channel];
-            bool reliable = delivery == DeliveryMode.ReliableOrdered;
+            bool reliable = delivery == DeliveryMode.ReliableOrdered || delivery == DeliveryMode.ReliableUnordered;
             if (reliable && (peer.Pending.Count >= _options.MaxPendingReliablePerPeer ||
                 peer.PendingBytes + HeaderSize + payload.Count > _options.MaxQueuedBytesPerPeer)) return false;
-            uint sequence = reliable ? state.NextSendReliable : delivery == DeliveryMode.UnreliableSequenced ? state.NextSendSequenced : 0;
+            uint sequence = delivery == DeliveryMode.ReliableOrdered ? state.NextSendReliable : delivery == DeliveryMode.ReliableUnordered ? state.NextSendUnordered : delivery == DeliveryMode.UnreliableSequenced ? state.NextSendSequenced : 0;
             byte[] packet = Packet(Kind.Data, peer.Id, peer.Token, channel, delivery, sequence, payload);
             double now = Now;
             if (reliable)
             {
                 // Queue before sending, so accepting reliable data always retains ownership until acknowledged.
-                ulong key = Key(channel, sequence);
+                ulong key = Key(channel, sequence, delivery);
                 peer.Pending.Add(key, new Pending { Packet = packet, SentAt = now, Node = peer.RetryQueue.AddLast(key) });
                 peer.PendingBytes += packet.Length;
-                state.NextSendReliable++;
+                if (delivery == DeliveryMode.ReliableOrdered) state.NextSendReliable++;
+                else state.NextSendUnordered++;
                 TrySend(peer.Endpoint, packet);
             }
             else
@@ -253,7 +263,7 @@ namespace SocketJack.Unity.Transport
 
         private void Receive(IPEndPoint endpoint, int length, double now)
         {
-            if (length < HeaderSize || Read32(0) != Magic || _receive[4] != 1 || Read16(36) != length - HeaderSize || Read16(38) != 0) return;
+            if (length < HeaderSize || Read32(0) != Magic || _receive[4] != WireVersion || Read16(36) != length - HeaderSize || Read16(38) != 0) return;
             var kind = (Kind)_receive[5];
             byte channel = _receive[6];
             var delivery = (DeliveryMode)_receive[7];
@@ -264,9 +274,10 @@ namespace SocketJack.Unity.Transport
                 if (id != 0 || payloadLength != 32 || channel != 0 || delivery != 0) return;
                 int packetSize = Read16(HeaderSize);
                 int channels = _receive[HeaderSize + 2];
+                int framePayload = Read16(HeaderSize + 3);
                 if (packetSize < 256 || packetSize > 1400 || channels < 1 || channels > 32) return;
                 var nonce = Slice(16, 16);
-                var cookie = Cookie(endpoint, nonce, DateTimeOffset.UtcNow.ToUnixTimeSeconds(), packetSize, channels);
+                var cookie = Cookie(endpoint, nonce, DateTimeOffset.UtcNow.ToUnixTimeSeconds(), packetSize, channels, framePayload);
                 TrySend(endpoint, Packet(Kind.Challenge, 0, nonce, payload: new ArraySegment<byte>(cookie)));
                 return;
             }
@@ -284,11 +295,11 @@ namespace SocketJack.Unity.Transport
                     Enqueue(new TransportEvent(TransportEventType.Disconnected, 0, reason: Encoding.UTF8.GetString(_receive, HeaderSize, payloadLength)));
                     return;
                 }
-                if (kind == Kind.Welcome && id != 0 && payloadLength == 19 && NonceEquals(HeaderSize, _nonce))
+                if (kind == Kind.Welcome && id != 0 && payloadLength == 21 && NonceEquals(HeaderSize, _nonce))
                 {
                     int packetSize = Read16(HeaderSize + 16);
                     int channels = _receive[HeaderSize + 18];
-                    if (packetSize < 256 || packetSize > _options.MaxPacketSize || channels < 1 || channels > _options.Channels) return;
+                    if (packetSize != _options.MaxPacketSize || channels != _options.Channels || Read16(HeaderSize + 19) != Budget.MaxFramePayloadBytes) return;
                     var peer = AddPeer(id, endpoint, Slice(16, 16), _nonce, packetSize, channels, now);
                     _connecting = false;
                     _cookie = null;
@@ -300,19 +311,20 @@ namespace SocketJack.Unity.Transport
             }
             if (kind == Kind.Connect && IsServer)
             {
-                if (id != 0 || payloadLength < CookieSize + 3 || payloadLength > CookieSize + 3 + _options.MaxConnectionDataSize || channel != 0 || delivery != 0) return;
+                if (id != 0 || payloadLength < CookieSize + SettingsSize || payloadLength > CookieSize + SettingsSize + _options.MaxConnectionDataSize || channel != 0 || delivery != 0) return;
                 int packetSize = Read16(HeaderSize + CookieSize);
                 int channels = _receive[HeaderSize + CookieSize + 2];
+                int framePayload = Read16(HeaderSize + CookieSize + 3);
                 if (packetSize < 256 || packetSize > 1400 || channels < 1 || channels > 32) return;
                 byte[] nonce = Slice(16, 16);
                 long timestamp = (long)Read64(HeaderSize);
                 long age = DateTimeOffset.UtcNow.ToUnixTimeSeconds() - timestamp;
                 if (age < -2 || age > 30) return;
-                byte[] expected = Cookie(endpoint, nonce, timestamp, packetSize, channels);
+                byte[] expected = Cookie(endpoint, nonce, timestamp, packetSize, channels, framePayload);
                 if (!CryptographicOperations.FixedTimeEquals(expected.AsSpan(), _receive.AsSpan(HeaderSize, CookieSize))) return;
-                if (packetSize != _options.MaxPacketSize || channels != _options.Channels)
+                if (packetSize != _options.MaxPacketSize || channels != _options.Channels || framePayload != Budget.MaxFramePayloadBytes)
                 {
-                    Reject(endpoint, nonce, "Transport packet size and channel count must match the server");
+                    Reject(endpoint, nonce, "Transport packet size, channel count and frame budget must match the server");
                     return;
                 }
                 if (_endpoints.TryGetValue(endpoint, out var existing))
@@ -322,7 +334,7 @@ namespace SocketJack.Unity.Transport
                     return;
                 }
                 if (_peers.Count >= _options.MaxPeers) { Reject(endpoint, nonce, "Server is full"); return; }
-                var connectionData = Slice(HeaderSize + CookieSize + 3, payloadLength - CookieSize - 3);
+                var connectionData = Slice(HeaderSize + CookieSize + SettingsSize, payloadLength - CookieSize - SettingsSize);
                 bool accepted;
                 var admittingSocket = _socket;
                 try { accepted = _options.ConnectionValidator?.Invoke(endpoint, connectionData) ?? true; }
@@ -342,13 +354,13 @@ namespace SocketJack.Unity.Transport
             if (length > active.PacketSize) return;
             if (kind == Kind.Data)
             {
-                if (channel >= active.Channels.Length || (byte)delivery > (byte)DeliveryMode.ReliableOrdered) return;
+                if (channel >= active.Channels.Length || (byte)delivery > (byte)DeliveryMode.ReliableUnordered) return;
                 ReceiveData(active, channel, delivery, Read32(32), payloadLength);
             }
             else if (kind == Kind.Ack)
             {
-                if (payloadLength != 0 || channel >= active.Channels.Length || delivery != DeliveryMode.ReliableOrdered) return;
-                ulong key = Key(channel, Read32(32));
+                if (payloadLength != 0 || channel >= active.Channels.Length || (delivery != DeliveryMode.ReliableOrdered && delivery != DeliveryMode.ReliableUnordered)) return;
+                ulong key = Key(channel, Read32(32), delivery);
                 if (active.Pending.TryGetValue(key, out var pending))
                 {
                     active.Pending.Remove(key);
@@ -376,6 +388,24 @@ namespace SocketJack.Unity.Transport
         {
             var state = peer.Channels[channel];
             ulong publicId = IsServer ? peer.Id : 0;
+            if (delivery == DeliveryMode.ReliableUnordered)
+            {
+                int distance = unchecked((int)(sequence - state.NextReceiveUnordered));
+                if (distance < 0 || state.ReceivedUnordered.Contains(sequence))
+                { Acknowledge(peer, channel, sequence, delivery); return; }
+                // The dedupe window stores sequence numbers only, never reordered payloads.
+                // Packets beyond its bounded window remain unacknowledged for retransmission.
+                if (distance >= _options.MaxPendingReliablePerPeer) return;
+                if (distance == 0)
+                {
+                    state.NextReceiveUnordered++;
+                    while (state.ReceivedUnordered.Remove(state.NextReceiveUnordered)) state.NextReceiveUnordered++;
+                }
+                else state.ReceivedUnordered.Add(sequence);
+                Acknowledge(peer, channel, sequence, delivery);
+                Enqueue(new TransportEvent(TransportEventType.Data, publicId, Slice(HeaderSize, payloadLength), delivery, channel), peer);
+                return;
+            }
             if (delivery == DeliveryMode.ReliableOrdered)
             {
                 int distance = unchecked((int)(sequence - state.NextReceiveReliable));
@@ -408,9 +438,9 @@ namespace SocketJack.Unity.Transport
             Enqueue(new TransportEvent(TransportEventType.Data, publicId, Slice(HeaderSize, payloadLength), delivery, channel));
         }
 
-        private void Acknowledge(Peer peer, byte channel, uint sequence)
+        private void Acknowledge(Peer peer, byte channel, uint sequence, DeliveryMode delivery = DeliveryMode.ReliableOrdered)
         {
-            TrySend(peer.Endpoint, Packet(Kind.Ack, peer.Id, peer.Token, channel, DeliveryMode.ReliableOrdered, sequence));
+            TrySend(peer.Endpoint, Packet(Kind.Ack, peer.Id, peer.Token, channel, delivery, sequence));
         }
 
         private void Maintain(double now, int budget)
@@ -433,10 +463,10 @@ namespace SocketJack.Unity.Transport
                     var pending = peer.Pending[key];
                     if (sends >= budget || now - pending.SentAt < _options.RetransmitInterval.TotalSeconds) continue;
                     if (pending.Retransmits >= _options.MaxRetransmits) { Remove(peer, "Reliable delivery timed out"); removed = true; break; }
+                    pending.Retransmits++;
+                    pending.SentAt = now;
                     if (TrySend(peer.Endpoint, pending.Packet))
                     {
-                        pending.Retransmits++;
-                        pending.SentAt = now;
                         peer.LastSend = now;
                     }
                     sends++;
@@ -455,7 +485,7 @@ namespace SocketJack.Unity.Transport
             while (count < limit && _events.Count != 0 && _socket != null)
             {
                 var queued = _events.Dequeue();
-                if (queued.Peer != null && queued.Event.Type == TransportEventType.Data)
+                if (queued.Peer != null && queued.Event.Type == TransportEventType.Data && queued.Event.Delivery == DeliveryMode.ReliableOrdered)
                 {
                     queued.Peer.BufferedBytes -= queued.Event.Payload.Length;
                     queued.Peer.BufferedPackets--;
@@ -494,10 +524,11 @@ namespace SocketJack.Unity.Transport
 
         private void Welcome(Peer peer)
         {
-            var payload = new byte[19];
+            var payload = new byte[21];
             Buffer.BlockCopy(peer.Nonce, 0, payload, 0, 16);
             BinaryPrimitives.WriteUInt16LittleEndian(payload.AsSpan(16), (ushort)peer.PacketSize);
             payload[18] = (byte)peer.Channels.Length;
+            BinaryPrimitives.WriteUInt16LittleEndian(payload.AsSpan(19), (ushort)Budget.MaxFramePayloadBytes);
             TrySend(peer.Endpoint, Packet(Kind.Welcome, peer.Id, peer.Token, payload: new ArraySegment<byte>(payload)));
         }
 
@@ -507,22 +538,24 @@ namespace SocketJack.Unity.Transport
         private void SendHandshake()
         {
             int offset = _cookie == null ? 0 : CookieSize;
-            var payload = new byte[_cookie == null ? 32 : CookieSize + 3 + _connectionData.Length];
-            if (_cookie != null) { Buffer.BlockCopy(_cookie, 0, payload, 0, CookieSize); Buffer.BlockCopy(_connectionData, 0, payload, CookieSize + 3, _connectionData.Length); }
+            var payload = new byte[_cookie == null ? 32 : CookieSize + SettingsSize + _connectionData.Length];
+            if (_cookie != null) { Buffer.BlockCopy(_cookie, 0, payload, 0, CookieSize); Buffer.BlockCopy(_connectionData, 0, payload, CookieSize + SettingsSize, _connectionData.Length); }
             BinaryPrimitives.WriteUInt16LittleEndian(payload.AsSpan(offset), (ushort)_options.MaxPacketSize);
             payload[offset + 2] = (byte)_options.Channels;
+            BinaryPrimitives.WriteUInt16LittleEndian(payload.AsSpan(offset + 3), (ushort)Budget.MaxFramePayloadBytes);
             TrySend(_remote, Packet(_cookie == null ? Kind.Hello : Kind.Connect, 0, _nonce, payload: new ArraySegment<byte>(payload)));
         }
 
-        private byte[] Cookie(IPEndPoint endpoint, byte[] nonce, long timestamp, int packetSize, int channels)
+        private byte[] Cookie(IPEndPoint endpoint, byte[] nonce, long timestamp, int packetSize, int channels, int framePayload)
         {
             byte[] address = Encoding.UTF8.GetBytes(endpoint.ToString());
-            var input = new byte[address.Length + 27];
+            var input = new byte[address.Length + 29];
             Buffer.BlockCopy(address, 0, input, 0, address.Length);
             Buffer.BlockCopy(nonce, 0, input, address.Length, 16);
             BinaryPrimitives.WriteInt64LittleEndian(input.AsSpan(address.Length + 16), timestamp);
             BinaryPrimitives.WriteUInt16LittleEndian(input.AsSpan(address.Length + 24), (ushort)packetSize);
             input[address.Length + 26] = (byte)channels;
+            BinaryPrimitives.WriteUInt16LittleEndian(input.AsSpan(address.Length + 27), (ushort)framePayload);
             byte[] hash = _cookies.ComputeHash(input);
             var result = new byte[CookieSize];
             BinaryPrimitives.WriteInt64LittleEndian(result, timestamp);
@@ -534,7 +567,7 @@ namespace SocketJack.Unity.Transport
         {
             var bytes = new byte[HeaderSize + payload.Count];
             BinaryPrimitives.WriteUInt32LittleEndian(bytes, Magic);
-            bytes[4] = 1;
+            bytes[4] = WireVersion;
             bytes[5] = (byte)kind;
             bytes[6] = channel;
             bytes[7] = (byte)delivery;
@@ -550,7 +583,7 @@ namespace SocketJack.Unity.Transport
         {
             if (_socket == null) return false;
             try { return _socket.SendTo(packet, endpoint) == packet.Length; }
-            catch (SocketException ex) when (Transient(ex.SocketErrorCode) || ex.SocketErrorCode == SocketError.ConnectionReset || ex.SocketErrorCode == SocketError.NetworkUnreachable || ex.SocketErrorCode == SocketError.HostUnreachable) { return false; }
+            catch (SocketException ex) when (Transient(ex.SocketErrorCode) || ex.SocketErrorCode == SocketError.ConnectionReset || ex.SocketErrorCode == SocketError.NetworkUnreachable || ex.SocketErrorCode == SocketError.HostUnreachable || ex.SocketErrorCode == SocketError.MessageSize) { return false; }
         }
 
         private void Open(IPEndPoint endpoint, bool server)
@@ -559,6 +592,7 @@ namespace SocketJack.Unity.Transport
             try
             {
                 socket.Blocking = false;
+                if (endpoint.AddressFamily == AddressFamily.InterNetwork) socket.DontFragment = true;
                 // A dedicated server has one socket for all peers. Client simulations should not
                 // reserve multi-megabyte kernel buffers per player.
                 socket.ReceiveBufferSize = server ? 8 * 1024 * 1024 : 64 * 1024;
@@ -576,6 +610,8 @@ namespace SocketJack.Unity.Transport
             if (_socket != null) throw new InvalidOperationException("Stop the running transport before starting it again.");
             if (endpoint.AddressFamily != AddressFamily.InterNetwork && endpoint.AddressFamily != AddressFamily.InterNetworkV6)
                 throw new NotSupportedException("Only IPv4 and IPv6 endpoints are supported.");
+            if (endpoint.AddressFamily == AddressFamily.InterNetworkV6 && _options.IpHeaderBytes < 40)
+                throw new ArgumentException("IPv6 requires at least 40 reserved IP header bytes.", nameof(endpoint));
         }
 
         private bool TokenEquals(byte[] value) => CryptographicOperations.FixedTimeEquals(value, _receive.AsSpan(16, 16));
@@ -584,7 +620,7 @@ namespace SocketJack.Unity.Transport
         private ushort Read16(int offset) => BinaryPrimitives.ReadUInt16LittleEndian(_receive.AsSpan(offset));
         private uint Read32(int offset) => BinaryPrimitives.ReadUInt32LittleEndian(_receive.AsSpan(offset));
         private ulong Read64(int offset) => BinaryPrimitives.ReadUInt64LittleEndian(_receive.AsSpan(offset));
-        private static ulong Key(byte channel, uint sequence) => ((ulong)channel << 32) | sequence;
+        private static ulong Key(byte channel, uint sequence, DeliveryMode delivery) => ((ulong)delivery << 40) | ((ulong)channel << 32) | sequence;
         private static IPEndPoint CopyEndpoint(IPEndPoint endpoint) => new IPEndPoint(endpoint.Address, endpoint.Port);
         private static bool Transient(SocketError error) => error == SocketError.WouldBlock || error == SocketError.IOPending || error == SocketError.NoBufferSpaceAvailable || error == SocketError.TryAgain;
         private static byte[] RandomBytes(int size) { var bytes = new byte[size]; using (var random = RandomNumberGenerator.Create()) random.GetBytes(bytes); return bytes; }

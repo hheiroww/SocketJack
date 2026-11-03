@@ -24,9 +24,9 @@ namespace SocketJack.Unity
         {
             if (TickRate < 1 || TickRate > 240 || SnapshotRate < 1 || SnapshotRate > TickRate || MaxCatchUpTicks < 1 || MaxCatchUpTicks > 32 ||
                 MaxPeers < 1 || MaxPeers > 65535 || MaxObjects < 1 || MaxObjectsPerRoom < 1 || MaxObjectsPerRoom > MaxObjects ||
-                MaxStateBytes < 0 || MaxStateBytes > transport.MaxPayloadSize - SessionWire.SpawnHeaderSize ||
-                MaxMessageBytes < 0 || MaxMessageBytes > transport.MaxPayloadSize - 17 ||
-                MaxQueuedMessagesPerPeer < 1 || MaxQueuedBytesPerPeer < transport.MaxPayloadSize ||
+                MaxStateBytes < 0 || MaxStateBytes > ushort.MaxValue || MaxStateBytes > transport.MaxPayloadSize - SessionWire.SpawnHeaderSize ||
+                MaxMessageBytes < 0 || MaxMessageBytes > ushort.MaxValue || MaxMessageBytes > transport.MaxPayloadSize - 17 ||
+                MaxQueuedMessagesPerPeer < 1 || MaxQueuedBytesPerPeer < Math.Max(MaxStateBytes + SessionWire.SpawnHeaderSize, MaxMessageBytes + 17) ||
                 MaxReliableSendsPerUpdate < 1 || MaxStateUpdatesPerTick < 1 || MaxInboundMessagesPerPeerPerSecond < 1)
                 throw new ArgumentOutOfRangeException(nameof(NetworkSessionOptions), "Session limits must fit transport packet size and have positive budgets.");
             return (NetworkSessionOptions)MemberwiseClone();

@@ -5,7 +5,7 @@
     <Nullable>disable</Nullable>
     <RootNamespace>SocketJack.Unity</RootNamespace>
     <AssemblyName>SocketJack.Unity</AssemblyName>
-    <Version>2026.11.02.1</Version>
+    <Version>2026.11.02.2</Version>
     <Authors>hheiroww</Authors>
     <Description>Authoritative multiplayer networking for Unity and dedicated .NET servers. Bounded UDP and TCP transports, rooms, ownership, replicated state and main-thread Unity adapters.</Description>
     <PackageId>SocketJack.Unity</PackageId>
@@ -16,18 +16,21 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>SocketJackUnityIcon.png</PackageIcon>
-    <PackageReleaseNotes>Initial portable Unity multiplayer package with explicit transports, authoritative object replication, rooms, ownership and Unity component sources.</PackageReleaseNotes>
+    <PackageReleaseNotes>Adds SocketJackObject local physics prediction, compact binary input and sparse correction keyframes; reliable unordered UDP by default; MTU-aware automatic object framing using the shared SocketJack object rebuilder; and a configurable physics cube sample.</PackageReleaseNotes>
     <IsPackable>true</IsPackable>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);1591</NoWarn>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <Deterministic>true</Deterministic>
+    <DefineConstants>$(DefineConstants);SOCKETJACK_UNITY</DefineConstants>
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Transport/**/*.cs" />
     <Compile Include="Runtime/**/*.cs" />
+    <Compile Include="Physics/**/*.cs" />
+    <Compile Include="../SocketJack/Net/ObjectRebuilder.cs" Link="Serialization/ObjectRebuilder.cs" />
     <None Include="README.md" Pack="true" PackagePath="/" />
     <None Include="SocketJackUnityIcon.png" Pack="true" PackagePath="/" />
     <None Include="../LICENSE" Pack="true" PackagePath="/" />

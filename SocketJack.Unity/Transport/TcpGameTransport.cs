@@ -40,9 +40,15 @@ namespace SocketJack.Unity.Transport
         public ulong LocalPeerId { get; private set; }
         public IPEndPoint LocalEndPoint { get; private set; }
         public int MaxPayloadSize => options.MaxPacketSize - 16;
+        public PacketBudget Budget { get; }
         public int PeerCount => peers.Count;
         public event Action<TransportEvent> EventReceived;
-        public TcpGameTransport(TransportOptions options = null) { this.options = (options ?? new TransportOptions()).Snapshot(); }
+        public TcpGameTransport(TransportOptions options = null)
+        {
+            this.options = (options ?? new TransportOptions()).Snapshot();
+            Budget = new PacketBudget(this.options.PathMtu, this.options.IpHeaderBytes == 20 ? AddressFamily.InterNetwork : AddressFamily.InterNetworkV6,
+                this.options.ExtraPacketOverheadBytes, this.options.MaxPacketSize);
+        }
 
         public void StartServer(IPEndPoint endpoint)
         {
@@ -123,7 +129,7 @@ namespace SocketJack.Unity.Transport
                 if (frame != null) ProcessFrame(peer, frame);
             }
         }
-        public bool Send(ulong peerId, ArraySegment<byte> payload, DeliveryMode delivery = DeliveryMode.ReliableOrdered, byte channel = 0)
+        public bool Send(ulong peerId, ArraySegment<byte> payload, DeliveryMode delivery = DeliveryMode.ReliableUnordered, byte channel = 0)
         {
             if (disposed) throw new ObjectDisposedException(nameof(TcpGameTransport));
             ValidatePayload(payload, delivery, channel);
@@ -152,10 +158,11 @@ namespace SocketJack.Unity.Transport
         private static bool WouldBlock(SocketException ex) => ex.SocketErrorCode == SocketError.WouldBlock || ex.SocketErrorCode == SocketError.IOPending || ex.SocketErrorCode == SocketError.InProgress || ex.SocketErrorCode == SocketError.AlreadyInProgress || ex.SocketErrorCode == SocketError.NoBufferSpaceAvailable;
         private void SendHello(Peer peer)
         {
-            var hello = new byte[7 + connectionData.Length];
-            hello[0] = 0x53; hello[1] = 0x4a; hello[2] = 0x47; hello[3] = 1;
+            var hello = new byte[9 + connectionData.Length];
+            hello[0] = 0x53; hello[1] = 0x4a; hello[2] = 0x47; hello[3] = 2;
             hello[4] = (byte)options.MaxPacketSize; hello[5] = (byte)(options.MaxPacketSize >> 8); hello[6] = (byte)options.Channels;
-            Buffer.BlockCopy(connectionData, 0, hello, 7, connectionData.Length);
+            hello[7] = (byte)Budget.MaxFramePayloadBytes; hello[8] = (byte)(Budget.MaxFramePayloadBytes >> 8);
+            Buffer.BlockCopy(connectionData, 0, hello, 9, connectionData.Length);
             Enqueue(peer, 1, hello, DeliveryMode.ReliableOrdered, 0);
         }
         private bool Enqueue(Peer peer, byte kind, byte[] payload, DeliveryMode delivery, byte channel)
@@ -210,27 +217,28 @@ namespace SocketJack.Unity.Transport
         private void ProcessFrame(Peer peer, byte[] frame)
         {
             byte kind = frame[0], channel = frame[1];
-            if (channel >= options.Channels || frame[2] > (byte)DeliveryMode.ReliableOrdered) { Remove(peer, "Invalid frame"); return; }
+            if (channel >= options.Channels || frame[2] > (byte)DeliveryMode.ReliableUnordered) { Remove(peer, "Invalid frame"); return; }
             if (!peer.Ready)
             {
-                if (IsServer && kind == 1 && frame.Length >= 10 && frame.Length - 10 <= options.MaxConnectionDataSize && frame[3] == 0x53 && frame[4] == 0x4a && frame[5] == 0x47 && frame[6] == 1)
+                if (IsServer && kind == 1 && frame.Length >= 12 && frame.Length - 12 <= options.MaxConnectionDataSize && frame[3] == 0x53 && frame[4] == 0x4a && frame[5] == 0x47 && frame[6] == 2)
                 {
-                    if ((frame[7] | frame[8] << 8) != options.MaxPacketSize || frame[9] != options.Channels) { Remove(peer, "Transport configuration mismatch"); return; }
-                    var data = new byte[frame.Length - 10]; Buffer.BlockCopy(frame, 10, data, 0, data.Length);
+                    if ((frame[7] | frame[8] << 8) != options.MaxPacketSize || frame[9] != options.Channels || (frame[10] | frame[11] << 8) != Budget.MaxFramePayloadBytes) { Remove(peer, "Transport configuration mismatch"); return; }
+                    var data = new byte[frame.Length - 12]; Buffer.BlockCopy(frame, 12, data, 0, data.Length);
                     bool allowed;
                     try { allowed = options.ConnectionValidator == null || options.ConnectionValidator((IPEndPoint)peer.Socket.RemoteEndPoint, data); }
                     catch { allowed = false; }
                     if (!IsRunning || !peers.TryGetValue(peer.Id, out var current) || current != peer) return;
                     if (!allowed) { Remove(peer, "Connection rejected"); return; }
-                    var welcome = new byte[11]; Write32(welcome, 0, (uint)peer.Id); Write32(welcome, 4, (uint)(peer.Id >> 32));
+                    var welcome = new byte[13]; Write32(welcome, 0, (uint)peer.Id); Write32(welcome, 4, (uint)(peer.Id >> 32));
                     welcome[8] = (byte)options.MaxPacketSize; welcome[9] = (byte)(options.MaxPacketSize >> 8); welcome[10] = (byte)options.Channels;
+                    welcome[11] = (byte)Budget.MaxFramePayloadBytes; welcome[12] = (byte)(Budget.MaxFramePayloadBytes >> 8);
                     if (!Enqueue(peer, 2, welcome, DeliveryMode.ReliableOrdered, 0)) { Remove(peer, "Send queue full"); return; }
                     peer.Ready = true; peer.LastReceive = Now;
                     EventReceived?.Invoke(new TransportEvent(TransportEventType.Connected, peer.Id, data));
                 }
-                else if (!IsServer && kind == 2 && frame.Length == 14)
+                else if (!IsServer && kind == 2 && frame.Length == 16)
                 {
-                    if ((frame[11] | frame[12] << 8) != options.MaxPacketSize || frame[13] != options.Channels) { Remove(peer, "Transport configuration mismatch"); return; }
+                    if ((frame[11] | frame[12] << 8) != options.MaxPacketSize || frame[13] != options.Channels || (frame[14] | frame[15] << 8) != Budget.MaxFramePayloadBytes) { Remove(peer, "Transport configuration mismatch"); return; }
                     LocalPeerId = Read32(frame, 3) | ((ulong)Read32(frame, 7) << 32);
                     if (LocalPeerId == 0) { Remove(peer, "Invalid peer ID"); return; }
                     peer.Ready = true; peer.LastReceive = Now;
@@ -258,7 +266,7 @@ namespace SocketJack.Unity.Transport
         {
             if (payload.Count > MaxPayloadSize) throw new ArgumentOutOfRangeException(nameof(payload), "Payload exceeds the transport MTU.");
             if (channel >= options.Channels) throw new ArgumentOutOfRangeException(nameof(channel));
-            if (delivery < DeliveryMode.Unreliable || delivery > DeliveryMode.ReliableOrdered) throw new ArgumentOutOfRangeException(nameof(delivery));
+            if (delivery < DeliveryMode.Unreliable || delivery > DeliveryMode.ReliableUnordered) throw new ArgumentOutOfRangeException(nameof(delivery));
         }
         private static byte[] Copy(ArraySegment<byte> value) { var bytes = new byte[value.Count]; if (value.Count > 0) Buffer.BlockCopy(value.Array, value.Offset, bytes, 0, value.Count); return bytes; }
         private static void Write32(byte[] bytes, int offset, uint value) { for (int i = 0; i < 4; i++) bytes[offset + i] = (byte)(value >> (8 * i)); }

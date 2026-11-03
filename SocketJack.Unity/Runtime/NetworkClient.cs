@@ -34,8 +34,8 @@ namespace SocketJack.Unity
 
         public NetworkClient(IGameTransport transport, NetworkSessionOptions options = null)
         {
-            _transport = transport ?? throw new ArgumentNullException(nameof(transport));
-            _options = (options ?? new NetworkSessionOptions()).Snapshot(transport);
+            _transport = ObjectFrameTransport.Wrap(transport ?? throw new ArgumentNullException(nameof(transport)));
+            _options = (options ?? new NetworkSessionOptions()).Snapshot(_transport);
             _objectView = new ReadOnlyDictionary<ulong, NetworkObject>(_objects);
             _transport.EventReceived += OnTransportEvent;
         }
@@ -61,7 +61,7 @@ namespace SocketJack.Unity
         }
 
         /// <summary>Sends player intent. Server input handlers must still validate game rules, movement speed and cooldowns.</summary>
-        public bool SendInput(ulong objectId, byte[] payload, DeliveryMode delivery = DeliveryMode.UnreliableSequenced)
+        public bool SendInput(ulong objectId, byte[] payload, DeliveryMode delivery = DeliveryMode.ReliableUnordered)
         {
             ThrowIfDisposed();
             var bytes = SessionWire.Copy(payload, _options.MaxMessageBytes, nameof(payload));
@@ -71,7 +71,7 @@ namespace SocketJack.Unity
         }
 
         /// <summary>Returns false on backpressure. Retry reliable application messages after a later Update.</summary>
-        public bool SendMessage(ushort messageId, byte[] payload, DeliveryMode delivery = DeliveryMode.ReliableOrdered, byte channel = 3)
+        public bool SendMessage(ushort messageId, byte[] payload, DeliveryMode delivery = DeliveryMode.ReliableUnordered, byte channel = 3)
         {
             ThrowIfDisposed();
             if (channel < 3) throw new ArgumentOutOfRangeException(nameof(channel), "Channels 0, 1 and 2 are reserved for session traffic.");

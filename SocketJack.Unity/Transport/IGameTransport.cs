@@ -6,8 +6,13 @@ namespace SocketJack.Unity.Transport
     /// <summary>Wire protocol selected explicitly; transports never silently downgrade.</summary>
     public enum TransportType { Udp = 0, Tcp = 1, Custom = 255 }
 
-    /// <summary>Delivery contract. Channels have independent ordering histories.</summary>
-    public enum DeliveryMode : byte { Unreliable = 0, UnreliableSequenced = 1, ReliableOrdered = 2 }
+    /// <summary>Delivery contract. Reliability is unordered by default; ordering is explicitly requested.
+    /// Channels and reliable delivery modes have independent sequence histories.</summary>
+    public enum DeliveryMode : byte
+    {
+        Unreliable = 0, UnreliableSequenced = 1, ReliableOrdered = 2,
+        ReliableUnordered = 3, Reliable = ReliableUnordered
+    }
 
     public enum TransportEventType { Connected, Data, Disconnected }
 
@@ -21,7 +26,7 @@ namespace SocketJack.Unity.Transport
         public byte Channel { get; }
         public string Reason { get; }
         public TransportEvent(TransportEventType type, ulong peerId, byte[] payload = null,
-            DeliveryMode delivery = DeliveryMode.ReliableOrdered, byte channel = 0, string reason = "")
+            DeliveryMode delivery = DeliveryMode.ReliableUnordered, byte channel = 0, string reason = "")
         { Type = type; PeerId = peerId; Payload = payload ?? Array.Empty<byte>(); Delivery = delivery; Channel = channel; Reason = reason ?? ""; }
     }
 
@@ -40,7 +45,7 @@ namespace SocketJack.Unity.Transport
         void StartServer(IPEndPoint endpoint);
         void StartClient(IPEndPoint endpoint, byte[] connectionData = null);
         void Poll(int maxEvents = 256);
-        bool Send(ulong peerId, ArraySegment<byte> payload, DeliveryMode delivery = DeliveryMode.ReliableOrdered, byte channel = 0);
+        bool Send(ulong peerId, ArraySegment<byte> payload, DeliveryMode delivery = DeliveryMode.ReliableUnordered, byte channel = 0);
         void Disconnect(ulong peerId, string reason = "Disconnected");
         void Stop();
     }
@@ -50,6 +55,12 @@ namespace SocketJack.Unity.Transport
     {
         public int MaxPeers { get; set; } = 4096;
         public int MaxPacketSize { get; set; } = 1200;
+        /// <summary>Full IP packet budget. UDP rejects configurations that could fragment at this budget.</summary>
+        public int PathMtu { get; set; } = PacketBudget.DefaultPathMtu;
+        /// <summary>20 for IPv4 only, or the conservative IPv6 header budget of 40 (default).</summary>
+        public int IpHeaderBytes { get; set; } = 40;
+        /// <summary>Additional bytes reserved for IP options/extensions, tunnels, or other encapsulation.</summary>
+        public int ExtraPacketOverheadBytes { get; set; }
         public int Channels { get; set; } = 4;
         public int MaxPendingReliablePerPeer { get; set; } = 256;
         public int MaxQueuedBytesPerPeer { get; set; } = 256 * 1024;
@@ -70,11 +81,18 @@ namespace SocketJack.Unity.Transport
         internal void Validate()
         {
             if (MaxPeers < 1 || MaxPeers > 65535 || MaxPacketSize < 256 || MaxPacketSize > 1400 ||
+                PathMtu < 256 || PathMtu > 65535 || (IpHeaderBytes != 20 && IpHeaderBytes != 40) || ExtraPacketOverheadBytes < 0 || ExtraPacketOverheadBytes > PathMtu ||
                 Channels < 1 || Channels > 32 || MaxPendingReliablePerPeer < 1 || MaxPendingReliablePerPeer > 65535 ||
                 MaxQueuedBytesPerPeer < MaxPacketSize || MaxConnectionDataSize < 0 || MaxConnectionDataSize > 512 ||
                 MaxConnectionDataSize > MaxPacketSize - 128 || ConnectTimeout <= TimeSpan.Zero || PeerTimeout <= TimeSpan.Zero ||
                 HeartbeatInterval <= TimeSpan.Zero || HeartbeatInterval >= PeerTimeout || RetransmitInterval <= TimeSpan.Zero || MaxRetransmits < 1)
                 throw new ArgumentOutOfRangeException(nameof(TransportOptions), "Invalid transport limits or timing options.");
+        }
+
+        internal void ValidateUdp()
+        {
+            if (MaxPacketSize > PathMtu - IpHeaderBytes - PacketBudget.UdpHeaderSize - ExtraPacketOverheadBytes)
+                throw new ArgumentOutOfRangeException(nameof(MaxPacketSize), "The complete UDP/IP packet exceeds PathMtu after all reserved headers.");
         }
     }
 

@@ -58,10 +58,11 @@ namespace SocketJack.Unity.Tests
             client.Connect(hub.Endpoint); Pump(server, client); ulong id = client.LocalPeerId;
             int inputs = 0; server.InputReceived += _ => inputs++;
             var forged = Packet(5, w => { w.Write(obj.Id); w.Write((ushort)0); });
-            transport.Send(0, new ArraySegment<byte>(forged), DeliveryMode.UnreliableSequenced, 2); server.Update(0);
+            transport.Send(0, new ArraySegment<byte>(Frame(forged, DeliveryMode.UnreliableSequenced, 2)), DeliveryMode.UnreliableSequenced, 2); server.Update(0);
             Assert.AreEqual(0, inputs); Assert.IsFalse(server.Peers.Contains(id));
             using var next = new NetworkClient(hub.NewClient()); next.Connect(hub.Endpoint); Pump(server, next); id = next.LocalPeerId;
-            ((MemoryTransport)next.Transport).Send(0, new ArraySegment<byte>(Packet(3, w => w.Write(obj.Id))), DeliveryMode.ReliableOrdered, 0);
+            ((MemoryTransport)((ObjectFrameTransport)next.Transport).InnerTransport).Send(0,
+                new ArraySegment<byte>(Frame(Packet(3, w => w.Write(obj.Id)), DeliveryMode.ReliableOrdered, 0)), DeliveryMode.ReliableOrdered, 0);
             server.Update(0); Assert.IsFalse(server.Peers.Contains(id)); Assert.IsTrue(server.Objects.ContainsKey(obj.Id));
         }
 
@@ -89,10 +90,10 @@ namespace SocketJack.Unity.Tests
             CollectionAssert.AreEqual(new byte[] { 1 }, client.Objects[obj.Id].State);
             hub.Server.DropStates = false; Pump(server, client, 8); CollectionAssert.AreEqual(new byte[] { 2 }, client.Objects[obj.Id].State);
             var stale = Packet(4, w => { w.Write(obj.Id); w.Write((uint)1); w.Write((uint)0); w.Write((ushort)1); w.Write((byte)99); });
-            transport.Incoming.Enqueue(new TransportEvent(TransportEventType.Data, 0, stale, DeliveryMode.UnreliableSequenced, 1)); client.Update(0);
+            transport.Incoming.Enqueue(new TransportEvent(TransportEventType.Data, 0, Frame(stale, DeliveryMode.UnreliableSequenced, 1), DeliveryMode.UnreliableSequenced, 1)); client.Update(0);
             CollectionAssert.AreEqual(new byte[] { 2 }, client.Objects[obj.Id].State);
             server.Despawn(obj.Id); Pump(server, client);
-            transport.Incoming.Enqueue(new TransportEvent(TransportEventType.Data, 0, stale, DeliveryMode.UnreliableSequenced, 1)); client.Update(0);
+            transport.Incoming.Enqueue(new TransportEvent(TransportEventType.Data, 0, Frame(stale, DeliveryMode.UnreliableSequenced, 1), DeliveryMode.UnreliableSequenced, 1)); client.Update(0);
             Assert.AreEqual(0, client.Objects.Count);
         }
 
@@ -105,7 +106,7 @@ namespace SocketJack.Unity.Tests
             for (int i = 0; i < 3; i++) client.SendMessage(1, Array.Empty<byte>());
             server.Update(0); Assert.IsFalse(server.Peers.Contains(id));
             var transport = hub.NewClient(); using var next = new NetworkClient(transport); next.Connect(hub.Endpoint); Pump(server, next); id = next.LocalPeerId;
-            transport.Send(0, new ArraySegment<byte>(new byte[] { 1, 6, 0, 0, 255, 255 }), DeliveryMode.ReliableOrdered, 3);
+            transport.Send(0, new ArraySegment<byte>(Frame(new byte[] { 1, 6, 0, 0, 255, 255 }, DeliveryMode.ReliableOrdered, 3)), DeliveryMode.ReliableOrdered, 3);
             server.Update(0); Assert.IsFalse(server.Peers.Contains(id));
         }
 
@@ -121,13 +122,13 @@ namespace SocketJack.Unity.Tests
             Assert.AreEqual(2000, server.Peers.Count);
             foreach (var peer in peers)
             {
-                var spawnPackets = peer.Incoming.Where(e => e.Type == TransportEventType.Data && e.Payload.Length > 2 && e.Payload[1] == 2).ToArray();
+                var spawnPackets = peer.Incoming.Where(e => e.Type == TransportEventType.Data && e.Payload.Length > 30 && e.Payload[29] == 2).ToArray();
                 Assert.IsTrue(spawnPackets.Length >= 5);
-                foreach (var packet in spawnPackets) Assert.AreEqual((int)(peer.LocalPeerId % 100), BitConverter.ToInt32(packet.Payload, 22));
+                foreach (var packet in spawnPackets) Assert.AreEqual((int)(peer.LocalPeerId % 100), BitConverter.ToInt32(packet.Payload, 50));
                 peer.Incoming.Clear();
             }
             server.Update(.1, 4096);
-            foreach (var peer in peers) Assert.AreEqual(2, peer.Incoming.Count(e => e.Type == TransportEventType.Data && e.Payload[1] == 4));
+            foreach (var peer in peers) Assert.AreEqual(2, peer.Incoming.Count(e => e.Type == TransportEventType.Data && e.Payload[29] == 4));
             Assert.AreEqual(4000, peers.Sum(p => p.Incoming.Count));
         }
 
@@ -139,8 +140,10 @@ namespace SocketJack.Unity.Tests
             NetworkMessage received = null; server.MessageReceived += message => received = message;
             Assert.IsTrue(client.SendMessage(42, new byte[] { 1, 2 })); server.Update(0);
             Assert.AreEqual((ushort)42, received.MessageId); Assert.AreEqual((byte)3, received.Channel);
-            hub.Server.BlockReliable = true; Assert.IsFalse(server.SendMessage(client.LocalPeerId, 3, new byte[0]));
-            hub.Server.BlockReliable = false; NetworkMessage answer = null; client.MessageReceived += message => answer = message;
+            hub.Server.BlockReliable = true; Assert.IsTrue(server.SendMessage(client.LocalPeerId, 2, new byte[0]));
+            bool rejected = false; for (int i = 0; i < 200; i++) if (!server.SendMessage(client.LocalPeerId, 2, new byte[0])) rejected = true;
+            Assert.IsTrue(rejected); hub.Server.BlockReliable = false; Pump(server, client, 8);
+            NetworkMessage answer = null; client.MessageReceived += message => answer = message;
             Assert.IsTrue(server.SendMessage(client.LocalPeerId, 3, new byte[] { 4 })); client.Update(0);
             Assert.AreEqual((ushort)3, answer.MessageId); CollectionAssert.AreEqual(new byte[] { 4 }, answer.Payload);
         }
@@ -153,8 +156,8 @@ namespace SocketJack.Unity.Tests
             int messages = 0; client.MessageReceived += _ => messages++;
             var state = Packet(4, w => { w.Write((ulong)1); w.Write((uint)9); w.Write((uint)9); w.Write((ushort)0); });
             var custom = Packet(6, w => { w.Write((ushort)7); w.Write((ushort)0); });
-            transport.Incoming.Enqueue(new TransportEvent(TransportEventType.Data, 0, state, DeliveryMode.UnreliableSequenced, 1));
-            transport.Incoming.Enqueue(new TransportEvent(TransportEventType.Data, 0, custom, DeliveryMode.ReliableOrdered, 3));
+            transport.Incoming.Enqueue(new TransportEvent(TransportEventType.Data, 0, Frame(state, DeliveryMode.UnreliableSequenced, 1), DeliveryMode.UnreliableSequenced, 1));
+            transport.Incoming.Enqueue(new TransportEvent(TransportEventType.Data, 0, Frame(custom, DeliveryMode.ReliableOrdered, 3), DeliveryMode.ReliableOrdered, 3));
             client.Update(0); Assert.AreEqual(0, messages); Assert.IsFalse(client.IsConnected);
             Pump(server, client); Assert.IsTrue(client.IsConnected); Assert.AreEqual(1, messages);
         }
@@ -201,10 +204,12 @@ namespace SocketJack.Unity.Tests
         [TestMethod]
         public void OverflowingOwnerCannotPublishSpawnAfterItsCleanupDespawn()
         {
-            var hub = new MemoryHub(); using var server = new NetworkServer(hub.Server, new NetworkSessionOptions { MaxQueuedMessagesPerPeer = 2 });
+            var hub = new MemoryHub(); using var server = new NetworkServer(new ObjectFrameTransport(hub.Server,
+                new ObjectFrameOptions { MaxQueuedMessagesPerPeer = 1 }), new NetworkSessionOptions { MaxQueuedMessagesPerPeer = 2 });
             server.Start(hub.Endpoint); using var owner = new NetworkClient(hub.NewClient()); owner.Connect(hub.Endpoint); Pump(server, owner);
             using var observer = new NetworkClient(hub.NewClient()); observer.Connect(hub.Endpoint); Pump(server, observer);
             ulong id = owner.LocalPeerId; hub.Server.BlockedPeers.Add(id);
+            server.Spawn(1, id); Pump(server, observer);
             server.Spawn(1, id); Pump(server, observer);
             server.Spawn(1, id); Pump(server, observer);
             server.Spawn(1, id); Pump(server, observer);
@@ -219,7 +224,7 @@ namespace SocketJack.Unity.Tests
             using var client = new NetworkClient(transport); client.Connect(hub.Endpoint); Pump(server, client);
             int disconnects = 0;
             client.Disconnected += _ => { if (++disconnects == 1) client.Connect(hub.Endpoint); };
-            transport.Incoming.Enqueue(new TransportEvent(TransportEventType.Data, 0, new byte[] { 255, 255 }));
+            transport.Incoming.Enqueue(new TransportEvent(TransportEventType.Data, 0, Frame(new byte[] { 255, 255 }, DeliveryMode.ReliableUnordered, 0)));
             client.Update(0);
             Assert.AreEqual(1, disconnects); Assert.IsTrue(client.IsRunning);
             Pump(server, client); Assert.IsTrue(client.IsConnected);
@@ -234,7 +239,7 @@ namespace SocketJack.Unity.Tests
             int disconnects = 0, cleanupCallbacks = 0;
             client.Disconnected += _ => disconnects++;
             client.ObjectDespawned += _ => { if (++cleanupCallbacks == 1) client.Connect(hub.Endpoint); };
-            transport.Incoming.Enqueue(new TransportEvent(TransportEventType.Data, 0, new byte[] { 255, 255 }));
+            transport.Incoming.Enqueue(new TransportEvent(TransportEventType.Data, 0, Frame(new byte[] { 255, 255 }, DeliveryMode.ReliableUnordered, 0)));
             client.Update(0);
             Assert.AreEqual(1, cleanupCallbacks); Assert.AreEqual(0, disconnects); Assert.IsTrue(client.IsRunning);
             Pump(server, client); Assert.IsTrue(client.IsConnected); Assert.AreEqual(1, client.Objects.Count);
@@ -242,6 +247,13 @@ namespace SocketJack.Unity.Tests
 
         private static byte[] Packet(byte kind, Action<BinaryWriter> fields)
         { using var stream = new MemoryStream(); using var writer = new BinaryWriter(stream); writer.Write((byte)1); writer.Write(kind); fields(writer); return stream.ToArray(); }
+        private static byte[] Frame(byte[] payload, DeliveryMode mode, byte channel)
+        {
+            using var stream = new MemoryStream(); using var writer = new BinaryWriter(stream);
+            writer.Write((uint)0x464f4a53); writer.Write((byte)1); writer.Write((byte)mode); writer.Write(channel); writer.Write((byte)0);
+            writer.Write((ulong)900000); writer.Write(mode == DeliveryMode.ReliableOrdered ? (uint)1 : (uint)900000);
+            writer.Write((ushort)0); writer.Write((ushort)1); writer.Write(payload.Length); writer.Write(payload); return stream.ToArray();
+        }
         private static void Pump(NetworkServer server, NetworkClient client, int count = 4)
         { for (int i = 0; i < count; i++) { server.Update(1d / 30); client.Update(1d / 30); } }
 
@@ -280,7 +292,7 @@ namespace SocketJack.Unity.Tests
             { for (int i = 0; i < maxEvents && Incoming.Count > 0; i++) EventReceived?.Invoke(Incoming.Dequeue()); }
             public bool Send(ulong peerId, ArraySegment<byte> payload, DeliveryMode delivery = DeliveryMode.ReliableOrdered, byte channel = 0)
             {
-                if (!IsRunning || (delivery == DeliveryMode.ReliableOrdered && (BlockReliable || BlockedPeers.Contains(peerId)))) return false;
+                if (!IsRunning || ((delivery == DeliveryMode.ReliableOrdered || delivery == DeliveryMode.ReliableUnordered) && (BlockReliable || BlockedPeers.Contains(peerId)))) return false;
                 if (DropStates && delivery == DeliveryMode.UnreliableSequenced) return true;
                 if (IsServer)
                 {

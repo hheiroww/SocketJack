@@ -152,6 +152,58 @@ namespace SocketJack.Unity.Tests
             Assert.AreEqual(0, server.PeerCount);
         }
 
+        [TestMethod]
+        public void TcpIncompatibleEffectiveFrameBudgetsNeverReportConnected()
+        {
+            using var server = new TcpGameTransport();
+            using var client = new TcpGameTransport(new TransportOptions { ExtraPacketOverheadBytes = 32 });
+            int connected = 0;
+            server.EventReceived += e => { if (e.Type == TransportEventType.Connected) connected++; };
+            client.EventReceived += e => { if (e.Type == TransportEventType.Connected) connected++; };
+            server.StartServer(Any);
+            client.StartClient(server.LocalEndPoint);
+            Pump(() => !client.IsRunning, server, client);
+            Assert.AreEqual(0, connected);
+            Assert.AreEqual(0, server.PeerCount);
+        }
+
+        [TestMethod]
+        public void TcpDefaultReliabilityPreservesUnorderedContractMetadataOverItsOrderedStream()
+        {
+            using var server = new TcpGameTransport();
+            using var client = new TcpGameTransport();
+            var received = new List<TransportEvent>();
+            server.EventReceived += e => { if (e.Type == TransportEventType.Data) received.Add(e); };
+            server.StartServer(Any);
+            client.StartClient(server.LocalEndPoint);
+            Pump(() => client.LocalPeerId != 0, server, client);
+            IGameTransport throughInterface = client;
+            Assert.IsTrue(throughInterface.Send(0, new ArraySegment<byte>(new byte[] { 1 })));
+            Assert.IsTrue(client.Send(0, new ArraySegment<byte>(new byte[] { 2 })));
+            Pump(() => received.Count == 2, server, client);
+            Assert.AreEqual(DeliveryMode.ReliableUnordered, received[0].Delivery);
+            Assert.AreEqual(DeliveryMode.ReliableUnordered, received[1].Delivery);
+            // TCP necessarily preserves byte-stream order even for the unordered API request.
+            CollectionAssert.AreEqual(new byte[] { 1 }, received[0].Payload);
+            CollectionAssert.AreEqual(new byte[] { 2 }, received[1].Payload);
+        }
+
+        [TestMethod]
+        public void TcpVersionOneHandshakeCannotEstablishVersionTwoSession()
+        {
+            using var server = new TcpGameTransport();
+            int admitted = 0;
+            server.EventReceived += e => { if (e.Type == TransportEventType.Connected) admitted++; };
+            server.StartServer(Any);
+            using var oldClient = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            oldClient.Connect(server.LocalEndPoint);
+            server.Poll();
+            // Previous handshake: body kind/channel/delivery, SJG1, maxpacket1200, channels4.
+            oldClient.Send(new byte[] { 10, 0, 0, 0, 1, 0, 2, 0x53, 0x4a, 0x47, 1, 0xb0, 4, 4 });
+            Pump(() => server.PeerCount == 0, server);
+            Assert.AreEqual(0, admitted);
+        }
+
         private static void Pump(Func<bool> done, params IGameTransport[] transports)
         {
             var watch = Stopwatch.StartNew();

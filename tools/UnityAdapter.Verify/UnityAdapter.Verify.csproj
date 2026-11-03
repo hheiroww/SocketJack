@@ -9,8 +9,28 @@
   <ItemGroup>
     <ProjectReference Include="../../SocketJack.Unity/SocketJack.Unity.csproj" />
     <Compile Include="../../SocketJack.Unity/Unity/*.cs" />
-    <Reference Include="UnityEngine.CoreModule">
+    <Reference Include="UnityEngine.CoreModule" Condition="'$(IncludePhysicsSample)' != 'true'">
       <HintPath>$(UnityManagedPath)/UnityEngine/UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.PhysicsModule" Condition="'$(IncludePhysicsSample)' != 'true'">
+      <HintPath>$(UnityManagedPath)/UnityEngine/UnityEngine.PhysicsModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule" Condition="'$(IncludePhysicsSample)' != 'true'">
+      <HintPath>$(UnityManagedPath)/UnityEngine/UnityEngine.InputLegacyModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup Condition="'$(IncludePhysicsSample)' == 'true'">
+    <Compile Include="../../Examples/UnityPhysics/Assets/Scripts/*.cs" />
+    <Compile Include="../../Examples/UnityPhysics/Assets/Editor/*.cs" />
+    <Reference Include="UnityEditor">
+      <HintPath>$(UnityManagedPath)/UnityEditor.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>$(UnityManagedPath)/UnityEngine.dll</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>

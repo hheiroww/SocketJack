@@ -158,6 +158,8 @@ jobs:
           dotnet-version: 8.0.x
       - name: Test multiplayer and transport contracts
         run: dotnet test SocketJack.Unity.Tests/SocketJack.Unity.Tests.csproj -c Release
+      - name: Verify shared TCP and UDP reconstruction security
+        run: dotnet test SocketJack.Tests/SocketJack.Tests.csproj -c Release -p:BuildPackage=false --filter "FullyQualifiedName~AuthorizationTests|FullyQualifiedName~ObjectRebuilderTests|FullyQualifiedName~BinarySegmentedDecodingTests"
       - name: Pack portable Unity library
         if: matrix.os == 'ubuntu-latest'
         run: dotnet pack SocketJack.Unity/SocketJack.Unity.csproj -c Release -p:RepositoryCommit=${{ github.sha }} -o ./artifacts/unity
@@ -226,13 +228,13 @@ jobs:
           $uri = "https://api.nuget.org/v3-flatcontainer/socketjack.unity/$normalized/socketjack.unity.$normalized.nupkg"
           $download = Join-Path $env:RUNNER_TEMP 'socketjack-unity-feed.nupkg'
           $verified = $false
-          for ($attempt = 0; $attempt -lt 30; $attempt++) {
+          for ($attempt = 0; $attempt -lt 120; $attempt++) {
             try {
               Invoke-WebRequest $uri -OutFile $download
               ./tools/Verify-UnityPackage.ps1 -Package $download -ExpectedPackage $package[0].FullName
               $verified = $true
               if ($verified) { break }
-            } catch { }
+            } catch { Write-Host "NuGet download verification pending (attempt $($attempt + 1)/120): $($_.Exception.Message)" }
             Start-Sleep -Seconds 10
           }
           if (!$verified) { throw 'Published NuGet package download was not verified.' }

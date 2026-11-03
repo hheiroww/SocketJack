@@ -54,39 +54,18 @@ namespace SocketJack.Net {
 
     /// <summary>Per-connection, bounded legacy reassembly. A segment ID from another client never joins this buffer.</summary>
     internal sealed class InboundSegmentBuffer {
-        private sealed class Entry {
-            internal long Count;
-            internal DateTime Started = DateTime.UtcNow;
-            internal Dictionary<long, byte[]> Parts = new Dictionary<long, byte[]>();
-            internal int Bytes;
-        }
-        private readonly Dictionary<string, Entry> entries = new Dictionary<string, Entry>(StringComparer.Ordinal);
-        private long bytes;
+        private readonly ObjectRebuilder rebuilder = new ObjectRebuilder();
         internal byte[] Add(Segment segment, int maximum) {
-            lock (entries) {
-                foreach (string expired in entries.Where(p => DateTime.UtcNow - p.Value.Started > TimeSpan.FromSeconds(30)).Select(p => p.Key).ToArray()) {
-                    bytes -= entries[expired].Bytes; entries.Remove(expired);
-                }
+            lock (rebuilder) {
+                rebuilder.Prune();
                 if (segment == null || string.IsNullOrEmpty(segment.SID) || segment.SID.Length > 128 ||
                     segment.Count < 1 || segment.Count > 65536 || segment.Index < 1 || segment.Index > segment.Count ||
                     segment.Data == null || segment.Data.Length > ((long)maximum + 2) / 3 * 4) throw InboundMessageSecurity.Denied();
                 byte[] data = Convert.FromBase64String(segment.Data);
-                if (data.Length == 0 || bytes + data.Length > maximum) throw InboundMessageSecurity.Denied();
-                if (!entries.TryGetValue(segment.SID, out var entry)) {
-                    if (entries.Count >= 8) throw InboundMessageSecurity.Denied();
-                    entries.Add(segment.SID, entry = new Entry { Count = segment.Count });
-                }
-                if (entry.Count != segment.Count || entry.Parts.ContainsKey(segment.Index)) throw InboundMessageSecurity.Denied();
-                entry.Parts.Add(segment.Index, data); entry.Bytes += data.Length; bytes += data.Length;
-                if (entry.Parts.Count != entry.Count) return null;
-                var output = new byte[entry.Bytes]; int offset = 0;
-                for (long index = 1; index <= entry.Count; index++) {
-                    var part = entry.Parts[index]; Buffer.BlockCopy(part, 0, output, offset, part.Length); offset += part.Length;
-                }
-                entries.Remove(segment.SID); bytes -= entry.Bytes;
-                return output;
+                try { return rebuilder.Add(segment.SID, (int)segment.Count, (int)segment.Index - 1, data, maximum); }
+                catch (InvalidDataException) { throw InboundMessageSecurity.Denied(); }
             }
         }
-        internal void Clear() { lock (entries) { entries.Clear(); bytes = 0; } }
+        internal void Clear() { lock (rebuilder) rebuilder.Clear(); }
     }
 }

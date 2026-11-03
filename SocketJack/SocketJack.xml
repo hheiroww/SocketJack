@@ -3668,6 +3668,10 @@
             <param name="ForwardPortIfAvailable"></param>
             <returns></returns>
         </member>
+        <member name="T:SocketJack.Net.ObjectRebuilder">
+            <summary>Connection-scoped raw object reconstruction shared by stream and datagram receivers.
+            Limits include all incomplete objects in this instance, not merely one object.</summary>
+        </member>
         <member name="T:SocketJack.Net.P2P.ConnectionRefusedArgs">
             <summary>
             Event Arguments for when a connection is refused.

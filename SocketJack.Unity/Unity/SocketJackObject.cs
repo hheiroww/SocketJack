@@ -1,0 +1,243 @@
+using System;
+using System.IO;
+using SocketJack.Unity.Physics;
+using SocketJack.Unity.Transport;
+using UnityEngine;
+using NumericsVector3 = System.Numerics.Vector3;
+using NumericsQuaternion = System.Numerics.Quaternion;
+
+namespace SocketJack.Unity.Components
+{
+    /// <summary>Opt-in Rigidbody networking. Every peer simulates local physics from compact owner intent.
+    /// The server relays validated input and sends sparse binary keyframes to repair divergence.
+    /// Do not combine this component with NetworkTransform on the same object.</summary>
+    [DisallowMultipleComponent]
+    [RequireComponent(typeof(NetworkIdentity), typeof(Rigidbody))]
+    public sealed class SocketJackObject : MonoBehaviour
+    {
+        internal const ushort InputRelayMessageId = 60001;
+        [Header("Input and local physics")]
+        [SerializeField] private bool readKeyboard = true;
+        [SerializeField] private bool simulatePhysics = true;
+        [SerializeField, Min(1)] private float inputSendRate = 30;
+        [SerializeField] private bool sendInputOnChange = true;
+        [SerializeField, Range(2, 20)] private float inputKeepAliveRate = 5;
+        [SerializeField, Min(0)] private float acceleration = 25;
+        [SerializeField, Min(0)] private float maxSpeed = 6;
+        [SerializeField, Min(0)] private float jumpVelocity = 5;
+        [SerializeField, Min(0.1f)] private float inputTimeout = 0.5f;
+        [Header("Sparse authority keyframes")]
+        [SerializeField, Range(1, 20)] private float keyframeRate = 5;
+        [SerializeField] private DeliveryMode inputDelivery = DeliveryMode.ReliableUnordered;
+        [Header("Correction and visual smoothing")]
+        [SerializeField] private bool reconcile = true;
+        [SerializeField, Min(0.02f)] private float correctionTime = 0.15f;
+        [SerializeField, Min(0)] private float maxCorrectionSpeed = 3;
+        [SerializeField, Min(0)] private float correctionDeadZone = 0.08f;
+        [SerializeField, Min(0.1f)] private float snapDistance = 5;
+        [SerializeField, Range(0, 0.5f)] private float maxExtrapolation = 0.25f;
+        [SerializeField, Range(0, 0.25f)] private float estimatedOneWayLatency = 0.02f;
+        [SerializeField, Range(0, 1)] private float ownerCorrectionWeight = 0.35f;
+        [SerializeField, Min(0)] private float smoothingSpeed = 15;
+        [SerializeField] private bool interpolateRigidbody = true;
+        [SerializeField] private Transform visual = null;
+        private NetworkIdentity identity;
+        private Rigidbody body;
+        private PhysicsInput intent;
+        private PhysicsSnapshot authoritative;
+        private Vector2 localAxes;
+        private bool localJump, localJumpPredicted, jumpPending, hasInput, hasSnapshot;
+        private uint nextSequence, lastAcceptedSequence, lastRelaySequence, physicsTick;
+        private bool acceptedAnySequence, relayedAnySequence;
+        private double nextSend, nextKeepAlive, nextKeyframe, lastInputAt, snapshotReceivedAt;
+        private Vector2 lastSentAxes;
+        private Vector3 visualOrigin;
+        private Quaternion visualRotation;
+        private Vector3 previousVisualPosition;
+        private bool observedVisual;
+        public long InputsSent { get; private set; }
+        public long InputsReceived { get; private set; }
+        public long KeyframesReceived { get; private set; }
+        public long HardCorrections { get; private set; }
+        public float LastPositionError { get; private set; }
+        public float PeakPositionError { get; private set; }
+        public float PeakNetworkVelocityCorrection { get; private set; }
+        public float PeakVisualStep { get; private set; }
+        public bool IsOwner => identity != null && identity.IsOwner;
+        public float KeyframeRate { get => keyframeRate; set => keyframeRate = Mathf.Clamp(value, 1, 20); }
+        public bool ReadKeyboard { get => readKeyboard; set => readKeyboard = value; }
+        public Transform Visual
+        {
+            get => visual;
+            set { visual = value; if (visual != null) { visualOrigin = visual.localPosition; visualRotation = visual.localRotation; } }
+        }
+
+        private void Awake()
+        {
+            identity = GetComponent<NetworkIdentity>(); body = GetComponent<Rigidbody>();
+            if (interpolateRigidbody) body.interpolation = RigidbodyInterpolation.Interpolate;
+            if (visual != null) { visualOrigin = visual.localPosition; visualRotation = visual.localRotation; }
+            if (GetComponent<NetworkTransform>() != null)
+                Debug.LogError("SocketJackObject and NetworkTransform must not control the same Rigidbody.", this);
+        }
+
+        /// <summary>Feed a game input action or test harness. Keyboard input can be disabled in the Inspector.</summary>
+        public void SetInput(float horizontal, float vertical, bool jump = false)
+        {
+            if (!Finite(horizontal) || !Finite(vertical)) return;
+            localAxes = Vector2.ClampMagnitude(new Vector2(horizontal, vertical), 1);
+            localJump |= jump;
+        }
+        private void Update()
+        {
+            if (identity == null || !identity.IsOwner) return;
+            if (readKeyboard)
+            {
+                float h = (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow) ? 1 : 0) -
+                    (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow) ? 1 : 0);
+                float v = (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow) ? 1 : 0) -
+                    (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow) ? 1 : 0);
+                SetInput(h, v, Input.GetKeyDown(KeyCode.Space));
+            }
+            // Prediction is immediate; input transmission has its own bounded rate.
+            intent.Horizontal = localAxes.x; intent.Vertical = localAxes.y;
+            if (localJump && !localJumpPredicted) { jumpPending = true; localJumpPredicted = true; }
+            hasInput = true; lastInputAt = Time.unscaledTimeAsDouble;
+            double now = Time.unscaledTimeAsDouble;
+            if (now < nextSend) return;
+            bool changed = (localAxes - lastSentAxes).sqrMagnitude > 1f / (32767f * 32767f);
+            if (sendInputOnChange && !changed && !localJump && now < nextKeepAlive) return;
+            nextSend = now + 1d / Math.Max(1, inputSendRate);
+            var input = new PhysicsInput { Sequence = unchecked(++nextSequence), Tick = physicsTick,
+                Horizontal = localAxes.x, Vertical = localAxes.y, Jump = localJump };
+            byte[] bytes = PhysicsBinarySerializer.SerializeInput(input);
+            if (identity.Manager.Client.SendInput(identity.ObjectId, bytes, inputDelivery))
+            {
+                InputsSent++; lastSentAxes = localAxes; nextKeepAlive = now + 1d / Math.Max(2, inputKeepAliveRate);
+                localJump = false; localJumpPredicted = false;
+            }
+        }
+
+        internal bool ReceiveOwnerInput(byte[] bytes)
+        {
+            PhysicsInput input;
+            try { input = PhysicsBinarySerializer.DeserializeInput(bytes); }
+            catch (Exception error) when (error is ArgumentException || error is IOException || error is InvalidDataException) { return false; }
+            if (acceptedAnySequence && !PhysicsReconciler.IsNewer(input.Sequence, lastAcceptedSequence)) return false;
+            acceptedAnySequence = true; lastAcceptedSequence = input.Sequence;
+            ApplyIntent(input); InputsReceived++; return true;
+        }
+        internal void ReceiveRelayedInput(byte[] bytes)
+        {
+            if (identity == null || identity.IsServer || identity.IsOwner) return;
+            PhysicsInput input;
+            try { input = PhysicsBinarySerializer.DeserializeInput(bytes); }
+            catch (Exception error) when (error is ArgumentException || error is IOException || error is InvalidDataException) { return; }
+            if (relayedAnySequence && !PhysicsReconciler.IsNewer(input.Sequence, lastRelaySequence)) return;
+            relayedAnySequence = true; lastRelaySequence = input.Sequence;
+            ApplyIntent(input); InputsReceived++;
+        }
+        private void ApplyIntent(PhysicsInput input)
+        {
+            intent = input; hasInput = true; lastInputAt = Time.unscaledTimeAsDouble;
+            if (input.Jump) jumpPending = true;
+        }
+        private void FixedUpdate()
+        {
+            physicsTick = unchecked(physicsTick + 1);
+            if (!simulatePhysics || identity == null || identity.Manager == null || body.isKinematic) return;
+            if (hasInput && Time.unscaledTimeAsDouble - lastInputAt <= Math.Max(inputTimeout, 2f / Math.Max(2, inputKeepAliveRate)))
+            {
+                var direction = Vector3.ClampMagnitude(new Vector3(intent.Horizontal, 0, intent.Vertical), 1);
+                body.AddForce(direction * Mathf.Max(0, acceleration), ForceMode.Acceleration);
+                var velocity = body.velocity;
+                var planar = Vector3.ClampMagnitude(new Vector3(velocity.x, 0, velocity.z), Mathf.Max(0, maxSpeed));
+                body.velocity = new Vector3(planar.x, velocity.y, planar.z);
+                if (jumpPending && Grounded()) body.velocity = new Vector3(body.velocity.x, jumpVelocity, body.velocity.z);
+            }
+            jumpPending = false;
+            if (!identity.IsServer && hasSnapshot && reconcile) Reconcile();
+        }
+        private bool Grounded()
+        {
+            var collider = GetComponent<Collider>();
+            float distance = collider == null ? 0.6f : collider.bounds.extents.y + 0.12f;
+            return UnityEngine.Physics.Raycast(body.position, Vector3.down, distance, ~0, QueryTriggerInteraction.Ignore);
+        }
+        internal bool CaptureEligible(double now)
+        {
+            if (now < nextKeyframe) return false;
+            nextKeyframe = now + 1d / Math.Max(1, keyframeRate); return true;
+        }
+        internal byte[] CaptureState()
+        {
+            if (body == null) body = GetComponent<Rigidbody>();
+            return PhysicsBinarySerializer.SerializeSnapshot(new PhysicsSnapshot { Tick = physicsTick,
+                LastInputSequence = lastAcceptedSequence, Time = Time.fixedTimeAsDouble,
+                Position = ToNumerics(body.position), Rotation = ToNumerics(body.rotation),
+                Velocity = ToNumerics(body.velocity), AngularVelocity = ToNumerics(body.angularVelocity) });
+        }
+        internal void ApplyState(byte[] bytes, bool immediate)
+        {
+            PhysicsSnapshot snapshot;
+            try { snapshot = PhysicsBinarySerializer.DeserializeSnapshot(bytes); }
+            catch (Exception error) when (error is ArgumentException || error is IOException || error is InvalidDataException) { return; }
+            if (hasSnapshot && !PhysicsReconciler.IsNewer(snapshot.Tick, authoritative.Tick)) return;
+            authoritative = snapshot; hasSnapshot = true; snapshotReceivedAt = Time.unscaledTimeAsDouble; KeyframesReceived++;
+            if (immediate)
+            {
+                transform.SetPositionAndRotation(ToUnity(snapshot.Position), ToUnity(snapshot.Rotation));
+                body.position = ToUnity(snapshot.Position); body.rotation = ToUnity(snapshot.Rotation);
+                body.velocity = ToUnity(snapshot.Velocity); body.angularVelocity = ToUnity(snapshot.AngularVelocity);
+            }
+        }
+        private void Reconcile()
+        {
+            double age = Time.unscaledTimeAsDouble - snapshotReceivedAt + estimatedOneWayLatency;
+            if (age > maxExtrapolation + 0.5) return; // Keep simulating locally through a temporary keyframe gap.
+            var target = PhysicsReconciler.Extrapolate(authoritative, age, maxExtrapolation);
+            var targetPosition = ToUnity(target.Position);
+            float error = Vector3.Distance(body.position, targetPosition);
+            LastPositionError = error; PeakPositionError = Mathf.Max(PeakPositionError, error);
+            if (error > Mathf.Max(0.1f, snapDistance))
+            {
+                Debug.LogWarning("SOCKETJACK_PHYSICS_HARD_CORRECTION object=" + identity.ObjectId + " old=" + body.position +
+                    " target=" + targetPosition + " tick=" + authoritative.Tick + " age=" + age + " time=" + Time.unscaledTimeAsDouble, this);
+                Vector3 oldVisualPosition = visual == null ? Vector3.zero : visual.position;
+                Quaternion oldVisualRotation = visual == null ? Quaternion.identity : visual.rotation;
+                body.position = targetPosition; body.rotation = ToUnity(target.Rotation);
+                body.velocity = ToUnity(target.Velocity); body.angularVelocity = ToUnity(target.AngularVelocity);
+                if (visual != null) { visual.position = oldVisualPosition; visual.rotation = oldVisualRotation; }
+                HardCorrections++; return;
+            }
+            if (error <= correctionDeadZone) return;
+            var corrected = PhysicsReconciler.CalculateVelocityCorrection(ToNumerics(body.position), ToNumerics(body.velocity),
+                target, Mathf.Max(0.02f, correctionTime), Mathf.Max(0, maxCorrectionSpeed));
+            float weight = identity.IsOwner ? ownerCorrectionWeight : 1;
+            float blend = PhysicsReconciler.SmoothingFactor(smoothingSpeed, Time.fixedDeltaTime) * weight;
+            Vector3 correction = ToUnity(corrected) - body.velocity;
+            Vector3 correctedVelocity = Vector3.Lerp(body.velocity, ToUnity(target.Velocity) + correction, blend);
+            PeakNetworkVelocityCorrection = Mathf.Max(PeakNetworkVelocityCorrection, (correctedVelocity - body.velocity).magnitude);
+            body.velocity = correctedVelocity;
+            body.angularVelocity = Vector3.Lerp(body.angularVelocity, ToUnity(target.AngularVelocity), blend);
+            body.MoveRotation(Quaternion.Slerp(body.rotation, ToUnity(target.Rotation), blend));
+        }
+        private void LateUpdate()
+        {
+            if (visual != null)
+            {
+                float blend = PhysicsReconciler.SmoothingFactor(smoothingSpeed, Time.unscaledDeltaTime);
+                visual.localPosition = Vector3.Lerp(visual.localPosition, visualOrigin, blend);
+                visual.localRotation = Quaternion.Slerp(visual.localRotation, visualRotation, blend);
+            }
+            Vector3 position = visual == null ? transform.position : visual.position;
+            if (observedVisual) PeakVisualStep = Mathf.Max(PeakVisualStep, Vector3.Distance(position, previousVisualPosition));
+            previousVisualPosition = position; observedVisual = true;
+        }
+        private static bool Finite(float v) => !float.IsNaN(v) && !float.IsInfinity(v);
+        private static NumericsVector3 ToNumerics(Vector3 v) => new NumericsVector3(v.x, v.y, v.z);
+        private static NumericsQuaternion ToNumerics(Quaternion q) => new NumericsQuaternion(q.x, q.y, q.z, q.w);
+        private static Vector3 ToUnity(NumericsVector3 v) => new Vector3(v.X, v.Y, v.Z);
+        private static Quaternion ToUnity(NumericsQuaternion q) => new Quaternion(q.X, q.Y, q.Z, q.W);
+    }
+}

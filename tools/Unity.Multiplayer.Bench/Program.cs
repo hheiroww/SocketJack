@@ -6,6 +6,7 @@ using SocketJack.Unity.Transport;
 int count = args.Length > 0 ? int.Parse(args[0]) : 2000;
 int rounds = args.Length > 1 ? int.Parse(args[1]) : 20;
 TransportType type = args.Length > 2 ? Enum.Parse<TransportType>(args[2], true) : TransportType.Udp;
+DeliveryMode delivery = args.Length > 3 ? Enum.Parse<DeliveryMode>(args[3], true) : DeliveryMode.ReliableUnordered;
 if (count < 1 || count > 10000 || rounds < 1 || rounds > 1000) throw new ArgumentOutOfRangeException("Use 1..10000 peers and 1..1000 rounds.");
 using var server = GameTransport.Create(type, new TransportOptions { MaxPeers = Math.Max(count, 4096) });
 var clients = new List<IGameTransport>();
@@ -50,7 +51,7 @@ try
     for (int round = 0; round < rounds; round++)
     {
         byte[] payload = new byte[64]; BitConverter.GetBytes(Stopwatch.GetTimestamp()).CopyTo(payload, 0);
-        foreach (var client in clients) if (!client.Send(0, new ArraySegment<byte>(payload), DeliveryMode.ReliableOrdered, 1)) rejected++;
+        foreach (var client in clients) if (!client.Send(0, new ArraySegment<byte>(payload), delivery, 1)) rejected++;
         int target = (round + 1) * count;
         WaitUntil(() => echoed >= target, TimeSpan.FromSeconds(15));
     }
@@ -59,7 +60,7 @@ try
     bool passed = connected == count && peerIds.Count == count && serverReceived == count * rounds && echoed == count * rounds && rejected == 0 && disconnects == 0;
     Console.WriteLine(JsonSerializer.Serialize(new
     {
-        passed, transport = type.ToString(), peers = count, rounds, payloadBytes = 64,
+        passed, transport = type.ToString(), delivery = delivery.ToString(), peers = count, rounds, payloadBytes = 64,
         connected, uniquePeers = peerIds.Count, serverReceived, echoed, rejected, disconnects,
         connectSeconds, trafficSeconds = traffic.Elapsed.TotalSeconds,
         roundTripsPerSecond = echoed / traffic.Elapsed.TotalSeconds,

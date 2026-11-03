@@ -76,7 +76,7 @@ namespace SocketJack.Unity.Tests
                 return true;
             };
             proxy.ServerToClient = packet => packet[5] != 7 || ++acks != 1;
-            for (byte i = 1; i <= 3; i++) Assert.IsTrue(client.Send(0, new ArraySegment<byte>(new[] { i })));
+            for (byte i = 1; i <= 3; i++) Assert.IsTrue(client.Send(0, new ArraySegment<byte>(new[] { i }), DeliveryMode.ReliableOrdered));
             PumpUntil(() => values.Count == 3 && data >= 4, server, client, proxy);
             PumpFor(TimeSpan.FromMilliseconds(120), server, client, proxy);
             CollectionAssert.AreEqual(new byte[] { 1, 2, 3 }, values.ToArray());
@@ -249,6 +249,22 @@ namespace SocketJack.Unity.Tests
         }
 
         [TestMethod]
+        public void UdpRejectsDifferentEffectiveFrameBudgetBeforeConnecting()
+        {
+            using var server = new UdpGameTransport(Fast());
+            var options = Fast(); options.ExtraPacketOverheadBytes = 32;
+            using var client = new UdpGameTransport(options);
+            string reason = null;
+            int connected = 0;
+            client.EventReceived += e => { if (e.Type == TransportEventType.Disconnected) reason = e.Reason; if (e.Type == TransportEventType.Connected) connected++; };
+            server.StartServer(Any);
+            client.StartClient(server.LocalEndPoint);
+            PumpUntil(() => reason != null, server, client);
+            StringAssert.Contains(reason, "frame budget must match");
+            Assert.AreEqual(0, connected);
+        }
+
+        [TestMethod]
         public void UdpSharedReorderBudgetReservesSpaceForMissingPacketAcrossChannels()
         {
             var receiverOptions = Fast(); receiverOptions.MaxPendingReliablePerPeer = 2;
@@ -266,10 +282,10 @@ namespace SocketJack.Unity.Tests
                 if (packet[5] == 6 && BinaryPrimitives.ReadUInt32LittleEndian(packet.AsSpan(32)) == 1 && dropped.Add(packet[6])) return false;
                 return true;
             };
-            Assert.IsTrue(client.Send(0, new ArraySegment<byte>(new byte[] { 1 }), channel: 0));
-            Assert.IsTrue(client.Send(0, new ArraySegment<byte>(new byte[] { 2 }), channel: 0));
-            Assert.IsTrue(client.Send(0, new ArraySegment<byte>(new byte[] { 3 }), channel: 1));
-            Assert.IsTrue(client.Send(0, new ArraySegment<byte>(new byte[] { 4 }), channel: 1));
+            Assert.IsTrue(client.Send(0, new ArraySegment<byte>(new byte[] { 1 }), DeliveryMode.ReliableOrdered, 0));
+            Assert.IsTrue(client.Send(0, new ArraySegment<byte>(new byte[] { 2 }), DeliveryMode.ReliableOrdered, 0));
+            Assert.IsTrue(client.Send(0, new ArraySegment<byte>(new byte[] { 3 }), DeliveryMode.ReliableOrdered, 1));
+            Assert.IsTrue(client.Send(0, new ArraySegment<byte>(new byte[] { 4 }), DeliveryMode.ReliableOrdered, 1));
             PumpUntil(() => values.Count == 4, server, client, proxy);
             CollectionAssert.AreEquivalent(new byte[] { 1, 2, 3, 4 }, values.ToArray());
             Assert.IsTrue(values.IndexOf(1) < values.IndexOf(2));
@@ -299,8 +315,8 @@ namespace SocketJack.Unity.Tests
                 if (e.Type == TransportEventType.Data) { data++; server.Disconnect(e.PeerId); }
                 if (e.Type == TransportEventType.Disconnected) disconnected++;
             };
-            Assert.IsTrue(client.Send(0, new ArraySegment<byte>(new byte[] { 1 })));
-            Assert.IsTrue(client.Send(0, new ArraySegment<byte>(new byte[] { 2 })));
+            Assert.IsTrue(client.Send(0, new ArraySegment<byte>(new byte[] { 1 }), DeliveryMode.ReliableOrdered));
+            Assert.IsTrue(client.Send(0, new ArraySegment<byte>(new byte[] { 2 }), DeliveryMode.ReliableOrdered));
             PumpUntil(() => disconnected != 0, server, client, proxy);
             Assert.AreEqual(1, data);
         }
@@ -333,7 +349,7 @@ namespace SocketJack.Unity.Tests
                 return true;
             };
             foreach (byte value in new byte[] { 11, 22, 33, 44 })
-                Assert.IsTrue(client.Send(0, new ArraySegment<byte>(new[] { value })));
+                Assert.IsTrue(client.Send(0, new ArraySegment<byte>(new[] { value }), DeliveryMode.ReliableOrdered));
             PumpUntil(() => values.Count == 4, server, client, proxy);
             proxy.SendServer(duplicate); // Already delivered sequence MAX is stale after wrapping to 2.
             PumpFor(TimeSpan.FromMilliseconds(40), server, client, proxy);
@@ -355,6 +371,132 @@ namespace SocketJack.Unity.Tests
             PumpUntil(() => values.Count == 5, server, client, proxy);
             PumpFor(TimeSpan.FromMilliseconds(40), server, client, proxy);
             CollectionAssert.AreEqual(new byte[] { 11, 22, 33, 44, 66 }, values.ToArray());
+        }
+
+        [TestMethod]
+        public void UdpDefaultReliableUnorderedDeliversFirstArrivalWithoutWaitingForLostPacket()
+        {
+            using var server = new UdpGameTransport(Fast());
+            using var client = new UdpGameTransport(Fast());
+            server.StartServer(Any);
+            using var proxy = new DatagramProxy(server.LocalEndPoint);
+            client.StartClient(proxy.LocalEndPoint);
+            var received = new List<TransportEvent>();
+            server.EventReceived += e => { if (e.Type == TransportEventType.Data) received.Add(e); };
+            PumpUntil(() => client.LocalPeerId != 0, server, client, proxy);
+            byte[] held = null;
+            bool lost = false, lostAck = false;
+            proxy.ClientToServer = packet =>
+            {
+                if (packet[5] != 6) return true;
+                Assert.AreEqual((byte)DeliveryMode.ReliableUnordered, packet[7]);
+                if (packet[40] == 1 && !lost) { lost = true; return false; }
+                if (packet[40] == 2 && held == null) { held = packet; return false; }
+                if (packet[40] == 3)
+                {
+                    proxy.SendServer(packet); proxy.SendServer(packet); // Duplicate delivery must be suppressed.
+                    proxy.SendServer(held); return false;
+                }
+                return true;
+            };
+            proxy.ServerToClient = packet =>
+            {
+                if (packet[5] == 7 && !lostAck) { lostAck = true; return false; }
+                return true;
+            };
+            IGameTransport throughInterface = client;
+            Assert.IsTrue(throughInterface.Send(0, new ArraySegment<byte>(new byte[] { 1 })));
+            Assert.IsTrue(client.Send(0, new ArraySegment<byte>(new byte[] { 2 })));
+            Assert.IsTrue(client.Send(0, new ArraySegment<byte>(new byte[] { 3 })));
+            PumpUntil(() => received.Count >= 2, server, client, proxy);
+            CollectionAssert.AreEqual(new byte[] { 3, 2 }, received.Take(2).Select(e => e.Payload[0]).ToArray());
+            PumpUntil(() => received.Count == 3, server, client, proxy);
+            PumpFor(TimeSpan.FromMilliseconds(80), server, client, proxy);
+            CollectionAssert.AreEqual(new byte[] { 3, 2, 1 }, received.Select(e => e.Payload[0]).ToArray());
+            Assert.IsTrue(received.All(e => e.Delivery == DeliveryMode.ReliableUnordered));
+            Assert.AreEqual(DeliveryMode.ReliableUnordered, DeliveryMode.Reliable);
+        }
+
+        [TestMethod]
+        public void UdpReliableModesHaveIndependentSequenceAndAckSpacesOnTheSameChannel()
+        {
+            using var server = new UdpGameTransport(Fast());
+            using var client = new UdpGameTransport(Fast());
+            server.StartServer(Any);
+            using var proxy = new DatagramProxy(server.LocalEndPoint);
+            client.StartClient(proxy.LocalEndPoint);
+            var received = new List<byte>();
+            server.EventReceived += e => { if (e.Type == TransportEventType.Data) received.Add(e.Payload[0]); };
+            PumpUntil(() => client.LocalPeerId != 0, server, client, proxy);
+            bool allowOrdered = false;
+            proxy.ClientToServer = packet => packet[5] != 6 || packet[7] != (byte)DeliveryMode.ReliableOrdered || allowOrdered;
+            Assert.IsTrue(client.Send(0, new ArraySegment<byte>(new byte[] { 10 }), DeliveryMode.ReliableOrdered)); // Ordered seq1 is lost.
+            Assert.IsTrue(client.Send(0, new ArraySegment<byte>(new byte[] { 20 }))); // Unordered seq1 must deliver and ACK independently.
+            PumpUntil(() => received.Count == 1, server, client, proxy);
+            Assert.AreEqual((byte)20, received[0]);
+            allowOrdered = true;
+            PumpUntil(() => received.Count == 2, server, client, proxy);
+            CollectionAssert.AreEqual(new byte[] { 20, 10 }, received.ToArray());
+            Assert.IsTrue(client.Send(0, new ArraySegment<byte>(new byte[] { 30 }), DeliveryMode.ReliableOrdered));
+            Assert.IsTrue(client.Send(0, new ArraySegment<byte>(new byte[] { 40 })));
+            PumpUntil(() => received.Count == 4, server, client, proxy);
+            CollectionAssert.AreEquivalent(new byte[] { 10, 20, 30, 40 }, received.ToArray());
+        }
+
+        [TestMethod]
+        public void UdpReliableUnorderedDeduplicationHandlesWrapAndBoundedMissingPacketWindow()
+        {
+            var receiveOptions = Fast(); receiveOptions.MaxPendingReliablePerPeer = 2;
+            using var server = new UdpGameTransport(receiveOptions);
+            using var client = new UdpGameTransport(Fast());
+            server.StartServer(Any);
+            using var proxy = new DatagramProxy(server.LocalEndPoint);
+            client.StartClient(proxy.LocalEndPoint);
+            var values = new List<byte>();
+            server.EventReceived += e => { if (e.Type == TransportEventType.Data) values.Add(e.Payload[0]); };
+            PumpUntil(() => client.LocalPeerId != 0, server, client, proxy);
+            SetChannelField(client, 0, 0, "NextSendUnordered", uint.MaxValue);
+            SetChannelField(server, client.LocalPeerId, 0, "NextReceiveUnordered", uint.MaxValue);
+            bool missing = true;
+            byte[] duplicate = null;
+            proxy.ClientToServer = packet =>
+            {
+                if (packet[5] != 6) return true;
+                uint sequence = BinaryPrimitives.ReadUInt32LittleEndian(packet.AsSpan(32));
+                if (sequence == uint.MaxValue && missing) return false;
+                if (sequence == 0) duplicate = packet;
+                return true;
+            };
+            Assert.IsTrue(client.Send(0, new ArraySegment<byte>(new byte[] { 1 })));
+            Assert.IsTrue(client.Send(0, new ArraySegment<byte>(new byte[] { 2 })));
+            Assert.IsTrue(client.Send(0, new ArraySegment<byte>(new byte[] { 3 })));
+            PumpUntil(() => values.Count == 1, server, client, proxy);
+            Assert.AreEqual((byte)2, values[0]); // Sequence0 is delivered despite missing MAX.
+            missing = false;
+            PumpUntil(() => values.Count == 3, server, client, proxy);
+            proxy.SendServer(duplicate); // Sequence0 remains a duplicate after crossing the wrap.
+            PumpFor(TimeSpan.FromMilliseconds(50), server, client, proxy);
+            Assert.AreEqual(3, values.Count);
+            CollectionAssert.AreEquivalent(new byte[] { 1, 2, 3 }, values.ToArray());
+        }
+
+        [TestMethod]
+        public void UdpWireVersionOneCannotEstablishVersionTwoSession()
+        {
+            var options = Fast(); options.ConnectTimeout = TimeSpan.FromMilliseconds(80);
+            using var server = new UdpGameTransport(options);
+            using var client = new UdpGameTransport(options);
+            server.StartServer(Any);
+            using var proxy = new DatagramProxy(server.LocalEndPoint);
+            int connected = 0;
+            string reason = null;
+            server.EventReceived += e => { if (e.Type == TransportEventType.Connected) connected++; };
+            client.EventReceived += e => { if (e.Type == TransportEventType.Disconnected) reason = e.Reason; };
+            proxy.ClientToServer = packet => { packet[4] = 1; return true; };
+            client.StartClient(proxy.LocalEndPoint);
+            PumpUntil(() => reason != null, server, client, proxy);
+            Assert.AreEqual("Connection timed out", reason);
+            Assert.AreEqual(0, connected);
         }
 
         private static void SetChannelField(UdpGameTransport transport, ulong peerId, int channel, string name, object value)
