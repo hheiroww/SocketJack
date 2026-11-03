@@ -69,6 +69,9 @@ namespace SocketJack.Multiplayer.Components
         private Vector3 previousVisualPosition;
         private bool observedVisual;
         private bool movementModeDirty = true;
+#if !ENABLE_LEGACY_INPUT_MANAGER
+        private bool keyboardWarningLogged;
+#endif
         public long InputsSent { get; private set; }
         public long InputsReceived { get; private set; }
         public long KeyframesReceived { get; private set; }
@@ -102,6 +105,26 @@ namespace SocketJack.Multiplayer.Components
                 Debug.LogError("SocketJackObject and NetworkTransform must not control the same Rigidbody.", this);
         }
 
+        private Vector3 BodyVelocity
+        {
+            get
+            {
+#if UNITY_6000_0_OR_NEWER
+                return body.linearVelocity;
+#else
+                return body.velocity;
+#endif
+            }
+            set
+            {
+#if UNITY_6000_0_OR_NEWER
+                body.linearVelocity = value;
+#else
+                body.velocity = value;
+#endif
+            }
+        }
+
         /// <summary>Feed a game input action or test harness. Keyboard input can be disabled in the Inspector.</summary>
         public void SetInput(float horizontal, float vertical, bool jump = false)
         {
@@ -120,11 +143,20 @@ namespace SocketJack.Multiplayer.Components
             if (body.isKinematic) return;
             if (readKeyboard)
             {
+#if ENABLE_LEGACY_INPUT_MANAGER
                 float h = (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow) ? 1 : 0) -
                     (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow) ? 1 : 0);
                 float v = (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow) ? 1 : 0) -
                     (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow) ? 1 : 0);
                 SetInput(h, v, Input.GetKeyDown(KeyCode.Space));
+#else
+                readKeyboard = false;
+                if (!keyboardWarningLogged)
+                {
+                    Debug.LogWarning("SocketJack keyboard polling requires the legacy Input Manager or Both. Polling is disabled; call SetInput from your input actions.", this);
+                    keyboardWarningLogged = true;
+                }
+#endif
             }
             // Prediction is immediate; input transmission has its own bounded rate.
             intent.Horizontal = localAxes.x; intent.Vertical = localAxes.y;
@@ -178,10 +210,10 @@ namespace SocketJack.Multiplayer.Components
             {
                 var direction = Vector3.ClampMagnitude(new Vector3(intent.Horizontal, 0, intent.Vertical), 1);
                 body.AddForce(direction * Mathf.Max(0, movementForce), movementForceMode);
-                var velocity = body.velocity;
+                var velocity = BodyVelocity;
                 var planar = Vector3.ClampMagnitude(new Vector3(velocity.x, 0, velocity.z), Mathf.Max(0, maxSpeed));
-                body.velocity = new Vector3(planar.x, velocity.y, planar.z);
-                if (jumpPending && Grounded()) body.velocity = new Vector3(body.velocity.x, jumpVelocity, body.velocity.z);
+                BodyVelocity = new Vector3(planar.x, velocity.y, planar.z);
+                if (jumpPending && Grounded()) BodyVelocity = new Vector3(BodyVelocity.x, jumpVelocity, BodyVelocity.z);
             }
             jumpPending = false;
             if (!HasStateAuthority && hasSnapshot && reconcile) Reconcile();
@@ -214,7 +246,7 @@ namespace SocketJack.Multiplayer.Components
             return PhysicsBinarySerializer.SerializeSnapshot(new PhysicsSnapshot { Tick = physicsTick,
                 LastInputSequence = UsesServerAuthority ? lastAcceptedSequence : nextSequence, Time = Time.fixedTimeAsDouble,
                 Position = ToNumerics(body.position), Rotation = ToNumerics(body.rotation),
-                Velocity = ToNumerics(body.velocity), AngularVelocity = ToNumerics(body.angularVelocity) });
+                Velocity = ToNumerics(BodyVelocity), AngularVelocity = ToNumerics(body.angularVelocity) });
         }
         internal void ApplyState(byte[] bytes, bool immediate)
         {
@@ -227,7 +259,7 @@ namespace SocketJack.Multiplayer.Components
             {
                 transform.SetPositionAndRotation(ToUnity(snapshot.Position), ToUnity(snapshot.Rotation));
                 body.position = ToUnity(snapshot.Position); body.rotation = ToUnity(snapshot.Rotation);
-                if (!body.isKinematic) { body.velocity = ToUnity(snapshot.Velocity); body.angularVelocity = ToUnity(snapshot.AngularVelocity); }
+                if (!body.isKinematic) { BodyVelocity = ToUnity(snapshot.Velocity); body.angularVelocity = ToUnity(snapshot.AngularVelocity); }
             }
         }
         private void Reconcile()
@@ -245,7 +277,7 @@ namespace SocketJack.Multiplayer.Components
                 Vector3 oldVisualPosition = visual == null ? Vector3.zero : visual.position;
                 Quaternion oldVisualRotation = visual == null ? Quaternion.identity : visual.rotation;
                 body.position = targetPosition; body.rotation = ToUnity(target.Rotation);
-                if (!body.isKinematic) { body.velocity = ToUnity(target.Velocity); body.angularVelocity = ToUnity(target.AngularVelocity); }
+                if (!body.isKinematic) { BodyVelocity = ToUnity(target.Velocity); body.angularVelocity = ToUnity(target.AngularVelocity); }
                 if (visual != null) { visual.position = oldVisualPosition; visual.rotation = oldVisualRotation; }
                 HardCorrections++; return;
             }
@@ -257,14 +289,14 @@ namespace SocketJack.Multiplayer.Components
                 body.MoveRotation(Quaternion.Slerp(body.rotation, ToUnity(target.Rotation), factor));
                 return;
             }
-            var corrected = PhysicsReconciler.CalculateVelocityCorrection(ToNumerics(body.position), ToNumerics(body.velocity),
+            var corrected = PhysicsReconciler.CalculateVelocityCorrection(ToNumerics(body.position), ToNumerics(BodyVelocity),
                 target, Mathf.Max(0.02f, correctionTime), Mathf.Max(0, maxCorrectionSpeed));
             float weight = identity.IsOwner ? ownerCorrectionWeight : 1;
             float blend = PhysicsReconciler.SmoothingFactor(smoothingSpeed, Time.fixedDeltaTime) * weight;
-            Vector3 correction = ToUnity(corrected) - body.velocity;
-            Vector3 correctedVelocity = Vector3.Lerp(body.velocity, ToUnity(target.Velocity) + correction, blend);
-            PeakNetworkVelocityCorrection = Mathf.Max(PeakNetworkVelocityCorrection, (correctedVelocity - body.velocity).magnitude);
-            body.velocity = correctedVelocity;
+            Vector3 correction = ToUnity(corrected) - BodyVelocity;
+            Vector3 correctedVelocity = Vector3.Lerp(BodyVelocity, ToUnity(target.Velocity) + correction, blend);
+            PeakNetworkVelocityCorrection = Mathf.Max(PeakNetworkVelocityCorrection, (correctedVelocity - BodyVelocity).magnitude);
+            BodyVelocity = correctedVelocity;
             body.angularVelocity = Vector3.Lerp(body.angularVelocity, ToUnity(target.AngularVelocity), blend);
             body.MoveRotation(Quaternion.Slerp(body.rotation, ToUnity(target.Rotation), blend));
         }

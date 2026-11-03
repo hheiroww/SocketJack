@@ -1,6 +1,6 @@
 # SocketJack.Unity
 
-![SocketJack.Unity](https://raw.githubusercontent.com/hheiroww/SocketJack/socketjack-unity-v2026.11.03.0/SocketJack.Unity/SocketJackUnityIcon.png)
+![SocketJack.Unity](https://raw.githubusercontent.com/hheiroww/SocketJack/socketjack-unity-v2026.11.03.1/SocketJack.Unity/SocketJackUnityIcon.png)
 
 Portable multiplayer networking for Unity games and dedicated .NET servers. Targets .NET Standard 2.1 with no third-party dependencies and no UnityEngine dependency in the runtime DLL.
 
@@ -11,10 +11,12 @@ The package supplies the networking foundation: independent topology/transport c
 For a dedicated .NET server or a non-Unity integration:
 
 ```sh
-dotnet add package SocketJack.Unity --version 2026.11.03.0
+dotnet add package SocketJack.Unity --version 2026.11.03.1
 ```
 
-For Unity 2022.3 or later, use the .NET Standard 2.1 API compatibility level. Open the `.nupkg` as a ZIP archive, then copy:
+Unity 6 is the primary support target, with Unity 2022.3 LTS retained as a compatibility bracket. Use the .NET Standard 2.1 API compatibility level in either bracket. The included `QuickStart.md` explains the version matrix, required components and a complete single-player-to-multiplayer conversion, including host/join setup, prefab spawning, input and local cameras. Its acceptance matrix records the exact Editor/player versions actually verified.
+
+Open the `.nupkg` as a ZIP archive, then copy:
 
 1. `lib/netstandard2.1/SocketJack.Unity.dll` into `Assets/Plugins/SocketJack.Unity/`.
 2. The `.cs` files and `link.xml` from `contentFiles/any/any/SocketJack.Unity/` into `Assets/SocketJack.Unity/`.
@@ -154,7 +156,7 @@ The source checkout includes a real Unity/PhysX cube game in [`Examples/UnityPhy
 ```sh
 dotnet test SocketJack.Unity.Tests/SocketJack.Unity.Tests.csproj -c Release
 dotnet pack SocketJack.Unity/SocketJack.Unity.csproj -c Release -o ./artifacts/unity
-pwsh -File tools/Verify-UnityPackage.ps1 -Package ./artifacts/unity/SocketJack.Unity.2026.11.3.nupkg
+pwsh -File tools/Verify-UnityPackage.ps1 -Package ./artifacts/unity/SocketJack.Unity.2026.11.3.1.nupkg
 ```
 
 From a repository checkout with Unity installed, compile component sources against the real Editor reference assemblies:
@@ -165,6 +167,8 @@ dotnet build tools/UnityAdapter.Verify/UnityAdapter.Verify.csproj -c Release `
 ```
 
 Add `-p:IncludePhysicsSample=true` to compile the sample's game and Editor build scripts against the real installed Editor reference assemblies as well.
+
+When invoking this .NET reference-only check for Unity 6, pass the appropriate `UNITY_6000_0_OR_NEWER` and input-backend compilation symbols explicitly; MSBuild does not infer Unity symbols from the reference path. A real Unity Editor sets its own symbols. Use `tools/Test-UnityEditorCompatibility.ps1` with an explicit Editor, verified runtime and owned output directory to compile/build the sample in a separate project for each support bracket without upgrading the source project.
 
 This compile check does not establish player/IL2CPP or live gameplay acceptance. CI tests the managed runtime on Windows and Linux, packs with an explicit content allowlist, and preserves the package with SHA-256 checksums. Publish through `dotnet.yml` using `workflow_dispatch` with `releaseTarget: unity`; `unity.yml` validates only. Publication requires a matching date-code release version and uses the existing NuGet trusted-publishing policy.
 

@@ -5,6 +5,13 @@ using SocketJack.Multiplayer;
 using SocketJack.Multiplayer.Components;
 using SocketJack.Multiplayer.Transport;
 using UnityEngine;
+#if UNITY_6000_0_OR_NEWER
+using PhysicsMaterial = UnityEngine.PhysicsMaterial;
+using PhysicsMaterialCombine = UnityEngine.PhysicsMaterialCombine;
+#else
+using PhysicsMaterial = UnityEngine.PhysicMaterial;
+using PhysicsMaterialCombine = UnityEngine.PhysicMaterialCombine;
+#endif
 
 namespace SocketJack.Samples.Physics
 {
@@ -111,11 +118,16 @@ namespace SocketJack.Samples.Physics
         {
             var player = new GameObject("Player (SocketJackObject)"); player.SetActive(false);
             var collider = player.AddComponent<BoxCollider>(); collider.size = Vector3.one;
-            var material = new PhysicMaterial("Sliding cube") { dynamicFriction = 0.08f, staticFriction = 0.1f,
-                frictionCombine = PhysicMaterialCombine.Minimum, bounciness = 0 };
+            var material = new PhysicsMaterial("Sliding cube") { dynamicFriction = 0.08f, staticFriction = 0.1f,
+                frictionCombine = PhysicsMaterialCombine.Minimum, bounciness = 0 };
             collider.sharedMaterial = material;
             var body = player.AddComponent<Rigidbody>();
-            body.mass = 1; body.drag = 0.6f; body.angularDrag = 0.8f;
+            body.mass = 1;
+#if UNITY_6000_0_OR_NEWER
+            body.linearDamping = 0.6f; body.angularDamping = 0.8f;
+#else
+            body.drag = 0.6f; body.angularDrag = 0.8f;
+#endif
             body.interpolation = RigidbodyInterpolation.Interpolate;
             body.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
             body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;

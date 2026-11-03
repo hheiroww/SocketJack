@@ -8,6 +8,11 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using SocketJack.Multiplayer.Components;
 using SocketJack.Multiplayer.Transport;
+#if UNITY_6000_0_OR_NEWER
+using PhysicsMaterial = UnityEngine.PhysicsMaterial;
+#else
+using PhysicsMaterial = UnityEngine.PhysicMaterial;
+#endif
 
 namespace SocketJack.Samples.Physics.Editor
 {
@@ -59,9 +64,10 @@ namespace SocketJack.Samples.Physics.Editor
                 throw new InvalidOperationException("Unity physics player build failed: " + report.summary.result);
             var receipt = new BuildReceipt { result = report.summary.result.ToString(), unityVersion = Application.unityVersion,
                 builtUtc = DateTime.UtcNow.ToString("O"), target = BuildTarget.StandaloneWindows64.ToString(),
-                runtimeSha256 = Hash("Assets/Plugins/SocketJack.Unity.dll"),
-                physicsComponentSha256 = Hash("Assets/SocketJack.Unity/SocketJackObject.cs"), sampleSha256 = Hash("Assets/Scripts/PhysicsGame.cs"),
-                networkManagerSha256 = Hash("Assets/SocketJack.Unity/NetworkManager.cs"),
+                runtimeSha256 = HashAsset("Assets/Plugins/SocketJack.Unity.dll", "Assets/SocketJack.Unity/Runtime/Plugins/SocketJack.Unity.dll"),
+                physicsComponentSha256 = HashAsset("Assets/SocketJack.Unity/SocketJackObject.cs", "Assets/SocketJack.Unity/Runtime/Components/SocketJackObject.cs"),
+                sampleSha256 = HashAsset("Assets/Scripts/PhysicsGame.cs", "Assets/SocketJack.Unity/Samples/Physics/Scripts/PhysicsGame.cs"),
+                networkManagerSha256 = HashAsset("Assets/SocketJack.Unity/NetworkManager.cs", "Assets/SocketJack.Unity/Runtime/Components/NetworkManager.cs"),
                 playerBytes = report.summary.totalSize, buildSeconds = report.summary.totalTime.TotalSeconds };
             receipt.objectConfigurationCases = 4;
             File.WriteAllText(Path.Combine(Path.GetDirectoryName(output), "build-receipt.json"), JsonUtility.ToJson(receipt, true));
@@ -71,14 +77,25 @@ namespace SocketJack.Samples.Physics.Editor
         { var args = Environment.GetCommandLineArgs(); int i = Array.IndexOf(args, key); return i >= 0 && i + 1 < args.Length ? args[i + 1] : fallback; }
         private static string Hash(string path)
         { using (var stream = File.OpenRead(path)) using (var sha = SHA256.Create()) return BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", "").ToLowerInvariant(); }
+        private static string HashAsset(string sourceProjectPath, string assetStorePath)
+        {
+            string path = File.Exists(sourceProjectPath) ? sourceProjectPath : assetStorePath;
+            if (!File.Exists(path)) throw new FileNotFoundException("The sample build could not locate its source or Asset Store asset.", path);
+            return Hash(path);
+        }
         private static void VerifyObjectConfiguration()
         {
             var fixture = new GameObject("SocketJack object configuration check") { hideFlags = HideFlags.HideAndDontSave };
-            var material = new PhysicMaterial("Configuration check") { dynamicFriction = 0.17f, staticFriction = 0.31f };
+            var material = new PhysicsMaterial("Configuration check") { dynamicFriction = 0.17f, staticFriction = 0.31f };
             try
             {
                 var collider = fixture.AddComponent<BoxCollider>(); collider.sharedMaterial = material;
-                var body = fixture.AddComponent<Rigidbody>(); body.mass = 3.7f; body.drag = 0.13f; body.angularDrag = 0.29f;
+                var body = fixture.AddComponent<Rigidbody>(); body.mass = 3.7f;
+#if UNITY_6000_0_OR_NEWER
+                body.linearDamping = 0.13f; body.angularDamping = 0.29f;
+#else
+                body.drag = 0.13f; body.angularDrag = 0.29f;
+#endif
                 body.useGravity = false; body.interpolation = RigidbodyInterpolation.Extrapolate;
                 var component = fixture.AddComponent<SocketJackObject>();
                 foreach (ObjectMovementMode mode in Enum.GetValues(typeof(ObjectMovementMode)))
@@ -88,8 +105,13 @@ namespace SocketJack.Samples.Physics.Editor
                     component.SendMessage("Update", SendMessageOptions.RequireReceiver);
                     bool kinematic = mode == ObjectMovementMode.Static || mode == ObjectMovementMode.StaticWithColliders;
                     bool colliders = mode == ObjectMovementMode.StaticWithColliders || mode == ObjectMovementMode.PhysicsWithColliders;
-                    if (body.isKinematic != kinematic || collider.enabled != colliders || body.mass != 3.7f || body.drag != 0.13f ||
-                        body.angularDrag != 0.29f || body.useGravity || body.interpolation != RigidbodyInterpolation.Extrapolate ||
+#if UNITY_6000_0_OR_NEWER
+                    bool dampingPreserved = body.linearDamping == 0.13f && body.angularDamping == 0.29f;
+#else
+                    bool dampingPreserved = body.drag == 0.13f && body.angularDrag == 0.29f;
+#endif
+                    if (body.isKinematic != kinematic || collider.enabled != colliders || body.mass != 3.7f || !dampingPreserved ||
+                        body.useGravity || body.interpolation != RigidbodyInterpolation.Extrapolate ||
                         collider.sharedMaterial != material || material.dynamicFriction != 0.17f || material.staticFriction != 0.31f)
                         throw new InvalidOperationException("SocketJackObject changed native Rigidbody/Collider configuration for mode " + mode);
                 }

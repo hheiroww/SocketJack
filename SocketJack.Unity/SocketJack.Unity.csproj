@@ -5,7 +5,7 @@
     <Nullable>disable</Nullable>
     <RootNamespace>SocketJack.Multiplayer</RootNamespace>
     <AssemblyName>SocketJack.Unity</AssemblyName>
-    <Version>2026.11.03.0</Version>
+    <Version>2026.11.03.1</Version>
     <Authors>hheiroww</Authors>
     <Description>Authoritative multiplayer networking for Unity and dedicated .NET servers. Bounded UDP and TCP transports, rooms, ownership, replicated state and main-thread Unity adapters.</Description>
     <PackageId>SocketJack.Unity</PackageId>
@@ -16,7 +16,7 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>SocketJackUnityIcon.png</PackageIcon>
-    <PackageReleaseNotes>Prepares the Asset Store edition with SocketJack.Multiplayer code namespaces, namespaced samples and Tools/SocketJack editor menus. Existing consumers must update using directives from SocketJack.Unity to SocketJack.Multiplayer; package and assembly identity remain SocketJack.Unity. Includes local physics prediction, interpolation/extrapolation, binary inputs, reliable unordered UDP, automatic MTU-safe reconstruction, topology/authority options and automatic UPnP mapping.</PackageReleaseNotes>
+    <PackageReleaseNotes>Prioritizes Unity 6 while retaining the Unity 2022.3 LTS compatibility bracket. Adds version-specific physics API compatibility and a complete single-player conversion guide covering scene/session setup, networked prefabs, ownership, custom input, local cameras and validation. The offline setup guide is included in this package. Existing consumers use SocketJack.Multiplayer and SocketJack.Multiplayer.Components namespaces; product and assembly identity remain SocketJack.Unity.</PackageReleaseNotes>
     <IsPackable>true</IsPackable>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
@@ -36,6 +36,7 @@
     <Compile Include="Physics/**/*.cs" />
     <Compile Include="../SocketJack/Net/ObjectRebuilder.cs" Link="Serialization/ObjectRebuilder.cs" />
     <None Include="README.md" Pack="true" PackagePath="/" />
+    <None Include="../docs/Unity-AssetStore-QuickStart.md" Pack="true" PackagePath="/QuickStart.md" />
     <None Include="SocketJackUnityIcon.png" Pack="true" PackagePath="/" />
     <None Include="../LICENSE" Pack="true" PackagePath="/" />
     <None Include="Unity/*.cs;Unity/link.xml" Pack="true" PackagePath="contentFiles/any/any/SocketJack.Unity/" BuildAction="None" PackageCopyToOutput="true" />

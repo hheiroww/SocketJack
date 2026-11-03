@@ -6,7 +6,7 @@ This is a deliberately small sample, not a deterministic physics engine. Physics
 
 ## Prepare and build
 
-Use Unity 2022.3 or later with Windows Standalone support and an activated Editor license. From the repository root:
+Unity 6 is the primary support target, with Unity 2022.3 LTS retained as the compatibility bracket. Use Windows Standalone support and an activated Editor license. The complete setup and single-player conversion guide (`docs/Unity-AssetStore-QuickStart.md` in source, `Documentation/QuickStart.md` in the Asset Store edition) records the exact verified Editor/player versions and explains required components, ownership, input and camera setup. The sample uses Built-in rendering and legacy keyboard input (Input Manager (Old) or Both); a new-Input-System-only game can supply its own actions through `SetInput` as shown in the guide. From the repository root:
 
 ```powershell
 pwsh -File tools/Prepare-UnityPhysics.ps1 -StagingDirectory "$env:TEMP/SocketJackPhysics" -Build
