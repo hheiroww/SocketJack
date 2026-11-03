@@ -8,6 +8,18 @@ pwsh -File tools/Export-UnityAssetStore.ps1 -OutputDirectory <owned-staging-dire
 
 Use an activated Unity 2022.3.17f1 Editor with Windows Standalone support. The output directory holds one export project, one fresh-import project, the package, manifests, hashes and Editor logs. Dependencies are reused from the installed Editor/global NuGet cache; no existing `Library` folder or player/runtime installation is copied. Generated files are retained for review; this script performs no cleanup deletion.
 
+Unity 6 is the primary support bracket; Unity 2022.3 LTS remains the compatibility bracket. Export the shared archive using the 2022.3 baseline to preserve its scene/material serialization, then import and test it in Unity 6 separately. Do not upgrade the 2022 export project to Unity 6. The customer setup guide records exact verified versions and separates that evidence from broader support targets.
+
+`tools/Test-UnityEditorCompatibility.ps1` creates one isolated source-sample project for an explicit Editor and verified runtime. It also compiles the two complete C# examples from the setup guide, checks transform authority and optionally builds/runs the server-plus-two-client physics acceptance. Run it with a separate owned output directory for each bracket:
+
+```powershell
+pwsh -File tools/Test-UnityEditorCompatibility.ps1 `
+  -Editor <installed-editor-executable> -OutputDirectory <owned-editor-case> `
+  -RuntimeDll <verified-dll> -ExpectedRuntimeSha256 <sha256> -Build -TestPlayers
+```
+
+The guide's optional audio-listener example adds Unity's built-in Audio module to the isolated test project. The script records outputs, actual Editor version and hashes, retains generated files, and refuses to take over a running Editor/project. This source-sample check complements the separate fresh-archive import check; it does not replace it.
+
 The package root is `Assets/SocketJack.Unity`. The allowlist includes the managed runtime DLL, editable Unity component/Inspector sources, linker configuration, physics sample/build helper, generated demo scene/material, package icon, offline documentation and license. Project settings, packages caches, logs, credentials, customer data and application code are outside the package.
 
 To reuse a runtime DLL that has already passed native-player checks, provide `-RuntimeDll <verified-dll> -ExpectedRuntimeSha256 <sha256>`. The exporter checks assembly identity, version and hash, then preserves those exact bytes. Use `-ImportVerificationTag <label>` for a separately named clean import project when comparing artifacts; an existing imported project is never presented as a fresh import.

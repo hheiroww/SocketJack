@@ -1,6 +1,6 @@
 # SocketJack
 
-Category: Tools / Network. Paid price: USD 4.99. Release version: 2026.11.3.
+Category: Tools / Network. Paid price: USD 4.99. Store release version: 2026.11.3. Package/runtime version: 2026.11.3.1.
 
 ## Summary
 
@@ -51,7 +51,7 @@ Partition players and objects into rooms, control how much each player can see, 
 
 Your game supplies its prefabs, player intent and gameplay rules. The supplied physics component targets 3D Rigidbody physics; custom controllers, 2D physics and game-specific state use the runtime APIs and your own integration. PhysX is not deterministic: prediction uses sparse repair rather than full rollback or complete collision replay.
 
-Initial Editor/player validation is Unity 2022.3.17f1, Built-in Render Pipeline, Windows x64 Mono. The sample uses the legacy input API and IMGUI. IL2CPP, mobile, console and other platform acceptance require testing your actual build. WebGL requires a separate browser transport bridge.
+Unity 6 is the primary target, with a Unity 2022.3 LTS compatibility bracket. Tested Editors are 6000.3.27f2 and 2022.3.17f1, with Built-in assets and Windows x64 Mono. The demo uses legacy input/IMGUI; the setup guide includes an Input System bridge. Other backends/platforms require testing; WebGL needs a browser bridge.
 
 Included UDP/TCP traffic is plaintext. No hosted relay, matchmaking, accounts, persistence service or universal anti-cheat is included. UPnP depends on the router and cannot bypass carrier-grade NAT or firewall policy. A reachable server, manual forwarding or a separate relay may be needed for Internet play.
 
@@ -61,7 +61,8 @@ Source and issue tracking: https://github.com/hheiroww/SocketJack
 
 ### Runtime and workflow
 
-- Unity 2022.3+, .NET Standard 2.1 API compatibility; initial validation on 2022.3.17f1.
+- Unity 6 primary support bracket; Unity 2022.3 LTS compatibility bracket; .NET Standard 2.1 API compatibility.
+- Verified Editors: Unity 6.3 LTS 6000.3.27f2 and Unity 2022.3.17f1.
 - Windows x64 Mono actual-player validation; portable runtime tests on Windows and Linux.
 - No third-party runtime NuGet dependencies. Managed SocketJack.Unity.dll; code namespace SocketJack.Multiplayer.
 - Built-in Render Pipeline demo; physics, IMGUI and JSON serialization modules; legacy input API.
@@ -121,6 +122,9 @@ OpenAI Codex assisted with generating and refactoring networking and component c
 
 #### Unity package and demo
 
+- Prioritized Unity 6.3 LTS and retained the Unity 2022.3 LTS compatibility bracket. Conditional physics-material and Rigidbody APIs preserve both versions.
+- Expanded the offline setup guide into a complete single-player conversion: required components, prefab registration/spawning, host/join code, custom input, local cameras, authority, scene consistency and verification. Included the guide in the NuGet archive as QuickStart.md.
+- Fixed player-build receipt paths for both repository and imported Asset Store layouts. New-Input-System-only projects can use SetInput without legacy keyboard polling exceptions.
 - Included editable networking components, the sliding-cube physics scene, an explicit player-build helper, offline quick-start/runtime guides and the monochrome SocketJack logo.
 - Added Tools/SocketJack editor menus and project-specific sample namespaces.
 - Code APIs now use SocketJack.Multiplayer and SocketJack.Multiplayer.Components. NuGet package ID and managed assembly name remain SocketJack.Unity. Earlier integrations should update their using directives. Wire/session framing remains explicit; use matching releases for peers and servers.
@@ -128,7 +132,7 @@ OpenAI Codex assisted with generating and refactoring networking and component c
 #### Verification
 
 - 92 managed runtime tests and 26 focused core reconstruction/security tests pass on Windows and Linux.
-- Actual Unity 2022.3 Windows Mono server/two-client physics runs passed with zero hard corrections. Fresh exported-package import and component/sample compilation are checked separately.
+- Actual Unity 6.3 LTS 6000.3.27f2 and Unity 2022.3.17f1 Windows Mono server/two-client physics runs passed with zero hard corrections. Both setup-guide C# examples compile in each Editor. Fresh exported-package imports are checked separately.
 - A 2,000-peer loopback UDP transport exercise passed; it does not establish 2,000 physics players in one world.
 
 #### Known integration boundaries

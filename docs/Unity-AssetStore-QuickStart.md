@@ -1,6 +1,13 @@
 # SocketJack.Unity setup and single-player conversion guide
 
-**Primary support target: Unity 6.3 LTS, with a Unity 2022.3 LTS compatibility bracket.** Unity 6 validation is pending; the target is not a claim of completed testing. The verified configuration for this release is Unity **2022.3.17f1**, including Editor import/compilation and actual Windows Mono players. Other Editor versions, render pipelines, platforms and scripting backends require their own acceptance checks.
+**Unity 6 is the primary support bracket, with Unity 2022.3 LTS retained as the compatibility bracket.** The following exact configurations have passed real Editor and player checks:
+
+| Support bracket | Verified Editor | Verified checks |
+| --- | --- | --- |
+| Primary: Unity 6.3 LTS | **6000.3.27f2** | Component/sample and both guide examples compile; authority checks, Windows x64 Mono build and a server/two-client physics run pass. |
+| Compatibility: Unity 2022.3 LTS | **2022.3.17f1** | Component/sample and both guide examples compile; authority checks, Windows x64 Mono build and a server/two-client physics run pass. |
+
+Both player checks use Built-in rendering assets and headless loopback processes for 20 seconds of client movement; neither client required a hard correction. These checks do not establish Internet behavior or production capacity. Other Editor patches, render pipelines, platforms and scripting backends require acceptance with your actual game.
 
 SocketJack.Unity supplies connections, replicated objects, ownership and state delivery. Your game supplies its levels, player prefabs, input and game rules. This guide converts a small single-player Rigidbody game into a host-and-peer game, then explains where custom integration is needed.
 
@@ -269,7 +276,7 @@ The included transports carry plaintext game data. For restricted admission, val
 
 The default peer cap of 4,096 is a configured resource limit, not a guaranteed production player count. Partition rooms/interest, budget bandwidth and test the actual simulation. `SetPeerRoom` and `SetObjectRoom` on the server control room visibility; they do not load scenes or authorize player actions. The host renders its authoritative world once, so game-specific local rendering filters are needed to hide other rooms from the host player. A 2,000-peer loopback transport check does not establish that a physics world supports 2,000 mutually visible players.
 
-Unity 6 acceptance remains pending as stated at the beginning of this guide. Mobile, consoles, IL2CPP and other player targets also require platform-specific acceptance. Web builds lack raw UDP/TCP sockets and need a browser transport bridge.
+The tested Unity 6 and Unity 2022.3 configurations are recorded at the beginning of this guide. Mobile, consoles, IL2CPP and other player targets require platform-specific acceptance. Web builds lack raw UDP/TCP sockets and need a browser transport bridge.
 
 ## Contents and support
 
