@@ -4,6 +4,8 @@
 
 Portable multiplayer networking for Unity games and dedicated .NET servers. Targets .NET Standard 2.1 with no third-party dependencies and no UnityEngine dependency in the runtime DLL.
 
+**Release two** turns the networking foundation into a complete optional multiplayer toolkit. Use **Tools → SocketJack → Setup Multiplayer** to connect an existing player prefab, then choose 3D/2D prediction, selected field/property sync, Full/Balanced/Compact/custom precision, spatial visibility and lifecycle helpers. Optional modules add MMO chat and persistent Communities, accounts, a server-hosted website, linked-server Global chat, authenticated relays and Opus voice. See the included `ReleaseTwo.md` or the [online setup/deployment guide](https://github.com/hheiroww/SocketJack/blob/codex/unity-multiplayer/docs/Unity-ReleaseTwo.md). The base remains dependency-free; Web and Voice have separately disclosed dependencies.
+
 The package supplies independent topology/transport choices, server or opted-in owner authority, object spawning and state, player ownership, room visibility, fixed simulation ticks, bounded queues and Unity component sources. Add the supplied components to bring multiplayer to an existing game, then select the fields/properties to replicate. Game code defines its prefabs, input and simulation rules; arbitrary single-player logic still needs ownership and rule integration.
 
 ## Install
@@ -11,7 +13,7 @@ The package supplies independent topology/transport choices, server or opted-in 
 For a dedicated .NET server or a non-Unity integration:
 
 ```sh
-dotnet add package SocketJack.Unity --version 2026.11.03.2
+dotnet add package SocketJack.Unity --version 2026.11.04.0
 ```
 
 Unity 6 is the primary support target, with Unity 2022.3 LTS retained as a compatibility bracket. Use the .NET Standard 2.1 API compatibility level in either bracket. The included `QuickStart.md` explains the version matrix, required components and a complete single-player-to-multiplayer conversion, including host/join setup, prefab spawning, input and local cameras. Its acceptance matrix records the exact Editor/player versions actually verified.
@@ -87,16 +89,17 @@ The manager defaults to **Binary formatter (SocketJack)**, the bounded typed `So
 
 See the included `QuickStart.md` for the component settings and a single-player conversion example, including server-controlled health and an owner-controlled display name.
 
-Standalone .NET integrations can use `NetworkMemberSchema`, `NetworkMemberBinding` and the manually pumped `NetworkMemberServer`/`NetworkMemberClient`. Build identical explicit schema keys and formatter registries on both ends; a plain runtime formatter does not automatically register Unity types. Set the session's `MaxMessageBytes` to at least `40 +` the largest selected member limit (the Unity manager uses 8,232). Dispose/recreate the member coordinators whenever their session is stopped/restarted, so a new object-ID space gets fresh subscriptions and view history. Work, traffic, cache and subscription limits are configured through `NetworkMemberSyncOptions` before starting.
+Standalone .NET integrations can use `NetworkMemberSchema`, `NetworkMemberBinding` and the manually pumped `NetworkMemberServer`/`NetworkMemberClient`. Build identical explicit schema keys and formatter registries on both ends; a plain runtime formatter does not automatically register Unity types. Set the session's `MaxMessageBytes` to at least `44 +` the largest selected member limit (the Unity manager uses 8,236). Dispose/recreate the member coordinators whenever their session is stopped/restarted, so a new object-ID space gets fresh subscriptions and view history. Work, traffic, cache and subscription limits are configured through `NetworkMemberSyncOptions` before starting.
 
 ## Transport contracts
 
-Choose **Udp** (default) or **Tcp** in the manager's Transport setting, or set `NetworkManager.Transport` before starting. Both work with host/peer and dedicated server/client sessions. All participants must use the same transport; there is no automatic fallback.
+Choose **Udp** (default), **Tcp** or **WebSocket**, or configure `NetworkManager.TransportFactory` before starting for a relay/custom provider. Native listeners support host/peer and dedicated server/client. WebGL clients use `SocketJackBrowserTransport` and cannot host a listener. All participants must use compatible transport settings; there is no automatic fallback.
 
 | Type | Behavior | Use |
 | --- | --- | --- |
 | `Udp` | Single nonblocking server socket; independent channel sequencing, acknowledgments and bounded retransmission for reliable messages | Realtime movement and state |
 | `Tcp` | Framed ordered stream; every delivery mode arrives reliably in stream order | Turn-based games, tools, networks allowing TCP only |
+| `WebSocket` | Bounded binary native WS/WSS transport; browser JavaScript bridge for WebGL | Browser gameplay, TLS and self-hosted WebSocket relay |
 | `Custom` | Implement `IGameTransport` and pass it to `NetworkServer`/`NetworkClient` | Platform services, relays or browser bridges |
 
 `DeliveryMode.ReliableUnordered` (alias `Reliable`) is the default for application traffic: packets are acknowledged/retried and duplicate-filtered, without holding a later message behind an earlier missing one. `ReliableOrdered` is available when ordering is explicitly needed; lifecycle messages use it. `Unreliable` allows loss/reordering, and `UnreliableSequenced` discards stale channel sequence numbers. UDP keeps reliable ordered/unordered histories separate. TCP preserves its underlying reliable stream order for every mode and cannot remove TCP head-of-line blocking. There is no silent fallback between transport types.
@@ -110,9 +113,9 @@ The bounded `ObjectRebuilder` implementation is shared with the core SocketJack 
 | IPv6 + UDP | 48 | 48 |
 | SocketJack reliable/datagram header | 40 | 40 |
 | Object frame header | 28 | 28 |
-| Session header | 12 | 20 |
+| Session header | 24 | 24 |
 | `PhysicsBinarySerializer` payload | 15 | 70 |
-| **Complete reserved IP packet** | **143 bytes** | **206 bytes** |
+| **Complete reserved IP packet** | **155 bytes** | **210 bytes** |
 
 A full fragment carries up to 882 bytes of logical data plus 116 bytes of framing/network overhead, totaling 998 bytes. A lower MTU or an extra encapsulation reserve reduces that capacity automatically. This packet budget is separate from the size of the rebuilt logical object.
 
@@ -120,7 +123,7 @@ Logical message, per-peer queued/reassembly byte counts, concurrent objects and 
 
 The session reserves channel `0` for reliable lifecycle messages, `1` for state snapshots and `2` for owner inputs. Application messages use channel `3` by default. A custom transport must provide at least these four channels and preserve the delivery contracts.
 
-Both built-in endpoints must use the same `MaxPacketSize` and `Channels` settings; a mismatch is rejected during the transport handshake. This release uses session protocol version 2 for server-assigned authority, so update every peer and server together; earlier session versions are rejected. They use a game-specific wire protocol and do not interoperate with the base library's `UdpClient`/`UdpServer` or reliable bulk-transfer protocol.
+Both built-in endpoints must use the same `MaxPacketSize` and `Channels` settings; a mismatch is rejected during the transport handshake. Release two uses **session protocol version 3** with ownership epochs, per-view tokens and compatibility admission, plus member protocol 2. Update every peer and server together; release-one sessions cannot mix with this release. They use a game-specific wire protocol and do not interoperate with the base library's `UdpClient`/`UdpServer` or reliable bulk-transfer protocol.
 
 ## Authoritative runtime
 
@@ -157,11 +160,11 @@ Defaults allow 4,096 connected peers, but this is a capacity limit, not a promis
 
 `NetworkSessionOptions` controls tick/snapshot rates, catch-up limits, per-peer queues, inbound message rates and per-update work. The headless runtime defaults to 30 simulation ticks/s and 10 snapshot rounds/s; the Unity manager defaults to 30 ticks/s and 5 snapshot rounds/s, while the physics sample simulates at 60 Hz with 5 Hz keyframes. Other defaults include 64 state updates per peer per snapshot round, 1,024 state/message bytes, 4,096 objects per room, 100,000 objects per server and 240 inbound messages/peer/s. The reliable session queue is capped at 1 MiB and 1,024 messages per peer; initial baselines stream object IDs/canonical state instead of eagerly filling that queue. State cycles revisit unchanged objects so later snapshots repair packet loss. A room with more visible objects than its snapshot budget takes multiple rounds to refresh. Configure and measure that latency for your game. `TransportOptions` separately bounds packet size, connection data, reliable backlog, timeouts and admitted peers. Raising caps increases memory/network cost; it does not create server capacity.
 
-UDP admission uses an endpoint-bound cookie challenge before allocating peer state. Set `TransportOptions.ConnectionValidator` (or the Unity manager's `ConnectionValidator`) before starting to validate a short-lived game ticket. Both included transports carry plaintext game data. They do not provide encryption or protection from an on-path attacker; use a trusted encrypted tunnel or an audited secure transport implementation when that is required. Never transmit reusable account passwords through `connectionData`. The package includes neither a matchmaking service nor hosted relay/NAT traversal, persistence, account management or multi-process orchestration.
+UDP admission uses an endpoint-bound cookie challenge before allocating peer state. Set `TransportOptions.ConnectionValidator` (or the Unity manager's `ConnectionValidator`) before starting to validate a short-lived game ticket. Direct UDP/TCP carry plaintext game data; UDP relay credentials authenticate routing without encrypting payloads. Native WebSocket supports TLS/WSS. Never transmit reusable account passwords through `connectionData`. Optional Web/Voice packages add ticketed admission, accounts, persistence, a website, authenticated self-hosted relays and linked-server chat/voice. Operators provide their hosting, certificates and deployment configuration; universal matchmaking and automatic process orchestration are not included.
 
 **Automatic Port Forwarding** is enabled by default and runs only after a host/server has bound its listening port. It asynchronously discovers a UPnP gateway and requests that exact UDP/TCP service mapping, with a finite renewable lease. A peer/client never requests a mapping. Results and the external endpoint are collected on the Unity main thread through `PortMappingStatus`, `IsPortMapped` and `ExternalEndpoint`; mapping failure does not stop LAN/local gameplay. Shutdown cancels discovery and releases mappings this instance owns. An existing compatible mapping is reused without being claimed, renewed or deleted. Automated sample checks explicitly disable UPnP so tests do not alter a real router. Gateways without UPnP, upstream carrier NAT and Windows firewall policy still require an appropriate network arrangement.
 
-WebGL cannot use raw UDP/TCP sockets. The built-in Unity manager rejects it with a clear exception; provide a browser-specific transport/bridge through the runtime API for browser games. Other platform acceptance, including IL2CPP, mobile and consoles, requires testing the actual player build and the platform's networking requirements. The runtime avoids reflection serialization to make that integration practical.
+WebGL cannot use raw UDP/TCP sockets. Add/configure `SocketJackBrowserTransport` for the browser-native WebSocket bridge. Actual Unity 2022.3 WebGL/IL2CPP checks cover direct and relayed gameplay; Unity 6 WebGL and other platform/backend combinations need their own player acceptance. Preserve explicitly selected reflected game members through the game's linker configuration, or use code-authored member bindings.
 
 ## Build and verification
 
@@ -170,7 +173,7 @@ The source checkout includes a real Unity/PhysX cube game in [`Examples/UnityPhy
 ```sh
 dotnet test SocketJack.Unity.Tests/SocketJack.Unity.Tests.csproj -c Release
 dotnet pack SocketJack.Unity/SocketJack.Unity.csproj -c Release -o ./artifacts/unity
-pwsh -File tools/Verify-UnityPackage.ps1 -Package ./artifacts/unity/SocketJack.Unity.2026.11.3.2.nupkg
+pwsh -File tools/Verify-UnityPackage.ps1 -Package ./artifacts/unity/SocketJack.Unity.2026.11.4.nupkg
 ```
 
 From a repository checkout with Unity installed, compile component sources against the real Editor reference assemblies:

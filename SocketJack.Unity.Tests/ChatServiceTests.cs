@@ -50,6 +50,16 @@ namespace SocketJack.Multiplayer.Tests
             Assert.IsFalse(f.Service.ReadMessages(f.Cara).Any(m => m.Channel == ChatChannel.Zone));
         }
         [TestMethod]
+        public void CombatAndSystemAreOnlySentByTrustedServerOperations()
+        {
+            var f = new Fixture(); Assert.IsFalse(f.Service.Send(f.Alice, ChatChannel.Combat, "Forged damage").Success);
+            Assert.ThrowsException<SocialException>(() => f.Service.ResolveAudience(f.Alice, ChatChannel.Combat));
+            var combat = f.Service.SendCombat("Alice hit target for 5.", new[] { f.Alice, f.Bob }, "encounter-1");
+            Assert.AreEqual(ChatChannel.Combat, combat.Message.Channel); Assert.AreEqual("Combat", combat.Message.SenderName);
+            CollectionAssert.AreEquivalent(new[] { f.Alice, f.Bob }, combat.RecipientIds);
+            Assert.AreEqual(1, f.Service.ReadMessages(f.Bob).Count); Assert.AreEqual(0, f.Service.ReadMessages(f.Cara).Count);
+        }
+        [TestMethod]
         public void WhisperAndInvitationsRespectIgnoreAndUnknownAccounts()
         {
             var f = new Fixture(); f.Service.SetIgnored(f.Bob, f.Alice, true);

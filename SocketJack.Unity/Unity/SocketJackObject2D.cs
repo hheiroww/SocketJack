@@ -102,9 +102,10 @@ namespace SocketJack.Multiplayer.Components
         /// <summary>Optional immutable custom profile. Assign before the manager binds/spawns this instance.</summary>
         public NetworkPrecisionProfile PrecisionProfile
         {
-            get => profileOverride ?? (profileOverride = precisionAsset != null ? precisionAsset.CreateProfile() : NetworkPrecisionProfile.ForPreset((NetworkPrecisionPreset)(int)precision));
+            get { var adaptive = GetComponent<SocketJackAdaptiveObject>(); return adaptive != null && adaptive.isActiveAndEnabled ? adaptive.CurrentProfile : profileOverride ?? (profileOverride = precisionAsset != null ? precisionAsset.CreateProfile() : NetworkPrecisionProfile.ForPreset((NetworkPrecisionPreset)(int)precision)); }
             set { RequireUnboundPrecision(); profileOverride = value ?? throw new ArgumentNullException(nameof(value)); }
         }
+        private NetworkPrecisionProfile DecodeProfile(byte[] bytes) => NetworkPrecisionFamily.ForState(bytes, false, PrecisionProfile, GetComponent<SocketJackAdaptiveObject>()?.isActiveAndEnabled == true);
         public Transform Visual { get => visual; set { visual = value; RememberVisual(); } }
         public long InputsSent { get; private set; }
         public long InputsReceived { get; private set; }
@@ -262,13 +263,13 @@ namespace SocketJack.Multiplayer.Components
         }
         public bool ValidateState(byte[] state)
         {
-            try { QuantizedPhysicsSerializer.DeserializeSnapshot2D(state, PrecisionProfile); return true; }
+            try { QuantizedPhysicsSerializer.DeserializeSnapshot2D(state, DecodeProfile(state)); return true; }
             catch (Exception error) when (error is ArgumentException || error is IOException || error is InvalidDataException || error is InvalidOperationException) { return false; }
         }
         public void ApplyState(byte[] state, bool immediate)
         {
             PhysicsSnapshot snapshot;
-            try { snapshot = QuantizedPhysicsSerializer.DeserializeSnapshot2D(state, PrecisionProfile); }
+            try { snapshot = QuantizedPhysicsSerializer.DeserializeSnapshot2D(state, DecodeProfile(state)); }
             catch (Exception error) when (error is ArgumentException || error is IOException || error is InvalidDataException || error is InvalidOperationException) { return; }
             if (hasSnapshot && !PhysicsReconciler.IsNewer(snapshot.Tick, authoritative.Tick)) return;
             EnsureBody(); authoritative = snapshot; hasSnapshot = true; snapshotReceivedAt = Time.unscaledTimeAsDouble; KeyframesReceived++;

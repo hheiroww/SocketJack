@@ -3,6 +3,8 @@ using System.Net.Sockets;
 
 namespace SocketJack.Multiplayer.Transport
 {
+    /// <summary>Optional complete packet budget for transport decorators such as authenticated relays.</summary>
+    public interface IPacketBudgetSource { PacketBudget Budget { get; } }
     /// <summary>Budget for one unfragmented IP/UDP game packet. MaxDatagramBytes includes
     /// SocketJack's reliability header; MaxPayloadBytes excludes it. Frame payloads keep the
     /// entire IP packet strictly below 999 bytes. Larger logical objects can span multiple frames.</summary>
@@ -11,7 +13,7 @@ namespace SocketJack.Multiplayer.Transport
         public const int DefaultPathMtu = 1280;
         public const int UdpHeaderSize = 8;
         public const int ReliableHeaderSize = 40;
-        public const int MaximumSessionHeaderSize = 39;
+        public const int MaximumSessionHeaderSize = 49;
         public const int ObjectFrameHeaderSize = 28;
         public const int ObjectPacketLimit = 998;
         public static PacketBudget Default { get; } = new PacketBudget();

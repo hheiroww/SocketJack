@@ -89,6 +89,23 @@ namespace SocketJack.Multiplayer.Tests
         }
 
         [TestMethod]
+        public async Task ControlFramesConsumeTheSameBoundedConnectionRateBudget()
+        {
+            await using var fixture = new RelayFixture(new WebSocketRelayOptions { MaxMessageBytes = 256, ClientBytesPerSecond = 256 });
+            using var server = new WebSocketGameTransport(); server.StartServer(new IPEndPoint(IPAddress.Loopback, 0));
+            await using var host = await WebSocketRelayHost.ConnectAsync(server, fixture.Uri, "host-a");
+            using var socket = new ClientWebSocket(); await socket.ConnectAsync(fixture.Uri, CancellationToken.None);
+            byte[] ticket = Encoding.ASCII.GetBytes("client-a"); var join = new byte[4 + ticket.Length]; join[0] = join[1] = 1; join[2] = (byte)ticket.Length; Buffer.BlockCopy(ticket, 0, join, 4, ticket.Length);
+            await socket.SendAsync(new ArraySegment<byte>(join), WebSocketMessageType.Binary, true, CancellationToken.None);
+            await socket.ReceiveAsync(new ArraySegment<byte>(new byte[32]), CancellationToken.None);
+            var ping = new byte[10]; ping[0] = 1; ping[1] = 6;
+            try { for (int i = 0; i < 100; i++) await socket.SendAsync(new ArraySegment<byte>(ping), WebSocketMessageType.Binary, true, CancellationToken.None); }
+            catch (WebSocketException) { }
+            await Pump(() => fixture.Service.ConnectionCount == 1 && host.ClientCount == 0, server);
+            Assert.IsTrue(host.IsConnected, "A rate-limited client must not evict the host.");
+        }
+
+        [TestMethod]
         public async Task SpoofedRoutesMalformedFramesAndCanceledJoinsReleaseCapacity()
         {
             await using var fixture = new RelayFixture();

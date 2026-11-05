@@ -25,7 +25,7 @@ namespace SocketJack.Multiplayer.Chat
         /// bandwidth/rate budget and obtain actorId from authenticated server state.</summary>
         public IReadOnlyList<string> ResolveAudience(string actorId, ChatChannel channel, string scopeId = null, string targetId = null)
         {
-            if (!Enum.IsDefined(typeof(ChatChannel), channel) || channel == ChatChannel.System) throw Error("channel_denied", "This channel is unavailable.");
+            if (!Enum.IsDefined(typeof(ChatChannel), channel) || channel == ChatChannel.System || channel == ChatChannel.Combat) throw Error("channel_denied", "This channel is unavailable.");
             if (string.IsNullOrWhiteSpace(scopeId)) scopeId = null; if (string.IsNullOrWhiteSpace(targetId)) targetId = null;
             var actor = Account(actorId); var source = Presence(actor.AccountId) ?? throw Error("offline", "An online session is required.");
             lock (gate)
@@ -43,7 +43,7 @@ namespace SocketJack.Multiplayer.Chat
             {
                 if (string.IsNullOrWhiteSpace(scopeId)) scopeId = null;
                 if (string.IsNullOrWhiteSpace(targetId)) targetId = null;
-                if (!Enum.IsDefined(typeof(ChatChannel), channel) || channel == ChatChannel.System) throw Error("channel_denied", "This channel cannot be sent by a player.");
+                if (!Enum.IsDefined(typeof(ChatChannel), channel) || channel == ChatChannel.System || channel == ChatChannel.Combat) throw Error("channel_denied", "This channel cannot be sent by a player.");
                 var actor = Account(actorId); var source = Presence(actor.AccountId) ?? throw Error("offline", "An online session is required for chat.");
                 text = ChatText(text); var links = Links.Parse(text); DateTime now = Now();
                 lock (gate)
@@ -63,6 +63,12 @@ namespace SocketJack.Multiplayer.Chat
         }
         /// <summary>Trusted server operation. Never expose as an unauthenticated player endpoint.</summary>
         public ChatSendResult SendSystem(string text, IEnumerable<string> recipientIds, string scopeId = "")
+            => SendServerMessage(text, recipientIds, scopeId, ChatChannel.System, "System");
+        /// <summary>Trusted server combat feed. Derive recipients and content from validated combat logic;
+        /// never expose this as a player-requested message channel.</summary>
+        public ChatSendResult SendCombat(string text, IEnumerable<string> recipientIds, string scopeId = "")
+            => SendServerMessage(text, recipientIds, scopeId, ChatChannel.Combat, "Combat");
+        private ChatSendResult SendServerMessage(string text, IEnumerable<string> recipientIds, string scopeId, ChatChannel channel, string sender)
         {
             text = ChatText(text); if (recipientIds == null) throw new ArgumentNullException(nameof(recipientIds));
             var recipients = recipientIds.Take(options.MaxAudience + 1).Select(id => Account(id).AccountId).Distinct(StringComparer.Ordinal).ToList();
@@ -70,7 +76,7 @@ namespace SocketJack.Multiplayer.Chat
             lock (gate)
             {
                 CheckInboxCapacity(recipients); DateTime now = Now(); var message = new ChatMessage { Id = NextMessageId(now), TimestampUtc = now,
-                    SenderId = Guid.Empty.ToString("N"), SenderName = "System", Channel = ChatChannel.System, ScopeId = Plain(scopeId ?? "", 0, 128), Text = text };
+                    SenderId = Guid.Empty.ToString("N"), SenderName = sender, Channel = channel, ScopeId = Plain(scopeId ?? "", 0, 128), Text = text };
                 Deliver(message, recipients); return new ChatSendResult { Success = true, Message = SocialCopies.Message(message), RecipientIds = recipients.ToArray() };
             }
         }

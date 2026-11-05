@@ -14,6 +14,7 @@ namespace SocketJack.Multiplayer.Components
         public bool IsOpen { get; private set; }
         private SocketJackNetworkEvent command;
         private double nextInteraction;
+        protected override void OnNetworkReset() { IsOpen = false; nextInteraction = 0; }
         private void Awake()
         {
             command = GetComponent<SocketJackNetworkEvent>(); command.EventId = CommandEventId; command.ValueType = NetworkEventValueType.Boolean;

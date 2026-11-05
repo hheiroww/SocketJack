@@ -33,6 +33,7 @@ namespace SocketJack.Multiplayer
             internal int InterestCursor;
             internal readonly Dictionary<ulong, ulong> Views = new Dictionary<ulong, ulong>();
             internal ulong NextView;
+            internal int SnapshotEvery = 1, SnapshotCounter, StateLimit;
         }
         private readonly IGameTransport _transport;
         private readonly NetworkSessionOptions _options;
@@ -235,6 +236,13 @@ namespace SocketJack.Multiplayer
                peer.Room == obj.RoomId && peer.Visible.Contains(objectId) && (InterestProvider == null || InterestProvider.IsVisible(peerId, obj, true));
         public ulong GetViewId(ulong peerId, ulong objectId)
             => CanObserve(peerId, objectId) && _peers[peerId].Views.TryGetValue(objectId, out ulong view) ? view : 0;
+        public long GetQueuedBytes(ulong peerId) => _peers.TryGetValue(peerId, out var peer) ? peer.QueuedBytes : 0;
+        public void SetPeerReplication(ulong peerId, int snapshotEvery = 1, int maxStatesPerSnapshot = 0)
+        {
+            if (snapshotEvery < 1 || snapshotEvery > 8 || maxStatesPerSnapshot < 0 || maxStatesPerSnapshot > _options.MaxStateUpdatesPerTick) throw new ArgumentOutOfRangeException(nameof(snapshotEvery));
+            if (!_peers.TryGetValue(peerId, out var peer)) throw new KeyNotFoundException("Unknown peer.");
+            peer.SnapshotEvery = snapshotEvery; peer.StateLimit = maxStatesPerSnapshot;
+        }
 
         public bool SendMessage(ulong peerId, ushort messageId, byte[] payload,
             DeliveryMode delivery = DeliveryMode.ReliableUnordered, byte channel = 3)
@@ -462,8 +470,10 @@ namespace SocketJack.Multiplayer
             {
                 if (!peer.Ready) continue;
                 if (peer.Reliable.Count > 0 || peer.Baseline.Length > 0) continue; // send lifecycle baselines first
+                peer.SnapshotCounter = (peer.SnapshotCounter + 1) % peer.SnapshotEvery;
+                if (peer.SnapshotCounter != 0) continue;
                 var objects = peer.VisibleList;
-                int count = Math.Min(objects.Count, _options.MaxStateUpdatesPerTick);
+                int count = Math.Min(objects.Count, peer.StateLimit == 0 ? _options.MaxStateUpdatesPerTick : peer.StateLimit);
                 for (int i = 0; i < count && objects.Count > 0; i++)
                 {
                     if (peer.StateCursor >= objects.Count) peer.StateCursor = 0;

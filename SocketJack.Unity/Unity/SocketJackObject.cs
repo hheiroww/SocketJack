@@ -76,7 +76,12 @@ namespace SocketJack.Multiplayer.Components
         [SerializeField] private NetworkPrecisionAsset precisionAsset = null;
         private NetworkPrecisionProfile precisionProfile;
         public NetworkPrecisionPreset PrecisionPreset { get => precisionPreset; set { if (value == NetworkPrecisionPreset.Custom) throw new ArgumentException("Assign PrecisionProfile for custom settings."); precisionPreset = value; precisionProfile = null; } }
-        public NetworkPrecisionProfile PrecisionProfile { get => precisionProfile ?? (precisionProfile = precisionAsset != null ? precisionAsset.CreateProfile() : NetworkPrecisionProfile.ForPreset(precisionPreset)); set => precisionProfile = value ?? throw new ArgumentNullException(nameof(value)); }
+        public NetworkPrecisionProfile PrecisionProfile
+        {
+            get { var adaptive = GetComponent<SocketJackAdaptiveObject>(); return adaptive != null && adaptive.isActiveAndEnabled ? adaptive.CurrentProfile : precisionProfile ?? (precisionProfile = precisionAsset != null ? precisionAsset.CreateProfile() : NetworkPrecisionProfile.ForPreset(precisionPreset)); }
+            set => precisionProfile = value ?? throw new ArgumentNullException(nameof(value));
+        }
+        private NetworkPrecisionProfile DecodeProfile(byte[] bytes) => NetworkPrecisionFamily.ForState(bytes, false, PrecisionProfile, GetComponent<SocketJackAdaptiveObject>()?.isActiveAndEnabled == true);
 #if !ENABLE_LEGACY_INPUT_MANAGER
         private bool keyboardWarningLogged;
 #endif
@@ -270,7 +275,7 @@ namespace SocketJack.Multiplayer.Components
         public void ApplyState(byte[] bytes, bool immediate)
         {
             PhysicsSnapshot snapshot;
-            try { snapshot = QuantizedPhysicsSerializer.DeserializeSnapshot(bytes, PrecisionProfile); }
+            try { snapshot = QuantizedPhysicsSerializer.DeserializeSnapshot(bytes, DecodeProfile(bytes)); }
             catch (Exception error) when (error is ArgumentException || error is IOException || error is InvalidDataException) { return; }
             if (hasSnapshot && !PhysicsReconciler.IsNewer(snapshot.Tick, authoritative.Tick)) return;
             authoritative = snapshot; hasSnapshot = true; snapshotReceivedAt = Time.unscaledTimeAsDouble; KeyframesReceived++;
@@ -321,7 +326,7 @@ namespace SocketJack.Multiplayer.Components
         }
         public bool ValidateState(byte[] bytes)
         {
-            try { QuantizedPhysicsSerializer.DeserializeSnapshot(bytes, PrecisionProfile); return true; }
+            try { QuantizedPhysicsSerializer.DeserializeSnapshot(bytes, DecodeProfile(bytes)); return true; }
             catch (Exception error) when (error is ArgumentException || error is IOException) { return false; }
         }
         public void ResetPrediction()

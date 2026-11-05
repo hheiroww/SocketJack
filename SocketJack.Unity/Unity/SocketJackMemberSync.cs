@@ -25,6 +25,7 @@ namespace SocketJack.Multiplayer.Components
             public NetworkPrecisionPreset Precision = NetworkPrecisionPreset.FullPrecision;
             public NetworkPrecisionAsset PrecisionAsset;
             public NetworkQuantizationSemantic Semantic = NetworkQuantizationSemantic.Scalar;
+            public bool AdaptivePrecision;
         }
         [SerializeField] private List<MemberSetting> members = new List<MemberSetting>();
         private bool bound;
@@ -52,6 +53,7 @@ namespace SocketJack.Multiplayer.Components
             members.Add(setting); return setting;
         }
         internal void MarkBound() { bound = true; }
+        internal void ResetBinding() { bound = false; }
         internal NetworkMemberSchema CreateSchema(INetworkSerializer serializer)
         {
             var configured = new List<NetworkMemberBinding>();
@@ -69,7 +71,9 @@ namespace SocketJack.Multiplayer.Components
                 int componentIndex = Array.IndexOf(entry.Target.GetComponents(entry.Target.GetType()), entry.Target);
                 string key = string.Join("/", path) + ":" + NetworkMemberAccessors.GetTypeKey(entry.Target.GetType()) + ":" + componentIndex + ":" + descriptor.Key;
                 if (!keys.Add(key)) throw new InvalidOperationException("The same member is configured more than once.");
-                INetworkSerializer valueCodec = entry.Precision == NetworkPrecisionPreset.FullPrecision && entry.PrecisionAsset == null ? null :
+                INetworkSerializer valueCodec = entry.AdaptivePrecision ? new UnityQuantizedNetworkSerializer(new AdaptiveNumericSerializer(
+                    () => GetComponent<SocketJackAdaptiveObject>()?.CurrentProfile ?? NetworkPrecisionProfile.Balanced, entry.Semantic)) :
+                    entry.Precision == NetworkPrecisionPreset.FullPrecision && entry.PrecisionAsset == null ? null :
                     new UnityQuantizedNetworkSerializer(entry.PrecisionAsset != null ? entry.PrecisionAsset.CreateProfile() : NetworkPrecisionProfile.ForPreset(entry.Precision), entry.Semantic);
                 configured.Add(descriptor.Bind(entry.Target, checked((ushort)(i + 1)), entry.Authority,
                     entry.SendInterval, entry.OnlyWhenChanged, entry.MaxBytes, key, valueCodec));
@@ -168,6 +172,7 @@ namespace SocketJack.Publishing.Editor
                     EditorGUILayout.PropertyField(entry.FindPropertyRelative("Precision"));
                     EditorGUILayout.PropertyField(entry.FindPropertyRelative("PrecisionAsset"));
                     EditorGUILayout.PropertyField(entry.FindPropertyRelative("Semantic"));
+                    EditorGUILayout.PropertyField(entry.FindPropertyRelative("AdaptivePrecision"));
                     EditorGUILayout.EndVertical();
                 }
             }

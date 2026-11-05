@@ -4,7 +4,7 @@ using System.Numerics;
 
 namespace SocketJack.Multiplayer.Chat
 {
-    public enum ChatChannel { Global, Trade, Zone, LookingForGroup, Party, Raid, Community, CommunityOfficers, Proximity, Yell, Whisper, Emote, System }
+    public enum ChatChannel { Global, Trade, Zone, LookingForGroup, Party, Raid, Community, CommunityOfficers, Proximity, Yell, Whisper, Emote, System, Combat }
     public enum SocialGroupKind { Party, Raid }
     public enum CommunityRole { Owner, Officer, Member }
     public enum SocialInviteKind { Group, Community }

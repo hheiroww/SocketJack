@@ -1,5 +1,9 @@
 # Unity Asset Store artifact preparation
 
+Release two exports the complete six-module expansion. Build a bounded exact runtime bundle with `tools/Build-UnityDistributionBundle.ps1`, then pass its `runtime` directory and `runtime-manifest.json` to the exporter as `-ExpansionRuntimeDirectory` and `-ExpansionRuntimeManifest`, together with the matching core `-RuntimeDll` and SHA-256. The allowlist includes only reviewed managed dependencies, editable components, offline notices and the native complete 3D/2D samples. OS SQLite, duplicate Unity framework facades and publishing tools are excluded. Native backend DLLs/host assemblies are excluded from WebGL; client modules remain separate.
+
+`tools/Build-UnityUpmPackage.ps1` accepts the same verified inputs and creates the complete `com.socketjack.multiplayer` 2.0.0 tarball. Both routes share assembly definitions and stable GUID mappings. The six NuGet IDs remain separately installable; their exact dependencies/content are validated by `UnityPackageFamily.psd1` and `Verify-UnityPackageFamily.ps1`. Do not export an entire build output directory: obsolete/native dependencies can remain in retained staging after a dependency change.
+
 `tools/Export-UnityAssetStore.ps1` creates a real Unity `.unitypackage`, then imports it into a separate clean project and verifies that the runtime, component scripts and demo scene compile and load. It uses the installed Unity Editor's `AssetDatabase.ExportPackage` and an explicit asset allowlist. It does not upload or submit a listing.
 
 ```powershell

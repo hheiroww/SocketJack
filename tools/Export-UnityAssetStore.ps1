@@ -3,12 +3,18 @@ param(
     [Parameter(Mandatory = $true)][string]$OutputDirectory,
     [string]$Editor = 'C:\Program Files\Unity\Hub\Editor\2022.3.17f1\Editor\Unity.exe',
     [string]$RuntimeDll,
+    [string]$ExpansionRuntimeDirectory,
+    [string]$ExpansionRuntimeManifest,
     [ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$ExpectedRuntimeSha256,
     [ValidatePattern('^[A-Za-z0-9_.-]{1,40}$')][string]$ImportVerificationTag,
     [switch]$DocumentationOnly
 )
 $ErrorActionPreference = 'Stop'
 $repository = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+. (Join-Path $PSScriptRoot 'Unity-Distribution.ps1')
+$includeExpansion = !!$ExpansionRuntimeDirectory
+if ($includeExpansion -ne !!$ExpansionRuntimeManifest) { throw 'The expansion requires both an exact runtime directory and its hash manifest.' }
+if ($includeExpansion -and $DocumentationOnly) { throw 'Expansion releases require full fresh import acceptance.' }
 [xml]$projectXml = Get-Content -LiteralPath (Join-Path $repository 'SocketJack.Unity/SocketJack.Unity.csproj') -Raw
 $version = $projectXml.SelectSingleNode('/Project/PropertyGroup/Version').InnerText.Trim()
 $staging = [IO.Path]::GetFullPath($OutputDirectory)
@@ -40,6 +46,10 @@ function Set-StableMeta([string]$Path, [string]$AssetPath, [bool]$Folder = $fals
     $hash = [Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes("SocketJack.Unity.AssetStore/$AssetPath"))
     $guid = [Convert]::ToHexString($hash).Substring(0, 32).ToLowerInvariant()
     $text = "fileFormatVersion: 2`nguid: $guid`n"
+    if ([IO.Path]::GetExtension($Path) -eq '.dll') {
+        $nativeOnly = [IO.Path]::GetFileName($Path) -in @('SocketJack.Unity.Web.dll', 'SocketJack.Unity.Voice.Web.dll')
+        $text = Get-UnityPluginMetadata $guid $nativeOnly
+    }
     if ($Folder) { $text += "folderAsset: yes`nDefaultImporter:`n  externalObjects: {}`n  userData:`n  assetBundleName:`n  assetBundleVariant:`n" }
     [IO.File]::WriteAllText("$Path.meta", $text, [Text.UTF8Encoding]::new($false))
 }
@@ -87,7 +97,8 @@ function Invoke-Editor([string]$Project, [string]$Method, [string]$Log, [string[
     }
 }
 
-$package = Join-Path $staging "SocketJack.Unity.$version.unitypackage"
+$packagePrefix = if ($includeExpansion) { 'SocketJack.Premium.Unity' } else { 'SocketJack.Unity' }
+$package = Join-Path $staging "$packagePrefix.$version.unitypackage"
 if (!$DocumentationOnly -and (Test-Path -LiteralPath (Join-Path $importProject $packageRoot))) {
     throw 'The fresh-import project already contains this package. Choose a new owned output directory for another fresh-import verification; existing outputs are retained.'
 }
@@ -132,6 +143,28 @@ foreach ($file in $componentManifest.files) {
     if ($file -notmatch '^(?:[A-Za-z][A-Za-z0-9_]*\.cs|Editor/[A-Za-z][A-Za-z0-9_]*\.cs|Plugins/[A-Za-z][A-Za-z0-9_]*\.jslib|link\.xml)$') { throw 'Invalid public component path.' }
     $sources["Runtime/Components/$file"] = Join-Path $repository "SocketJack.Unity/Unity/$file"
 }
+if ($includeExpansion) {
+    $expansion = Get-UnityExpansionSources $repository $ExpansionRuntimeDirectory $ExpansionRuntimeManifest
+    $bundleCore = Join-Path $ExpansionRuntimeDirectory 'SocketJack.Unity.dll'
+    if ((Get-FileHash -LiteralPath $bundleCore -Algorithm SHA256).Hash -ne (Get-FileHash -LiteralPath $runtimeSource -Algorithm SHA256).Hash) { throw 'Expansion and core inputs must use the same reviewed runtime.' }
+    foreach ($relative in $expansion.Keys) {
+        if ([IO.Path]::GetFileName($relative) -like 'SocketJack.Unity*.dll') {
+            Assert-PublicRuntimeMetadata $expansion[$relative]
+            if ([Reflection.AssemblyName]::GetAssemblyName($expansion[$relative]).Version -ne [Version]$version) { throw 'Expansion assemblies must use the same release version.' }
+        }
+        $sources[$relative] = $expansion[$relative]
+    }
+    $sources['Documentation/ReleaseTwo.md'] = Join-Path $repository 'docs/Unity-ReleaseTwo.md'
+    $sources['Documentation/Voice-Licensing.md'] = Join-Path $repository 'docs/Unity-Voice-Licensing.md'
+    $sources['Documentation/ThirdParty/DotNet-LICENSE.txt'] = Join-Path $repository 'docs/ThirdParty/DotNet-LICENSE.txt'
+    $sources['Documentation/ThirdParty/DotNet-THIRD-PARTY-NOTICES.txt'] = Join-Path $repository 'docs/ThirdParty/DotNet-THIRD-PARTY-NOTICES.txt'
+    $sources['Documentation/ThirdParty/DotNet-Provenance.json'] = Join-Path $repository 'docs/ThirdParty/DotNet-Provenance.json'
+    $sources['Documentation/Voice-Third-Party-Notices.md'] = Join-Path $repository 'SocketJack.Unity.Voice/THIRD-PARTY-NOTICES.md'
+    $sources['Samples/Multiplayer/Scripts/MultiplayerGame.cs'] = Join-Path $repository 'Examples/UnityMultiplayer/Assets/Scripts/MultiplayerGame.cs'
+    $sources['Samples/Multiplayer/Editor/MultiplayerSampleBuild.cs'] = Join-Path $repository 'Examples/UnityMultiplayer/Assets/Editor/MultiplayerSampleBuild.cs'
+    $sources['Samples/Multiplayer/README.md'] = Join-Path $repository 'Examples/UnityMultiplayer/README.md'
+}
+$definitions = Get-UnityAssemblyDefinitions $includeExpansion
 if ($DocumentationOnly) {
     if (!$RuntimeDll) { throw 'A documentation-only update must reuse the explicit verified runtime DLL.' }
     $priorVerification = Get-Content -LiteralPath (Join-Path $staging 'package-verification.json') -Raw | ConvertFrom-Json
@@ -162,7 +195,16 @@ foreach ($relative in $sources.Keys) {
     }
     [void]$assets.Add($asset)
 }
-foreach ($relative in @('Samples/Physics/Scenes/SocketJackPhysics.unity', 'Samples/Physics/Resources/SocketJackPhysicsStandard.mat')) {
+foreach ($relative in $definitions.Keys) {
+    $asset = "$packageRoot/$relative"; $target = Join-Path $exportProject $asset
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $target) | Out-Null
+    [IO.File]::WriteAllText($target, $definitions[$relative], [Text.UTF8Encoding]::new($false))
+    Set-StableMeta $target $asset
+    [void]$assets.Add($asset)
+}
+$generatedAssets = @('Samples/Physics/Scenes/SocketJackPhysics.unity', 'Samples/Physics/Resources/SocketJackPhysicsStandard.mat')
+if ($includeExpansion) { $generatedAssets += @('Samples/Multiplayer/Scenes/Complete3D.unity', 'Samples/Multiplayer/Scenes/Complete2D.unity', 'Samples/Multiplayer/Scenes/Resources/SocketJackCompleteStandard.mat') }
+foreach ($relative in $generatedAssets) {
     $asset = "$packageRoot/$relative"; $target = Join-Path $exportProject $asset
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $target) | Out-Null
     if (!$DocumentationOnly) { Set-StableMeta $target $asset }
@@ -258,7 +300,7 @@ $expectedTypes = @('SocketJack.Multiplayer.Components.NetworkManager', 'SocketJa
     'SocketJack.Multiplayer.Components.NetworkTransform', 'SocketJack.Multiplayer.Components.SocketJackObject',
     'SocketJack.Multiplayer.Components.SocketJackMemberSync',
     'SocketJack.Multiplayer.Components.ExamplePlayerController', 'SocketJack.Samples.Physics.PhysicsGame')
-if (@($imported.compiledTypes).Count -ne $expectedTypes.Count -or @(Compare-Object $expectedTypes @($imported.compiledTypes)).Count -ne 0) {
+if (@($expectedTypes | Where-Object { $_ -notin $imported.compiledTypes }).Count -ne 0) {
     throw 'Fresh import component/sample namespaces differ from the published API contract.'
 }
 Write-Host "Verified Unity Asset Store review artifact: $package"

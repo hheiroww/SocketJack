@@ -29,10 +29,11 @@ namespace SocketJack.Multiplayer.Components
     /// <summary>Explicit Unity numeric adapter; no Unity object graphs or remote-selected types.</summary>
     public sealed class UnityQuantizedNetworkSerializer : INetworkSerializer
     {
-        private readonly QuantizedNetworkSerializer codec;
+        private readonly INetworkSerializer codec;
         public string ProtocolId => "sj.unity.numeric.v1/" + codec.ProtocolId;
         public UnityQuantizedNetworkSerializer(NetworkPrecisionProfile profile, NetworkQuantizationSemantic semantic = NetworkQuantizationSemantic.Scalar)
         { codec = new QuantizedNetworkSerializer(profile, semantic); }
+        public UnityQuantizedNetworkSerializer(INetworkSerializer numericCodec) { codec = numericCodec ?? throw new ArgumentNullException(nameof(numericCodec)); }
         private static Type WireType(Type type)
         {
             if (type == typeof(Vector2)) return typeof(System.Numerics.Vector2);

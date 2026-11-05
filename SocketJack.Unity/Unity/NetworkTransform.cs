@@ -22,7 +22,12 @@ namespace SocketJack.Multiplayer.Components
         [SerializeField] private NetworkPrecisionAsset precisionAsset = null;
         private NetworkPrecisionProfile profile;
         public NetworkPrecisionPreset PrecisionPreset { get => precisionPreset; set { if (value == NetworkPrecisionPreset.Custom) throw new ArgumentException("Assign PrecisionProfile or a profile asset."); precisionPreset = value; profile = null; } }
-        public NetworkPrecisionProfile PrecisionProfile { get => profile ?? (profile = precisionAsset != null ? precisionAsset.CreateProfile() : NetworkPrecisionProfile.ForPreset(precisionPreset)); set => profile = value ?? throw new ArgumentNullException(nameof(value)); }
+        public NetworkPrecisionProfile PrecisionProfile
+        {
+            get { var adaptive = GetComponent<SocketJackAdaptiveObject>(); return adaptive != null && adaptive.isActiveAndEnabled ? adaptive.CurrentProfile : profile ?? (profile = precisionAsset != null ? precisionAsset.CreateProfile() : NetworkPrecisionProfile.ForPreset(precisionPreset)); }
+            set => profile = value ?? throw new ArgumentNullException(nameof(value));
+        }
+        private NetworkPrecisionProfile DecodeProfile(byte[] bytes) => NetworkPrecisionFamily.ForState(bytes, true, PrecisionProfile, GetComponent<SocketJackAdaptiveObject>()?.isActiveAndEnabled == true);
         public bool UsesInput => false;
         public bool CaptureEligible(double now) => true;
         public bool ResolveServerAuthority(bool managerAuthority) => managerAuthority;
@@ -30,7 +35,7 @@ namespace SocketJack.Multiplayer.Components
         public void ReceiveRelayedInput(byte[] bytes) { }
         public void ResetPrediction() { hasTarget = false; }
         public bool ValidateState(byte[] state)
-        { try { QuantizedTransformSerializer.Deserialize(state, PrecisionProfile); return true; } catch (Exception error) when (error is IOException || error is ArgumentException) { return false; } }
+        { try { QuantizedTransformSerializer.Deserialize(state, DecodeProfile(state)); return true; } catch (Exception error) when (error is IOException || error is ArgumentException) { return false; } }
 
         private void Awake() => identity = GetComponent<NetworkIdentity>();
         public byte[] CaptureState()
@@ -44,7 +49,7 @@ namespace SocketJack.Multiplayer.Components
         {
             try
             {
-                var snapshot = QuantizedTransformSerializer.Deserialize(state, PrecisionProfile);
+                var snapshot = QuantizedTransformSerializer.Deserialize(state, DecodeProfile(state));
                 var p = snapshot.Position; var r = snapshot.Rotation; var s = snapshot.Scale;
                 targetPosition = new Vector3(p.X, p.Y, p.Z); targetRotation = new Quaternion(r.X, r.Y, r.Z, r.W); targetScale = new Vector3(s.X, s.Y, s.Z); hasTarget = true;
                 if (immediate || Vector3.Distance(transform.position, targetPosition) > teleportDistance) Snap();

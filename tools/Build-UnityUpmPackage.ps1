@@ -2,10 +2,15 @@ param(
     [Parameter(Mandatory = $true)][string]$OutputDirectory,
     [Parameter(Mandatory = $true)][string]$RuntimeDll,
     [Parameter(Mandatory = $true)][ValidatePattern('^[a-fA-F0-9]{64}$')][string]$ExpectedRuntimeSha256,
-    [ValidatePattern('^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$')][string]$PackageVersion = '1.1.0'
+    [ValidatePattern('^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$')][string]$PackageVersion = '2.0.0',
+    [string]$ExpansionRuntimeDirectory,
+    [string]$ExpansionRuntimeManifest
 )
 $ErrorActionPreference = 'Stop'
 $repository = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+. (Join-Path $PSScriptRoot 'Unity-Distribution.ps1')
+$includeExpansion = !!$ExpansionRuntimeDirectory
+if ($includeExpansion -ne !!$ExpansionRuntimeManifest) { throw 'Supply both expansion runtime inputs.' }
 $staging = [IO.Path]::GetFullPath($OutputDirectory)
 $runtime = (Resolve-Path -LiteralPath $RuntimeDll).Path
 if ($staging.StartsWith($repository + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
@@ -44,22 +49,28 @@ function Write-JsonAsset([string]$Relative, [object]$Data) {
 
 $runtimeVersion = $identity.Version.ToString()
 Write-JsonAsset 'package.json' ([ordered]@{
-    name = 'com.socketjack.multiplayer'; displayName = 'SocketJack Multiplayer'; version = $PackageVersion
+    name = 'com.socketjack.multiplayer'; displayName = $(if ($includeExpansion) { 'SocketJack Premium Multiplayer' } else { 'SocketJack Multiplayer' }); version = $PackageVersion
     unity = '2022.3'; unityRelease = '17f1'
-    description = "Multiplayer integration for Unity 6 and Unity 2022.3. UDP/TCP, predictive 3D/2D physics, member synchronization and setup tools. Runtime $runtimeVersion."
+    description = "Turn an existing Unity game into multiplayer. Unity 6 and 2022.3, UDP/TCP/WebSocket, predictive 3D/2D physics, configurable state synchronization and optional MMO services. Runtime $runtimeVersion."
     author = @{ name = 'SocketJack AS Publisher'; url = 'https://socketjack.com' }
     documentationUrl = 'https://github.com/hheiroww/SocketJack'
     repository = @{ type = 'git'; url = 'https://github.com/hheiroww/SocketJack.git' }
     license = 'MIT'; keywords = @('multiplayer', 'networking', 'udp', 'tcp', 'physics')
-    samples = @(@{ displayName = 'Physics Arena'; description = 'Sliding-cube host/client physics example. Use its explicit preparation/build menu.'; path = 'Samples~/Physics' })
+    dependencies = [ordered]@{
+        'com.unity.modules.physics' = '1.0.0'; 'com.unity.modules.physics2d' = '1.0.0'
+        'com.unity.modules.animation' = '1.0.0'; 'com.unity.modules.imgui' = '1.0.0'
+        'com.unity.modules.audio' = '1.0.0'; 'com.unity.modules.jsonserialize' = '1.0.0'
+        'com.unity.modules.unitywebrequest' = '1.0.0'
+    }
+    samples = $(if ($includeExpansion) { @(@{ displayName = 'Physics Arena'; description = 'Sliding-cube host/client physics example.'; path = 'Samples~/Physics' }, @{ displayName = 'Complete Multiplayer'; description = 'Native 3D/2D account-backed chat and voice example.'; path = 'Samples~/Multiplayer' }) } else { @(@{ displayName = 'Physics Arena'; description = 'Sliding-cube host/client physics example.'; path = 'Samples~/Physics' }) })
     socketjackRuntimeVersion = $runtimeVersion; socketjackRuntimeSha256 = $ExpectedRuntimeSha256.ToLowerInvariant()
 })
 Write-Asset 'Runtime/Plugins/SocketJack.Unity.dll' $runtime ''
 $unityRoot = Join-Path $repository 'SocketJack.Unity/Unity'
-foreach ($file in Get-ChildItem -LiteralPath $unityRoot -Recurse -File | Where-Object { $_.Extension -eq '.cs' -or $_.Name -eq 'link.xml' }) {
-    $relative = [IO.Path]::GetRelativePath($unityRoot, $file.FullName).Replace('\', '/')
+foreach ($relative in (Get-Content -LiteralPath (Join-Path $unityRoot 'package-files.json') -Raw | ConvertFrom-Json).files) {
+    if ($relative -notmatch '^(?:[A-Za-z][A-Za-z0-9_]*\.cs|Editor/[A-Za-z][A-Za-z0-9_]*\.cs|Plugins/[A-Za-z][A-Za-z0-9_]*\.jslib|link\.xml)$') { throw 'Noncanonical public Unity source path.' }
     $destination = if ($relative.StartsWith('Editor/', [StringComparison]::Ordinal)) { $relative } else { 'Runtime/Components/' + $relative }
-    Write-Asset $destination $file.FullName ''
+    Write-Asset $destination (Join-Path $unityRoot $relative) ''
 }
 Write-JsonAsset 'Runtime/SocketJack.Multiplayer.Components.asmdef' ([ordered]@{
     name = 'SocketJack.Multiplayer.Components'; rootNamespace = 'SocketJack.Multiplayer.Components'; references = @()
@@ -76,6 +87,22 @@ Write-Asset 'README.md' (Join-Path $repository 'SocketJack.Unity/README.md') ''
 Write-Asset 'Documentation~/QuickStart.md' (Join-Path $repository 'docs/Unity-AssetStore-QuickStart.md') ''
 Write-Asset 'LICENSE.md' (Join-Path $repository 'LICENSE') ''
 Write-Asset 'Third Party Notices.md' (Join-Path $repository 'docs/Unity-Third-Party-Notices.txt') ''
+if ($includeExpansion) {
+    $expansion = Get-UnityExpansionSources $repository $ExpansionRuntimeDirectory $ExpansionRuntimeManifest
+    if ((Get-FileHash -LiteralPath (Join-Path $ExpansionRuntimeDirectory 'SocketJack.Unity.dll') -Algorithm SHA256).Hash -ne $ExpectedRuntimeSha256) { throw 'Expansion and base runtime hashes differ.' }
+    foreach ($relative in $expansion.Keys) { Write-Asset $relative $expansion[$relative] '' }
+    Write-Asset 'Documentation~/ReleaseTwo.md' (Join-Path $repository 'docs/Unity-ReleaseTwo.md') ''
+    Write-Asset 'Documentation~/Voice-Licensing.md' (Join-Path $repository 'docs/Unity-Voice-Licensing.md') ''
+    foreach ($notice in @('DotNet-LICENSE.txt', 'DotNet-THIRD-PARTY-NOTICES.txt', 'DotNet-Provenance.json')) { Write-Asset ('ThirdParty/' + $notice) (Join-Path $repository ('docs/ThirdParty/' + $notice)) '' }
+    Write-Asset 'Voice Third Party Notices.md' (Join-Path $repository 'SocketJack.Unity.Voice/THIRD-PARTY-NOTICES.md') ''
+    Write-Asset 'Samples~/Multiplayer/Scripts/MultiplayerGame.cs' (Join-Path $repository 'Examples/UnityMultiplayer/Assets/Scripts/MultiplayerGame.cs') ''
+    Write-Asset 'Samples~/Multiplayer/Editor/MultiplayerSampleBuild.cs' (Join-Path $repository 'Examples/UnityMultiplayer/Assets/Editor/MultiplayerSampleBuild.cs') ''
+    Write-Asset 'Samples~/Multiplayer/README.md' (Join-Path $repository 'Examples/UnityMultiplayer/README.md') ''
+    foreach ($relative in (Get-UnityAssemblyDefinitions $true).Keys) {
+        if ($relative.StartsWith('Optional/', [StringComparison]::Ordinal)) { Write-Asset $relative '' (Get-UnityAssemblyDefinitions $true)[$relative] }
+        elseif ($relative.StartsWith('Samples/Multiplayer/', [StringComparison]::Ordinal)) { Write-Asset ($relative.Replace('Samples/', 'Samples~/')) '' (Get-UnityAssemblyDefinitions $true)[$relative] }
+    }
+}
 Write-Asset 'Samples~/Physics/Scripts/PhysicsGame.cs' (Join-Path $repository 'Examples/UnityPhysics/Assets/Scripts/PhysicsGame.cs') ''
 Write-Asset 'Samples~/Physics/Editor/PhysicsSampleBuild.cs' (Join-Path $repository 'Examples/UnityPhysics/Assets/Editor/PhysicsSampleBuild.cs') ''
 Write-Asset 'Samples~/Physics/README.md' (Join-Path $repository 'Examples/UnityPhysics/README.md') ''
@@ -96,6 +123,7 @@ foreach ($item in $paths) {
     $bytes = [Text.Encoding]::UTF8.GetBytes('SocketJack.Unity.AssetStore/Assets/SocketJack.Unity/' + $assetStoreRelative)
     $hash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($bytes)).ToLowerInvariant()
     $meta = "fileFormatVersion: 2`nguid: $($hash.Substring(0, 32))`n"
+    if ($item.Extension -eq '.dll') { $meta = Get-UnityPluginMetadata ($hash.Substring(0, 32)) ($item.Name -in @('SocketJack.Unity.Web.dll', 'SocketJack.Unity.Voice.Web.dll')) }
     if ($item.PSIsContainer) { $meta += "folderAsset: yes`nDefaultImporter:`n  externalObjects: {}`n  userData:`n  assetBundleName:`n  assetBundleVariant:`n" }
     [IO.File]::WriteAllText($item.FullName + '.meta', $meta, [Text.UTF8Encoding]::new($false))
     [void]$allowed.Add($relative + '.meta')

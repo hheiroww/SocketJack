@@ -5,9 +5,9 @@
     <Nullable>disable</Nullable>
     <RootNamespace>SocketJack.Multiplayer</RootNamespace>
     <AssemblyName>SocketJack.Unity</AssemblyName>
-    <Version>2026.11.03.2</Version>
+    <Version>2026.11.04.0</Version>
     <Authors>hheiroww</Authors>
-    <Description>Multiplayer networking for Unity 6, Unity 2022.3 and dedicated .NET servers. UDP/TCP transports, locally predicted physics, selected field/property replication, per-member authority and configurable serializers.</Description>
+    <Description>Turn an existing Unity game into multiplayer. Unity 6 and 2022.3, UDP/TCP/WebSocket, predicted 3D/2D physics, selected field/property sync, quantization, spatial visibility and lifecycle tools. Optional Web and Voice packages add self-hosted MMO services.</Description>
     <PackageId>SocketJack.Unity</PackageId>
     <PackageTags>Unity;Unity6;Multiplayer;Networking;UDP;TCP;Game;DedicatedServer;StateSync;Serialization</PackageTags>
     <RepositoryUrl>https://github.com/hheiroww/SocketJack</RepositoryUrl>
@@ -16,7 +16,7 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>SocketJackUnityIcon.png</PackageIcon>
-    <PackageReleaseNotes>Adds opt-in field/property replication with per-member authority and a configurable game-state serializer. SocketJack binary formatting is the default. Includes UDP and TCP transport choices, Unity 6 primary support, a Unity 2022.3 LTS compatibility bracket, render-pipeline-independent networking and an expanded offline setup guide. Use matching builds, prefab schemas and serializer settings on every participant.</PackageReleaseNotes>
+    <PackageReleaseNotes>Release two: existing-prefab setup, real Rigidbody2D, 3D/custom motors, configurable member synchronization, manual/adaptive quantization, spatial visibility, scene/lifecycle/ownership/pooling tools, WebSocket/WebGL gameplay and authenticated self-hosted relays. Optional Web/Voice modules add accounts, MMO chat, persistent Communities, linked servers, a monochrome website and Opus voice. Session protocol 3 requires matching upgraded players/servers. Unity 6 primary; 2022.3 compatibility. See ReleaseTwo.md for setup, dependencies and tested boundaries.</PackageReleaseNotes>
     <IsPackable>true</IsPackable>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
@@ -37,6 +37,7 @@
     <Compile Include="../SocketJack/Net/ObjectRebuilder.cs" Link="Serialization/ObjectRebuilder.cs" />
     <None Include="README.md" Pack="true" PackagePath="/" />
     <None Include="../docs/Unity-AssetStore-QuickStart.md" Pack="true" PackagePath="/QuickStart.md" />
+    <None Include="../docs/Unity-ReleaseTwo.md" Pack="true" PackagePath="/ReleaseTwo.md" />
     <None Include="SocketJackUnityIcon.png" Pack="true" PackagePath="/" />
     <None Include="../LICENSE" Pack="true" PackagePath="/" />
     <None Include="Unity/*.cs;Unity/link.xml" Pack="true" PackagePath="contentFiles/any/any/SocketJack.Unity/" BuildAction="None" PackageCopyToOutput="true" />

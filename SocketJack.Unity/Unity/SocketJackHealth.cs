@@ -16,6 +16,7 @@ namespace SocketJack.Multiplayer.Components
         public float Current => health;
         public bool IsDead => health <= 0;
         private void Awake() { health = Maximum; }
+        protected override void OnNetworkReset() { health = Maximum; }
         public void Damage(float amount) { if (IsServer && Valid(amount)) SetHealth(Mathf.Max(0, health - amount)); }
         public void Heal(float amount) { if (IsServer && Valid(amount)) SetHealth(Mathf.Min(Maximum, health + amount)); }
         public void ResetHealth() { if (IsServer) SetHealth(Maximum); }

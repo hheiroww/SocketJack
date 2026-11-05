@@ -10,7 +10,7 @@ namespace SocketJack.Multiplayer.Transport
     /// <summary>Bounded, manually pumped TCP transport. All delivery modes use TCP's reliable
     /// stream and can incur head-of-line blocking. Traffic is plaintext; use a trusted network
     /// or a separately secured tunnel when confidentiality is required.</summary>
-    public sealed class TcpGameTransport : IGameTransport, ITransportMetricsSource
+    public sealed class TcpGameTransport : IGameTransport, ITransportMetricsSource, IPacketBudgetSource
     {
         private sealed class Frame { internal byte[] Bytes; internal int Offset; }
         private sealed class Peer

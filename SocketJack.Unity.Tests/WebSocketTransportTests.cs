@@ -17,6 +17,25 @@ namespace SocketJack.Multiplayer.Tests
     public sealed class WebSocketTransportTests
     {
         [TestMethod]
+        public async Task StandaloneListenerHonorsConfiguredPeerCapacityAboveHttpDefaults()
+        {
+            const int count = 257;
+            using var server = new WebSocketGameTransport(new TransportOptions { MaxPeers = count, ConnectTimeout = TimeSpan.FromSeconds(20) });
+            var clients = new List<WebSocketGameTransport>(); server.StartServer(new IPEndPoint(IPAddress.Loopback, 0));
+            try
+            {
+                for (int i = 0; i < count; i++) { var client = new WebSocketGameTransport(new TransportOptions { ConnectTimeout = TimeSpan.FromSeconds(20) }); clients.Add(client); client.StartClient(server.LocalEndPoint); }
+                var watch = Stopwatch.StartNew();
+                while (watch.Elapsed < TimeSpan.FromSeconds(15) && clients.Any(client => client.LocalPeerId == 0))
+                { server.Poll(1024); foreach (var client in clients) client.Poll(); await Task.Delay(1); }
+                Assert.AreEqual(count, server.PeerCount, "The owned game listener must use MaxPeers rather than the generic HTTP listener's default cap.");
+                Assert.IsTrue(clients.All(client => client.LocalPeerId != 0));
+                Assert.AreEqual(count, server.GetTransportMetrics(0).ConnectedPeers);
+            }
+            finally { foreach (var client in clients) client.Dispose(); }
+        }
+
+        [TestMethod]
         public void RealWebSocketsPreserveDeliveryMetadataMainThreadAdmissionAndReconnect()
         {
             int ownerThread = Environment.CurrentManagedThreadId;

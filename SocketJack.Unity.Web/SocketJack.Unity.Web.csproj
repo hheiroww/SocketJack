@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>8.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <RootNamespace>SocketJack.Multiplayer.Web</RootNamespace>
+    <Version>2026.11.04.0</Version>
+    <PackageId>SocketJack.Unity.Web</PackageId>
+    <Description>Optional self-hosted accounts, Communities, chat API and website for SocketJack.Unity.</Description>
+    <Authors>hheiroww</Authors>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/hheiroww/SocketJack</RepositoryUrl>
+    <RepositoryType>git</RepositoryType><PackageProjectUrl>https://github.com/hheiroww/SocketJack</PackageProjectUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile><PackageIcon>SocketJackUnityIcon.png</PackageIcon>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../SocketJack.Unity/SocketJack.Unity.csproj" Condition="'$(SocketJackRuntimeDll)' == ''" />
+    <Reference Include="SocketJack.Unity" Condition="'$(SocketJackRuntimeDll)' != ''"><HintPath>$(SocketJackRuntimeDll)</HintPath><Private>true</Private></Reference>
+    <ProjectReference Include="../SocketJack.Unity.Web.Client/SocketJack.Unity.Web.Client.csproj" />
+    <PackageReference Include="System.Text.Json" Version="10.0.14" />
+    <Compile Include="Runtime/**/*.cs" Exclude="Runtime/SocketJackWebClient.cs;Runtime/WebClientContracts.cs" />
+    <EmbeddedResource Include="Website/*" LogicalName="SocketJack.Multiplayer.Web.Website.%(Filename)%(Extension)" />
+    <None Include="Unity/SocketJackWebHost.cs" Pack="true" PackagePath="contentFiles/any/any/SocketJack.Unity.Web/" BuildAction="None" />
+    <None Include="Unity/Editor/SocketJackWebHostEditor.cs" Pack="true" PackagePath="contentFiles/any/any/SocketJack.Unity.Web/Editor/" BuildAction="None" />
+    <None Include="Website/*" Pack="true" PackagePath="contentFiles/any/any/SocketJack.Unity.Web/Website/" BuildAction="None" />
+    <None Include="README.md" Pack="true" PackagePath="/" />
+    <None Include="../SocketJack.Unity/SocketJackUnityIcon.png" Pack="true" PackagePath="/" />
+    <None Include="../LICENSE" Pack="true" PackagePath="/" />
+  </ItemGroup>
+</Project>

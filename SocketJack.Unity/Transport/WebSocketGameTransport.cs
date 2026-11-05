@@ -15,9 +15,12 @@ namespace SocketJack.Multiplayer.Transport
     /// callbacks and admission validation. Every requested delivery mode travels over an ordered reliable
     /// WebSocket/TCP stream and therefore shares head-of-line blocking. No silent fallback occurs.
     /// Browser builds may supply ClientConnector backed by a JavaScript WebSocket implementation.
+    /// Async paths preserve a caller's synchronization context so single-threaded WebGL does not
+    /// schedule continuations onto an unavailable managed worker pool. Native callers without a
+    /// context continue on asynchronous I/O completions; game events still dispatch only from Poll.
     /// A shared listener is caller-owned and must already be started, with /ws/game routed to
     /// AcceptWebSocketAsync. A standalone listener is owned and stopped by this transport.</summary>
-    public sealed class WebSocketGameTransport : IGameTransport, ITransportMetricsSource
+    public sealed class WebSocketGameTransport : IGameTransport, ITransportMetricsSource, IPacketBudgetSource
     {
         private enum Kind : byte { Hello = 1, Welcome = 2, Data = 3, Heartbeat = 4, Disconnect = 5, Reject = 6 }
         private sealed class Peer
@@ -72,7 +75,8 @@ namespace SocketJack.Multiplayer.Transport
         public WebSocketGameTransport(TransportOptions options = null, Uri clientUri = null, WebSocketListener listener = null, WebSocketListenerOptions listenerOptions = null)
         {
             this.options = (options ?? new TransportOptions()).Snapshot(); if (clientUri != null) ValidateUri(clientUri);
-            configuredUri = clientUri; externalListener = listener; this.listenerOptions = listenerOptions;
+            configuredUri = clientUri; externalListener = listener;
+            this.listenerOptions = listenerOptions ?? new WebSocketListenerOptions { MaxConnections = this.options.MaxPeers };
             Budget = new PacketBudget(this.options.PathMtu, this.options.IpHeaderBytes == 20 ? System.Net.Sockets.AddressFamily.InterNetwork : System.Net.Sockets.AddressFamily.InterNetworkV6, this.options.ExtraPacketOverheadBytes, this.options.MaxPacketSize);
         }
         public void StartServer(IPEndPoint endpoint)
@@ -120,8 +124,8 @@ namespace SocketJack.Multiplayer.Transport
             WebSocket socket = null;
             try
             {
-                if (clientConnector != null) socket = await clientConnector(uri, token).ConfigureAwait(false);
-                else { var native = new ClientWebSocket(); socket = native; await native.ConnectAsync(uri, token).ConfigureAwait(false); }
+                if (clientConnector != null) socket = await clientConnector(uri, token).ConfigureAwait(true);
+                else { var native = new ClientWebSocket(); socket = native; await native.ConnectAsync(uri, token).ConfigureAwait(true); }
                 if (socket == null || socket.State != WebSocketState.Open) throw new WebSocketException();
                 Peer peer;
                 lock (sync)
@@ -130,7 +134,7 @@ namespace SocketJack.Multiplayer.Transport
                     connecting = false; peer = AddPeer(0, socket, null, token);
                     Enqueue(peer, Packet(Kind.Hello, Settings(data)));
                 }
-                await RunPeerAsync(peer).ConfigureAwait(false);
+                await RunPeerAsync(peer).ConfigureAwait(true);
             }
             catch (Exception)
             {
@@ -151,7 +155,7 @@ namespace SocketJack.Multiplayer.Transport
                 if (!running || !IsServer || peers.Count >= options.MaxPeers) { socket.Abort(); return; }
                 peer = AddPeer(checked(++nextPeer), socket, request?.RemoteEndPoint, token);
             }
-            await RunPeerAsync(peer).ConfigureAwait(false);
+            await RunPeerAsync(peer).ConfigureAwait(true);
         }
         private Peer AddPeer(ulong id, WebSocket socket, IPEndPoint endpoint, CancellationToken token)
         {
@@ -161,7 +165,7 @@ namespace SocketJack.Multiplayer.Transport
         }
         private async Task RunPeerAsync(Peer peer)
         {
-            try { await Task.WhenAll(ReceiveAsync(peer), SendAsync(peer)).ConfigureAwait(false); }
+            try { await Task.WhenAll(ReceiveAsync(peer), SendAsync(peer)).ConfigureAwait(true); }
             finally { Drop(peer, "WebSocket closed"); peer.Socket.Dispose(); peer.Cancellation.Dispose(); peer.Signal.Dispose(); }
         }
         private async Task ReceiveAsync(Peer peer)
@@ -171,7 +175,7 @@ namespace SocketJack.Multiplayer.Transport
             {
                 while (peer.Active)
                 {
-                    var received = await peer.Socket.ReceiveAsync(new ArraySegment<byte>(buffer, size, buffer.Length - size), peer.Cancellation.Token).ConfigureAwait(false);
+                    var received = await peer.Socket.ReceiveAsync(new ArraySegment<byte>(buffer, size, buffer.Length - size), peer.Cancellation.Token).ConfigureAwait(true);
                     if (received.MessageType == WebSocketMessageType.Close) break;
                     if (received.MessageType != WebSocketMessageType.Binary || received.Count > options.MaxPacketSize - size) throw new InvalidDataException();
                     size += received.Count;
@@ -197,9 +201,9 @@ namespace SocketJack.Multiplayer.Transport
             {
                 while (peer.Active)
                 {
-                    await peer.Signal.WaitAsync(peer.Cancellation.Token).ConfigureAwait(false);
+                    await peer.Signal.WaitAsync(peer.Cancellation.Token).ConfigureAwait(true);
                     byte[] packet; lock (sync) { if (!peer.Active) break; if (peer.Out.Count == 0) continue; packet = peer.Out.Peek(); }
-                    await peer.Socket.SendAsync(new ArraySegment<byte>(packet), WebSocketMessageType.Binary, true, peer.Cancellation.Token).ConfigureAwait(false);
+                    await peer.Socket.SendAsync(new ArraySegment<byte>(packet), WebSocketMessageType.Binary, true, peer.Cancellation.Token).ConfigureAwait(true);
                     lock (sync) { if (peer.Out.Count > 0 && ReferenceEquals(peer.Out.Peek(), packet)) { peer.Out.Dequeue(); peer.OutBytes -= packet.Length; } peer.LastSend = clock.ElapsedTicks; }
                     Interlocked.Add(ref sentBytes, packet.Length);
                     Interlocked.Increment(ref sentPackets);
@@ -414,7 +418,7 @@ namespace SocketJack.Multiplayer.Transport
             return Await(source.Task, registration);
         }
         private static async Task Await(Task task, CancellationTokenRegistration registration)
-        { try { await task.ConfigureAwait(false); } finally { registration.Dispose(); } }
+        { try { await task.ConfigureAwait(true); } finally { registration.Dispose(); } }
         internal void Release()
         {
             TaskCompletionSource<bool> source;

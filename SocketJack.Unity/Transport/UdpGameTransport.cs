@@ -15,7 +15,7 @@ namespace SocketJack.Multiplayer.Transport
     /// and unreliable sequenced channels without a thread per peer.
     /// Cookies prevent off-path source spoofing from allocating a connection. This protocol does not encrypt traffic.
     /// </summary>
-    public sealed class UdpGameTransport : IGameTransport, ITransportMetricsSource
+    public sealed class UdpGameTransport : IGameTransport, ITransportMetricsSource, IPacketBudgetSource
     {
         // SJG1 protocol family, wire version 2. Integer fields are little endian.
         private const uint Magic = 0x31474a53;

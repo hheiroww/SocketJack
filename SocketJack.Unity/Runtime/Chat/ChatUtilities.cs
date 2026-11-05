@@ -17,19 +17,20 @@ namespace SocketJack.Multiplayer.Chat
     {
         public static IReadOnlyDictionary<ChatChannel, ChatChannelStyle> Channels { get; } = new ReadOnlyDictionary<ChatChannel, ChatChannelStyle>(new Dictionary<ChatChannel, ChatChannelStyle>
         {
-            [ChatChannel.Global] = new ChatChannelStyle("Global", "#EAD882", "/g"),
-            [ChatChannel.Trade] = new ChatChannelStyle("Trade", "#FFC166", "/trade"),
-            [ChatChannel.Zone] = new ChatChannelStyle("Zone", "#9ECCFF", "/z"),
-            [ChatChannel.LookingForGroup] = new ChatChannelStyle("Looking for group", "#8AFFE4", "/lfg"),
-            [ChatChannel.Party] = new ChatChannelStyle("Party", "#C69BFF", "/p"),
-            [ChatChannel.Raid] = new ChatChannelStyle("Raid", "#FF9D5B", "/raid"),
-            [ChatChannel.Community] = new ChatChannelStyle("Community", "#7EE08C", "/c"),
-            [ChatChannel.CommunityOfficers] = new ChatChannelStyle("Community officers", "#63C98B", "/co"),
-            [ChatChannel.Proximity] = new ChatChannelStyle("Say", "#EEEEEE", "/say"),
-            [ChatChannel.Yell] = new ChatChannelStyle("Yell", "#FFB3B3", "/yell"),
-            [ChatChannel.Whisper] = new ChatChannelStyle("Whisper", "#F48CED", "/w"),
-            [ChatChannel.Emote] = new ChatChannelStyle("Emote", "#D5A7FF", "/me"),
-            [ChatChannel.System] = new ChatChannelStyle("System", "#FFB347", "")
+            [ChatChannel.Global] = new ChatChannelStyle("Global", "#E6C07B", "/g"),
+            [ChatChannel.Trade] = new ChatChannelStyle("Trade", "#FFC0C0", "/trade"),
+            [ChatChannel.Zone] = new ChatChannelStyle("Zone", "#F2D18E", "/z"),
+            [ChatChannel.LookingForGroup] = new ChatChannelStyle("Looking for group", "#D6C7A1", "/lfg"),
+            [ChatChannel.Party] = new ChatChannelStyle("Party", "#AAAAFF", "/p"),
+            [ChatChannel.Raid] = new ChatChannelStyle("Raid", "#FF7F00", "/raid"),
+            [ChatChannel.Community] = new ChatChannelStyle("Community", "#40FF40", "/c"),
+            [ChatChannel.CommunityOfficers] = new ChatChannelStyle("Community officers", "#40C080", "/co"),
+            [ChatChannel.Proximity] = new ChatChannelStyle("Say", "#FFFFFF", "/say"),
+            [ChatChannel.Yell] = new ChatChannelStyle("Yell", "#FF4040", "/yell"),
+            [ChatChannel.Whisper] = new ChatChannelStyle("Whisper", "#FF80FF", "/w"),
+            [ChatChannel.Emote] = new ChatChannelStyle("Emote", "#FF8040", "/me"),
+            [ChatChannel.System] = new ChatChannelStyle("System", "#FFFF00", ""),
+            [ChatChannel.Combat] = new ChatChannelStyle("Combat", "#FF8040", "")
         });
     }
     /// <summary>Only server-registered link kinds and valid IDs become clickable metadata.

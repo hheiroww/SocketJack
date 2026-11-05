@@ -136,6 +136,12 @@ namespace SocketJack.Publishing.Editor
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             new GameObject("SocketJack Physics Sample").AddComponent(DemoScriptType());
             if (!EditorSceneManager.SaveScene(scene, DemoScene)) throw new InvalidOperationException("Could not save the demo scene.");
+            if (Directory.Exists(Root + "/Samples/Multiplayer"))
+            {
+                var builder = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("SocketJack.Samples.Multiplayer.Editor.MultiplayerSampleBuild", false)).FirstOrDefault(t => t != null);
+                if (builder == null) throw new InvalidOperationException("The complete multiplayer sample did not compile.");
+                builder.GetMethod("PrepareScenes").Invoke(null, new object[] { Root + "/Samples/Multiplayer/Scenes" });
+            }
             AssetDatabase.SaveAssets();
         }
 
@@ -155,6 +161,23 @@ namespace SocketJack.Publishing.Editor
                 Type type = script == null ? null : script.GetClass();
                 if (type == null || !typeof(MonoBehaviour).IsAssignableFrom(type)) { types = Array.Empty<string>(); return false; }
                 compiled.Add(type.FullName);
+            }
+            foreach (string name in new[] { "SocketJackObject2D", "NetworkPrefabRegistry", "NetworkPlayerSpawner", "NetworkSceneCoordinator", "NetworkSceneObject", "NetworkObjectPool", "SocketJackAdaptiveObject", "SocketJackAdaptiveNetworking", "SocketJackAnimator" })
+            {
+                var script = AssetDatabase.LoadAssetAtPath<MonoScript>(Root + "/Runtime/Components/" + name + ".cs");
+                Type type = script == null ? null : script.GetClass();
+                if (type == null) { types = Array.Empty<string>(); return false; }
+                compiled.Add(type.FullName);
+            }
+            if (Directory.Exists(Root + "/Optional"))
+            {
+                foreach (string path in new[] { "Web/Client/SocketJackWebClientBehaviour", "Web/Client/SocketJackWebSessionControls", "Web/Client/SocketJackChatPreset", "Web/Client/SocketJackMMOChatPanel", "Web/Client/SocketJackSocialPanel", "Web/NativeHost/SocketJackWebHost", "Voice/SocketJackVoiceManager", "Voice/SocketJackVoiceControls", "VoiceWeb/Client/SocketJackWebVoiceClient", "VoiceWeb/NativeHost/SocketJackWebVoiceHost" })
+                {
+                    var script = AssetDatabase.LoadAssetAtPath<MonoScript>(Root + "/Optional/" + path + ".cs");
+                    Type type = script == null ? null : script.GetClass();
+                    if (type == null) { types = Array.Empty<string>(); return false; }
+                    compiled.Add(type.FullName);
+                }
             }
             var game = AssetDatabase.LoadAssetAtPath<MonoScript>(Root + "/Samples/Physics/Scripts/PhysicsGame.cs");
             Type gameType = game == null ? null : game.GetClass();

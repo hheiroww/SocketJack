@@ -62,6 +62,8 @@ namespace SocketJack.Multiplayer.Components
         private INatPortMapper activeMapper;
         private bool ownsMapper;
         private bool shuttingDown;
+        private INetworkObjectPool objectPool;
+        public INetworkObjectPool ObjectPool { get => objectPool; set { RequireStopped(); objectPool = value; } }
         /// <summary>Optional transport provider, configured before startup (for example WebSocket/relay).</summary>
         public Func<bool, IGameTransport> TransportFactory { get; set; }
         public string CompatibilityId { get; set; } = "";
@@ -241,7 +243,7 @@ namespace SocketJack.Multiplayer.Components
         {
             if (!IsServer) throw new InvalidOperationException("Only the server can spawn objects.");
             var prefab = FindPrefab(prefabId);
-            var instance = Instantiate(prefab, position, rotation);
+            var instance = objectPool == null ? Instantiate(prefab, position, rotation) : objectPool.Rent(prefabId, prefab, position, rotation);
             // Inactive prefab Rigidbodies have not joined the physics scene yet. Activate and
             // initialize their pose before reading the authoritative spawn baseline.
             instance.SetActive(true);
@@ -254,6 +256,7 @@ namespace SocketJack.Multiplayer.Components
         private NetworkIdentity BindInstance(GameObject instance, uint prefabId, ulong ownerId, int roomId)
         {
             var identity = instance.GetComponent<NetworkIdentity>() ?? instance.AddComponent<NetworkIdentity>();
+            foreach (var behaviour in instance.GetComponents<NetworkBehaviour>()) behaviour.NotifyNetworkReset();
             var controller = instance.GetComponent<INetworkStateController>();
             bool objectServerAuthority = controller == null ? serverAuthority : controller.ResolveServerAuthority(serverAuthority);
             RuntimeObject state = null;
@@ -413,8 +416,10 @@ namespace SocketJack.Multiplayer.Components
                 Client.Stop();
                 return;
             }
-            var instance = sceneInstance != null ? sceneInstance : Instantiate(prefab);
+            var instance = sceneInstance != null ? sceneInstance : objectPool == null ? Instantiate(prefab) : objectPool.Rent(state.PrefabId, prefab, Vector3.zero, Quaternion.identity);
+            instance.SetActive(true);
             var identity = instance.GetComponent<NetworkIdentity>() ?? instance.AddComponent<NetworkIdentity>();
+            foreach (var behaviour in instance.GetComponents<NetworkBehaviour>()) behaviour.NotifyNetworkReset();
             identity.Bind(this, state);
             instances.Add(state.Id, identity);
             instance.SetActive(true);
@@ -561,8 +566,11 @@ namespace SocketJack.Multiplayer.Components
             if (identity != null)
             {
                 NotifyDespawn(identity);
+                uint prefabId = identity.PrefabId;
+                identity.GetComponent<INetworkStateController>()?.ResetPrediction(); identity.GetComponent<SocketJackMemberSync>()?.ResetBinding(); identity.Unbind();
                 if (identity.GetComponent<NetworkSceneObject>() != null)
-                { identity.GetComponent<INetworkStateController>()?.ResetPrediction(); identity.Unbind(); identity.gameObject.SetActive(false); }
+                    identity.gameObject.SetActive(false);
+                else if (objectPool != null) objectPool.Return(prefabId, identity.gameObject);
                 else Destroy(identity.gameObject);
             }
             ObjectDespawned?.Invoke(id);
@@ -595,6 +603,7 @@ namespace SocketJack.Multiplayer.Components
                 var members = prefab.GetComponent<SocketJackMemberSync>()?.CreateSchema(Serializer);
                 text.Append(':').Append(members?.Fingerprint.ToString("x16", System.Globalization.CultureInfo.InvariantCulture)).Append('\n');
                 foreach (var networkEvent in prefab.GetComponents<SocketJackNetworkEvent>()) text.Append(networkEvent.CompatibilityId).Append('\n');
+                var adaptive = prefab.GetComponent<SocketJackAdaptiveObject>(); if (adaptive != null && adaptive.enabled) text.Append(adaptive.CompatibilityId).Append('\n');
             }
             using (var sha = System.Security.Cryptography.SHA256.Create())
                 return BitConverter.ToString(sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(text.ToString()))).Replace("-", "").ToLowerInvariant();

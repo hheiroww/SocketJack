@@ -21,6 +21,11 @@ namespace SocketJack.Multiplayer.Components
         public NetworkPrefabRegistry Registry => registry;
         public NetworkManager Network => network != null ? network : (network = GetComponent<NetworkManager>());
         public bool SpawnOnConnect { get => spawnOnConnect; set => spawnOnConnect = value; }
+        public bool TryGetPlayer(ulong peerId, out NetworkIdentity identity)
+        {
+            identity = null;
+            return players.TryGetValue(peerId, out ulong objectId) && Network.TryGetIdentity(objectId, out identity) && identity != null && identity.OwnerId == peerId;
+        }
         public void Configure(NetworkManager manager, NetworkPrefabRegistry prefabRegistry, uint prefabId = 1,
             NetworkSpawnPoint[] points = null)
         {

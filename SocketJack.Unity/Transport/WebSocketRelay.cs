@@ -86,15 +86,17 @@ namespace SocketJack.Multiplayer.Transport
             if (socket == null) throw new ArgumentNullException(nameof(socket));
             var connection = new RelayConnection(socket, options.MaxQueuedMessages, options.MaxQueuedBytesPerConnection, cancellationToken, lifetime.Token);
             Session session = null; ulong route = 0; bool host = false;
+            bool admitted;
             lock (sync)
             {
-                if (disposed || connections.Count >= options.MaxConnections) { connection.Stop(); connection.Complete(); return; }
-                connections.Add(connection);
+                admitted = !disposed && connections.Count < options.MaxConnections;
+                if (admitted) connections.Add(connection);
             }
+            if (!admitted) { connection.Stop(); await connection.FinishAsync().ConfigureAwait(true); connection.Complete(); return; }
             connection.Start();
             try
             {
-                byte[] join = await RelayWire.ReceiveDeadline(socket, 516, options.HandshakeTimeout, connection.Token).ConfigureAwait(false);
+                byte[] join = await RelayWire.ReceiveDeadline(socket, 516, options.HandshakeTimeout, connection.Token).ConfigureAwait(true);
                 string ticket = RelayWire.ReadJoin(join);
                 RelayAccess access = AuthorizeTicket?.Invoke(ticket);
                 if (access == null || access.ExpiresAtUtc <= DateTimeOffset.UtcNow) throw new InvalidDataException("Relay admission denied.");
@@ -121,9 +123,10 @@ namespace SocketJack.Multiplayer.Transport
                 var bucket = new RelayRate(host ? options.HostBytesPerSecond : options.ClientBytesPerSecond);
                 while (!connection.Token.IsCancellationRequested)
                 {
-                    byte[] message = await RelayWire.ReceiveDeadline(socket, options.MaxMessageBytes + 10, options.IdleTimeout, connection.Token).ConfigureAwait(false);
+                    byte[] message = await RelayWire.ReceiveDeadline(socket, options.MaxMessageBytes + 10, options.IdleTimeout, connection.Token).ConfigureAwait(true);
                     if (message == null) break;
                     if (message.Length < 10 || message[0] != 1) throw new InvalidDataException("Invalid relay message.");
+                    if (!bucket.Take(message.Length)) throw new InvalidDataException("Relay connection rate exceeded.");
                     byte kind = message[1]; ulong target = RelayWire.Read64(message, 2);
                     if (kind == RelayWire.Ping && message.Length == 10 && target == 0)
                     { if (!connection.Enqueue(RelayWire.Frame(RelayWire.Pong, 0))) break; continue; }
@@ -131,7 +134,7 @@ namespace SocketJack.Multiplayer.Transport
                     {
                         RelayConnection closing = null; lock (sync) session.Clients.TryGetValue(target, out closing); closing?.Stop(); continue;
                     }
-                    if (kind != RelayWire.Data || message.Length == 10 || (!host && target != 0) || !bucket.Take(message.Length))
+                    if (kind != RelayWire.Data || message.Length == 10 || (!host && target != 0))
                         throw new InvalidDataException("Invalid relay data or rate exceeded.");
                     RelayConnection destination = null;
                     lock (sync)
@@ -165,12 +168,14 @@ namespace SocketJack.Multiplayer.Transport
                     }
                 }
                 foreach (var dependent in dependents) dependent.Stop();
-                connection.Stop(); await connection.FinishAsync().ConfigureAwait(false);
+                connection.Stop(); await connection.FinishAsync().ConfigureAwait(true);
                 lock (sync) connections.Remove(connection);
                 connection.Complete();
             }
         }
 
+        /// <summary>Close the currently attached host and clients. Also revoke the session's
+        /// tickets in the account authorization provider to deny subsequent reconnection attempts.</summary>
         public void RevokeSession(string sessionId)
         {
             RelayConnection[] close;
@@ -188,10 +193,10 @@ namespace SocketJack.Multiplayer.Transport
             RelayConnection[] close;
             lock (sync) { disposed = true; lifetime.Cancel(); close = connections.ToArray(); }
             foreach (var connection in close) connection.Stop();
-            await Task.WhenAll(close.Select(x => x.Completion)).ConfigureAwait(false);
+            await Task.WhenAll(close.Select(x => x.Completion)).ConfigureAwait(true);
         }
         public void Dispose() { _ = StopAsync(); }
-        public async ValueTask DisposeAsync() { await StopAsync().ConfigureAwait(false); }
+        public async ValueTask DisposeAsync() { await StopAsync().ConfigureAwait(true); }
 
         /// <summary>Wraps the platform's native or JavaScript WebSocket connector. Configure the
         /// game transport with the relay URI and this connector; tickets never appear in URLs.</summary>
@@ -200,11 +205,11 @@ namespace SocketJack.Multiplayer.Transport
             byte[] join = RelayWire.Join(ticket);
             return async (uri, token) =>
             {
-                WebSocket socket = await (connector ?? RelayWire.Connect)(uri, token).ConfigureAwait(false);
+                WebSocket socket = await (connector ?? RelayWire.Connect)(uri, token).ConfigureAwait(true);
                 try
                 {
-                    await socket.SendAsync(new ArraySegment<byte>(join), WebSocketMessageType.Binary, true, token).ConfigureAwait(false);
-                    byte[] ready = await RelayWire.Receive(socket, 10, token).ConfigureAwait(false);
+                    await socket.SendAsync(new ArraySegment<byte>(join), WebSocketMessageType.Binary, true, token).ConfigureAwait(true);
+                    byte[] ready = await RelayWire.Receive(socket, 10, token).ConfigureAwait(true);
                     if (ready == null || ready.Length != 10 || ready[0] != 1 || ready[1] != RelayWire.Ready || RelayWire.Read64(ready, 2) == 0)
                         throw new InvalidDataException("Relay client admission denied.");
                     return new RelayClientSocket(socket);
@@ -234,7 +239,7 @@ namespace SocketJack.Multiplayer.Transport
         {
             if (gameServer == null || !gameServer.IsRunning || !gameServer.IsServer) throw new ArgumentException("Start the native WebSocket game server before connecting its relay tunnel.", nameof(gameServer));
             byte[] join = RelayWire.Join(hostTicket);
-            WebSocket socket = await RelayWire.Connect(relayUri, cancellationToken).ConfigureAwait(false);
+            WebSocket socket = await RelayWire.Connect(relayUri, cancellationToken).ConfigureAwait(true);
             try
             {
                 using (var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
@@ -242,8 +247,8 @@ namespace SocketJack.Multiplayer.Transport
                     deadline.CancelAfter(TimeSpan.FromSeconds(10));
                     using (deadline.Token.Register(socket.Abort))
                     {
-                        await socket.SendAsync(new ArraySegment<byte>(join), WebSocketMessageType.Binary, true, deadline.Token).ConfigureAwait(false);
-                        byte[] ready = await RelayWire.Receive(socket, 10, deadline.Token).ConfigureAwait(false);
+                        await socket.SendAsync(new ArraySegment<byte>(join), WebSocketMessageType.Binary, true, deadline.Token).ConfigureAwait(true);
+                        byte[] ready = await RelayWire.Receive(socket, 10, deadline.Token).ConfigureAwait(true);
                         if (ready == null || ready.Length != 10 || ready[0] != 1 || ready[1] != RelayWire.Ready || RelayWire.Read64(ready, 2) != 0)
                             throw new InvalidDataException("Relay host admission denied.");
                     }
@@ -259,7 +264,7 @@ namespace SocketJack.Multiplayer.Transport
             {
                 while (!connection.Token.IsCancellationRequested)
                 {
-                    byte[] message = await RelayWire.ReceiveDeadline(connection.Socket, game.MaxPayloadSize + 26, TimeSpan.FromSeconds(30), connection.Token).ConfigureAwait(false);
+                    byte[] message = await RelayWire.ReceiveDeadline(connection.Socket, game.MaxPayloadSize + 26, TimeSpan.FromSeconds(30), connection.Token).ConfigureAwait(true);
                     if (message == null) break;
                     if (message.Length < 10 || message[0] != 1) throw new InvalidDataException("Invalid relay host message.");
                     ulong route = RelayWire.Read64(message, 2); byte kind = message[1];
@@ -292,12 +297,12 @@ namespace SocketJack.Multiplayer.Transport
             finally { Stop(); }
         }
         private async Task HandleClient(WebSocketHttpRequest request, RelayVirtualSocket client)
-        { try { await game.AcceptWebSocketAsync(request, client, connection.Token).ConfigureAwait(false); } catch (Exception error) when (RelayWire.Expected(error)) { } finally { client.Abort(); } }
+        { try { await game.AcceptWebSocketAsync(request, client, connection.Token).ConfigureAwait(true); } catch (Exception error) when (RelayWire.Expected(error)) { } finally { client.Abort(); } }
         private async Task ObserveHandler(Task handler)
-        { try { await handler.ConfigureAwait(false); } finally { lock (sync) handlers.Remove(handler); } }
+        { try { await handler.ConfigureAwait(true); } finally { lock (sync) handlers.Remove(handler); } }
         private async Task HeartbeatAsync()
         {
-            try { while (!connection.Token.IsCancellationRequested) { await Task.Delay(TimeSpan.FromSeconds(5), connection.Token).ConfigureAwait(false); if (!connection.Enqueue(RelayWire.Frame(RelayWire.Ping, 0))) break; } }
+            try { while (!connection.Token.IsCancellationRequested) { await Task.Delay(TimeSpan.FromSeconds(5), connection.Token).ConfigureAwait(true); if (!connection.Enqueue(RelayWire.Frame(RelayWire.Ping, 0))) break; } }
             catch (OperationCanceledException) { }
             finally { Stop(); }
         }
@@ -313,13 +318,14 @@ namespace SocketJack.Multiplayer.Transport
             if (Interlocked.Exchange(ref stopped, 1) != 0) return;
             connection.Stop(); RelayVirtualSocket[] close; lock (sync) { close = clients.Values.ToArray(); clients.Clear(); }
             foreach (var client in close) client.RemoteClose();
+            _ = connection.FinishAsync();
         }
         public void Dispose() { Stop(); }
         public async ValueTask DisposeAsync()
         {
-            Stop(); await Task.WhenAll(receive ?? Task.CompletedTask, heartbeat ?? Task.CompletedTask).ConfigureAwait(false);
-            Task[] pending; lock (sync) pending = handlers.ToArray(); await Task.WhenAll(pending).ConfigureAwait(false);
-            await connection.FinishAsync().ConfigureAwait(false); connection.Complete();
+            Stop(); await Task.WhenAll(receive ?? Task.CompletedTask, heartbeat ?? Task.CompletedTask).ConfigureAwait(true);
+            Task[] pending; lock (sync) pending = handlers.ToArray(); await Task.WhenAll(pending).ConfigureAwait(true);
+            await connection.FinishAsync().ConfigureAwait(true); connection.Complete();
         }
     }
 
@@ -329,15 +335,16 @@ namespace SocketJack.Multiplayer.Transport
         private readonly Queue<byte[]> outgoing = new Queue<byte[]>();
         private readonly WebSocketAsyncSignal signal = new WebSocketAsyncSignal();
         private readonly CancellationTokenSource cancellation;
+        private readonly CancellationToken token;
         private readonly int messageCap, byteCap;
-        private int bytes; private bool active = true; private Task sending = Task.CompletedTask;
+        private int bytes, finalized; private bool active = true; private Task sending = Task.CompletedTask;
         private readonly TaskCompletionSource<bool> completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         internal WebSocket Socket { get; }
-        internal CancellationToken Token => cancellation.Token;
+        internal CancellationToken Token => token;
         internal bool Active { get { lock (sync) return active; } }
         internal Task Completion => completion.Task;
         internal RelayConnection(WebSocket socket, int messageCap, int byteCap, CancellationToken first, CancellationToken second)
-        { Socket = socket; this.messageCap = messageCap; this.byteCap = byteCap; cancellation = CancellationTokenSource.CreateLinkedTokenSource(first, second); }
+        { Socket = socket; this.messageCap = messageCap; this.byteCap = byteCap; cancellation = CancellationTokenSource.CreateLinkedTokenSource(first, second); token = cancellation.Token; }
         internal void Start() { sending = SendAsync(); }
         internal bool Enqueue(byte[] message)
         {
@@ -354,9 +361,9 @@ namespace SocketJack.Multiplayer.Transport
             {
                 while (!Token.IsCancellationRequested)
                 {
-                    await signal.WaitAsync(Token).ConfigureAwait(false); byte[] message;
+                    await signal.WaitAsync(Token).ConfigureAwait(true); byte[] message;
                     lock (sync) { if (!active || outgoing.Count == 0) break; message = outgoing.Dequeue(); /* retain in-flight bytes until sent */ }
-                    await Socket.SendAsync(new ArraySegment<byte>(message), WebSocketMessageType.Binary, true, Token).ConfigureAwait(false);
+                    await Socket.SendAsync(new ArraySegment<byte>(message), WebSocketMessageType.Binary, true, Token).ConfigureAwait(true);
                     lock (sync) bytes -= message.Length;
                 }
             }
@@ -369,7 +376,8 @@ namespace SocketJack.Multiplayer.Transport
             try { cancellation.Cancel(); Socket.Abort(); } catch (ObjectDisposedException) { }
             signal.Dispose();
         }
-        internal async Task FinishAsync() { await sending.ConfigureAwait(false); Socket.Dispose(); }
+        internal async Task FinishAsync()
+        { await sending.ConfigureAwait(true); if (Interlocked.Exchange(ref finalized, 1) == 0) { Socket.Dispose(); cancellation.Dispose(); } }
         internal void Complete() { completion.TrySetResult(true); }
     }
 
@@ -414,12 +422,12 @@ namespace SocketJack.Multiplayer.Transport
         internal static async Task<WebSocket> Connect(Uri uri, CancellationToken token)
         {
             if (uri == null || !uri.IsAbsoluteUri || (uri.Scheme != "ws" && uri.Scheme != "wss") || uri.UserInfo.Length != 0 || uri.Fragment.Length != 0) throw new ArgumentException("Use an absolute ws/wss relay URI without credentials or fragment.", nameof(uri));
-            var socket = new ClientWebSocket(); try { await socket.ConnectAsync(uri, token).ConfigureAwait(false); return socket; } catch { socket.Dispose(); throw; }
+            var socket = new ClientWebSocket(); try { await socket.ConnectAsync(uri, token).ConfigureAwait(true); return socket; } catch { socket.Dispose(); throw; }
         }
         internal static async Task<byte[]> ReceiveDeadline(WebSocket socket, int maximum, TimeSpan timeout, CancellationToken token)
         {
             using (var deadline = CancellationTokenSource.CreateLinkedTokenSource(token))
-            { deadline.CancelAfter(timeout); using (deadline.Token.Register(socket.Abort)) return await Receive(socket, maximum, deadline.Token).ConfigureAwait(false); }
+            { deadline.CancelAfter(timeout); using (deadline.Token.Register(socket.Abort)) return await Receive(socket, maximum, deadline.Token).ConfigureAwait(true); }
         }
         internal static async Task<byte[]> Receive(WebSocket socket, int maximum, CancellationToken token)
         {
@@ -427,7 +435,7 @@ namespace SocketJack.Multiplayer.Transport
             do
             {
                 if (length == buffer.Length) Array.Resize(ref buffer, Math.Min(maximum + 1, buffer.Length * 2));
-                var received = await socket.ReceiveAsync(new ArraySegment<byte>(buffer, length, buffer.Length - length), token).ConfigureAwait(false);
+                var received = await socket.ReceiveAsync(new ArraySegment<byte>(buffer, length, buffer.Length - length), token).ConfigureAwait(true);
                 if (received.MessageType == WebSocketMessageType.Close) return null;
                 if (received.MessageType != WebSocketMessageType.Binary || received.Count > maximum - length) throw new InvalidDataException("Relay requires bounded binary messages.");
                 length += received.Count;
@@ -459,7 +467,7 @@ namespace SocketJack.Multiplayer.Transport
         {
             if (current == null)
             {
-                byte[] frame = await RelayWire.Receive(socket, 65546, token).ConfigureAwait(false);
+                byte[] frame = await RelayWire.Receive(socket, 65546, token).ConfigureAwait(true);
                 if (frame == null) return new WebSocketReceiveResult(0, WebSocketMessageType.Close, true);
                 if (frame.Length <= 10 || frame[0] != 1 || frame[1] != RelayWire.Data || RelayWire.Read64(frame, 2) != 0) throw new InvalidDataException("Invalid relayed game frame.");
                 current = frame; offset = 10;
@@ -526,7 +534,7 @@ namespace SocketJack.Multiplayer.Transport
                     if (ready != null) throw new InvalidOperationException("Only one relay receive may be outstanding.");
                     ready = new TaskCompletionSource<bool>(); wait = ready.Task;
                 }
-                using (token.Register(Abort)) await wait.ConfigureAwait(false);
+                using (token.Register(Abort)) await wait.ConfigureAwait(true);
             }
         }
     }

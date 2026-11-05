@@ -1,5 +1,11 @@
 # Unity multiplayer capacity verification
 
+## Release two checkpoint
+
+The 2026.11.04.0 candidate was retested on Windows/.NET 8.0.32 with 2,000 real loopback peers and 20 reliable-unordered echo rounds. Both UDP and TCP delivered all **40,000** replies, with zero rejected sends or disconnects. UDP measured 4,998 round trips/s, 438.51 ms p95 burst RTT and 54.89 MiB peak process working set; TCP measured 8,516 round trips/s, 262.32 ms p95 burst RTT and 51.94 MiB. These are saturated single-process burst results while the machine ran other work, not gameplay latency or a WAN/player-capacity guarantee.
+
+Release two adds spatial visibility, bounded per-peer work, measured transport metrics, opt-in adaptive precision and linked-server services to help partition larger deployments. Native Unity 6/2022.3 checks cover gameplay/lifecycle and real 2D physics. Actual Unity 2022.3 WebGL/IL2CPP checks cover direct and relayed gameplay WebSockets with large reconstructed values. Native accounts/chat checks use real built Unity players on both Editors. The earlier results below remain historical evidence for their stated source versions; the current setup/validation boundaries are in [ReleaseTwo.md](Unity-ReleaseTwo.md).
+
 The initial SocketJack.Unity release was checked on November 2, 2026 with .NET 8.0.32 on Windows. These tests establish connection and delivery correctness at the measured load. They do not establish a production game player count or acceptable realtime latency for 2,000 players.
 
 ## Reproduce

@@ -22,6 +22,7 @@ namespace SocketJack.Multiplayer.Components
             IsNetworkReady = false;
             OnNetworkSpawn();
         }
+        internal void NotifyNetworkReset() { OnNetworkReset(); }
         internal void NotifyNetworkReady()
         {
             if (!IsNetworkSpawned || IsNetworkReady) return;
@@ -40,6 +41,7 @@ namespace SocketJack.Multiplayer.Components
             OnNetworkDespawn();
         }
         protected virtual void OnNetworkSpawn() { }
+        protected virtual void OnNetworkReset() { }
         protected virtual void OnNetworkReady() { }
         protected virtual void OnOwnershipChanged(ulong previousOwnerId) { }
         protected virtual void OnNetworkDespawn() { }
