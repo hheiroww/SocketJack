@@ -27,7 +27,7 @@ namespace SocketJack.Tests.Voice
             public string result, error, runId, unityVersion, runtimeSha256, voiceSha256, voiceClientSha256, voiceServerSha256;
             public int globalA, globalB, communityA, communityB;
             public long playbackA, playbackB;
-            public bool microphoneNeverOpened, canonicalSenderIds, enrolledLeaf, nativeHostBridge, mainThreadAdapter, reconnectPlayback, signoutClearsPlayback;
+            public bool microphoneNeverOpened, canonicalSenderIds, enrolledLeaf, nativeHostBridge, mainThreadAdapter, reconnectPlayback, muteClearsPlayback, logoutHadPlayback, logoutDisconnectedVoice, signoutClearsPlayback;
         }
         private NetworkManager network;
         private SocketJackWebHost host;
@@ -82,14 +82,22 @@ namespace SocketJack.Tests.Voice
             var community = await a.Client.RequestAsync("communities/create", new { name = "Native voice community" }); string id = community.GetProperty("id").GetString();
             var invite = await a.Client.RequestAsync("communities/invite", new { communityId = id, targetId = b.User.Id }); await b.Client.RequestAsync("communities/respond", new { invitationId = invite.GetProperty("id").GetString(), accept = true });
             chatA.CommunityId = chatB.CommunityId = id; audioA.Channel = audioB.Channel = VoiceChannel.Community;
-            await Delay(2); audioA.MutePlayback = true; await Delay(.3); audioA.MutePlayback = false; await Delay(1);
+            await Delay(2); audioA.MutePlayback = true; await Delay(.3);
+            receipt.muteClearsPlayback = audioA.SpeakerCount == 0; Require(receipt.muteClearsPlayback, "Mute retained playback buffers.");
+            audioA.MutePlayback = false; await Delay(1);
             long beforeReconnect = audioB.PlayedFrames; voiceA.Disconnect(); await voiceA.ConnectAsync(); await Delay(1);
             receipt.reconnectPlayback = audioB.PlayedFrames - beforeReconnect > 20; await Delay(1);
             streaming = false;
             Require(receipt.globalA > 70 && receipt.globalB > 70 && receipt.communityA > 100 && receipt.communityB > 100, "Global/community account audio did not cross both exact Unity client bridges.");
             Require(receipt.playbackA > 1000 && receipt.playbackB > 1000, "The exact account bridge did not reach native Unity audio DSP.");
             Require(receipt.canonicalSenderIds && receipt.microphoneNeverOpened && receipt.enrolledLeaf && receipt.nativeHostBridge && receipt.mainThreadAdapter && receipt.reconnectPlayback, "Account identity/permissions, reconnect, thread or microphone boundary failed.");
-            voiceA.Disconnect(); voiceB.Disconnect(); receipt.signoutClearsPlayback = audioA.SpeakerCount == 0 && audioB.SpeakerCount == 0; Require(receipt.signoutClearsPlayback, "Disconnect retained private account playback buffers.");
+            receipt.logoutHadPlayback = audioA.SpeakerCount > 0 && audioB.SpeakerCount > 0 && voiceA.IsConnected && voiceB.IsConnected;
+            Require(receipt.logoutHadPlayback, "Logout must begin with active voice playback on both clients.");
+            await a.LogoutAsync(); await b.LogoutAsync();
+            await Until(() => !voiceA.IsConnected && !voiceB.IsConnected && audioA.SpeakerCount == 0 && audioB.SpeakerCount == 0);
+            receipt.logoutDisconnectedVoice = !voiceA.IsConnected && !voiceB.IsConnected;
+            receipt.signoutClearsPlayback = audioA.SpeakerCount == 0 && audioB.SpeakerCount == 0;
+            Require(receipt.logoutDisconnectedVoice && receipt.signoutClearsPlayback, "Logout retained private account voice connections or playback buffers.");
         }
         private static void CreateClient(string name, Uri endpoint, out SocketJackWebClientBehaviour account, out SocketJackVoiceManager audio, out SocketJackWebVoiceClient voice, out SocketJackMMOChatPanel chat)
         {
@@ -125,7 +133,7 @@ namespace SocketJack.Tests.Voice
             receipt.runtimeSha256 = Hash("SocketJack.Unity.dll"); receipt.voiceSha256 = Hash("SocketJack.Unity.Voice.dll"); receipt.voiceClientSha256 = Hash("SocketJack.Unity.Voice.Web.Client.dll"); receipt.voiceServerSha256 = Hash("SocketJack.Unity.Voice.Web.dll");
             File.WriteAllText(Argument("-voice-account-receipt"), JsonUtility.ToJson(receipt, true));
             if (audioA != null) audioA.StopCapture(); if (audioB != null) audioB.StopCapture(); voiceA?.Disconnect(); voiceB?.Disconnect();
-            try { if (a != null) await a.LogoutAsync(); if (b != null) await b.LogoutAsync(); if (host != null) await host.StopWebsiteAsync(); if (leaf != null) await leaf.DisposeAsync(); leafVoice?.Dispose(); leafStore?.Dispose(); network?.Shutdown(); } catch { }
+            try { if (a != null && a.IsSignedIn) await a.LogoutAsync(); if (b != null && b.IsSignedIn) await b.LogoutAsync(); if (host != null) await host.StopWebsiteAsync(); if (leaf != null) await leaf.DisposeAsync(); leafVoice?.Dispose(); leafStore?.Dispose(); network?.Shutdown(); } catch { }
             if (error == null) Debug.Log("NATIVE_ACCOUNT_VOICE_PASS exact Unity bridges, linked Global/Community, native audio DSP, no microphone"); else Debug.LogException(error);
 #if UNITY_EDITOR
             UnityEditor.EditorApplication.Exit(error == null ? 0 : 1);
