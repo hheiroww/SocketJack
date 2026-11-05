@@ -16,6 +16,8 @@ Use the same foundation for a physics arena, cooperative adventure, platformer, 
 
 ### Why choose Premium over the basic asset?
 
+The complete Basic foundation is included: its runtime/component/sample paths are present in Premium. The complete distribution contains 51 editable C# scripts, including SocketJackObject, NetworkManager, NetworkIdentity, NetworkTransform, SocketJackMemberSync and ExamplePlayerController, plus Physics Arena and its setup/build scripts. No separate Basic purchase or import is required. The gallery includes actual guide-code illustrations of session startup, owner-gated physics input and per-member authority.
+
 The basic asset provides the original UDP/TCP, 3D physics and selected-member synchronization foundation. Premium adds the surrounding production workflow: an undoable prefab setup wizard, real 2D synchronization, precision/spatial/lifecycle tools, browser WebSocket integration, account-backed MMO chat and Communities, the hosted website/API, linked servers, authenticated self-hosted relays and Opus voice. It includes the updated core, so you do not need a second Basic copy installed. Detailed task guides, examples and actual-UI screenshots help you integrate and verify each stage.
 
 First-party source and NuGet modules remain public. Premium supplies the complete Unity distribution and integrated workflow; it does not add a runtime paywall or require a SocketJack-operated service subscription.

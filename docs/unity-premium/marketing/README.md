@@ -1,0 +1,1 @@
+These 1920x1080 code illustrations render actual C# examples from installation.md, convert-existing-game.md and game-sync.md. They are labeled usage excerpts, not screenshots of an Inspector. The input card omits the teardown method to focus on owner-gated movement. First-party code and artwork follow the repository license.
