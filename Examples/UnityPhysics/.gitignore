@@ -1,0 +1,14 @@
+/Library/
+/Temp/
+/Logs/
+/UserSettings/
+/obj/
+/Assets/Plugins/
+/Assets/SocketJack.Unity/
+/Builds/
+/ProjectSettings/*
+!/ProjectSettings/ProjectVersion.txt
+/Packages/packages-lock.json
+!/Packages/manifest.json
+/Assets/Scenes/
+/Assets/Resources/

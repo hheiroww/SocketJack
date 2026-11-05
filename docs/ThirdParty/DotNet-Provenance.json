@@ -1,0 +1,86 @@
+{
+  "format": 1,
+  "scope": "Selected managed library package assets redistributed by optional SocketJack Unity modules; not a .NET runtime distribution.",
+  "licenseModelUrl": "https://github.com/dotnet/dotnet/blob/0427b9abbead3fa64c6655eb4290c537397131fa/src/runtime/docs/project/licensing-assets.md",
+  "license": {
+    "file": "DotNet-LICENSE.txt",
+    "url": "https://raw.githubusercontent.com/dotnet/dotnet/0427b9abbead3fa64c6655eb4290c537397131fa/src/runtime/LICENSE.TXT",
+    "sha256": "cfc21f5e8bd655ae997eec916138b707b1d290b83272c02a95c9f821b8c87310"
+  },
+  "notices": {
+    "file": "DotNet-THIRD-PARTY-NOTICES.txt",
+    "url": "https://raw.githubusercontent.com/dotnet/dotnet/0427b9abbead3fa64c6655eb4290c537397131fa/src/runtime/THIRD-PARTY-NOTICES.TXT",
+    "sha256": "6d15e10a101c6bfff2ab4429ed061bf76c456fc4b23ad6b03e0d0f8377148a21",
+    "note": "Copied verbatim from System.Text.Json 10.0.14 NuGet package. Its text matches pinned upstream with CRLF versus LF. Includes informational entries for the wider runtime repository; an entry alone does not identify a dependency of these selected library assets."
+  },
+  "packages": [
+    {
+      "id": "System.Text.Json",
+      "version": "10.0.14",
+      "license": "MIT",
+      "packageUrl": "https://www.nuget.org/packages/System.Text.Json/10.0.14",
+      "packageDownloadUrl": "https://api.nuget.org/v3-flatcontainer/system.text.json/10.0.14/system.text.json.10.0.14.nupkg",
+      "packageSha256": "efb4116efc788602d167da9bc086c65d97cb32fd4624110eb00e3ff88e57c8c8",
+      "repository": "https://github.com/dotnet/dotnet",
+      "commit": "0427b9abbead3fa64c6655eb4290c537397131fa",
+      "asset": "lib/netstandard2.0/System.Text.Json.dll",
+      "assetSha256": "136262fc12b3473cf408a4f5a3e604c73019b8baa0d3593205a87df67c7c4228"
+    },
+    {
+      "id": "System.Text.Encodings.Web",
+      "version": "10.0.14",
+      "license": "MIT",
+      "packageUrl": "https://www.nuget.org/packages/System.Text.Encodings.Web/10.0.14",
+      "packageDownloadUrl": "https://api.nuget.org/v3-flatcontainer/system.text.encodings.web/10.0.14/system.text.encodings.web.10.0.14.nupkg",
+      "packageSha256": "3db3934f595c30618e751c003852dc9b6406781653f9a1936c8df0203e379261",
+      "repository": "https://github.com/dotnet/dotnet",
+      "commit": "0427b9abbead3fa64c6655eb4290c537397131fa",
+      "asset": "lib/netstandard2.0/System.Text.Encodings.Web.dll",
+      "assetSha256": "6630388e3573f1d6500891723b30f21d8545e14370707b4d4328e6f61aaca233"
+    },
+    {
+      "id": "System.IO.Pipelines",
+      "version": "10.0.14",
+      "license": "MIT",
+      "packageUrl": "https://www.nuget.org/packages/System.IO.Pipelines/10.0.14",
+      "packageDownloadUrl": "https://api.nuget.org/v3-flatcontainer/system.io.pipelines/10.0.14/system.io.pipelines.10.0.14.nupkg",
+      "packageSha256": "cc153aae0db94e775e985f907c2bed88bad3d3e8c1660597412ca37905560037",
+      "repository": "https://github.com/dotnet/dotnet",
+      "commit": "0427b9abbead3fa64c6655eb4290c537397131fa",
+      "asset": "lib/netstandard2.0/System.IO.Pipelines.dll",
+      "assetSha256": "9f5514995fc52aad781a2f7fc8ef999ecc78e8ccacaa15a6491d550de7f55bcf"
+    },
+    {
+      "id": "Microsoft.Bcl.AsyncInterfaces",
+      "version": "10.0.14",
+      "license": "MIT",
+      "packageUrl": "https://www.nuget.org/packages/Microsoft.Bcl.AsyncInterfaces/10.0.14",
+      "packageDownloadUrl": "https://api.nuget.org/v3-flatcontainer/microsoft.bcl.asyncinterfaces/10.0.14/microsoft.bcl.asyncinterfaces.10.0.14.nupkg",
+      "packageSha256": "fb9352e6211df8509094861281e627547956e3a81fbba41b6af1d829bae5c80b",
+      "repository": "https://github.com/dotnet/dotnet",
+      "commit": "0427b9abbead3fa64c6655eb4290c537397131fa",
+      "asset": "lib/netstandard2.1/Microsoft.Bcl.AsyncInterfaces.dll",
+      "assetSha256": "82c3eb14261e9eda644d66abebc7a57530ea062c0b0813dc36b0681546d26e49"
+    },
+    {
+      "id": "System.Runtime.CompilerServices.Unsafe",
+      "version": "6.1.2",
+      "license": "MIT",
+      "packageUrl": "https://www.nuget.org/packages/System.Runtime.CompilerServices.Unsafe/6.1.2",
+      "packageDownloadUrl": "https://api.nuget.org/v3-flatcontainer/system.runtime.compilerservices.unsafe/6.1.2/system.runtime.compilerservices.unsafe.6.1.2.nupkg",
+      "packageSha256": "5f6a7f53af3465f92beb6da873ebe0e496206c313313b98badee4355a6b25937",
+      "repository": "https://github.com/dotnet/maintenance-packages",
+      "commit": "f62ca0009b038cab4725a720f386623a969d73ad",
+      "asset": "lib/netstandard2.0/System.Runtime.CompilerServices.Unsafe.dll",
+      "assetSha256": "fd67abc4c4af10affbcd42fd68a2a7bc361b26714afe6965d4d0d139459d8297"
+    }
+  ],
+  "auditNotes": [
+    "The selected package nuspecs declare MIT. The pinned upstream licensing model explicitly applies the .NET MIT license to library packages including System.Text.Json.",
+    "Pinned source project files for the four 10.0.14 libraries were checked for managed and shared-source inputs. This bundle does not redistribute the .NET runtime, ASP.NET or OpenTelemetry products.",
+    "The full upstream omnibus notice file is retained, including informational Apache and other entries. Its notices are not replaced by this provenance document.",
+    "System.Runtime.CompilerServices.Unsafe 6.1.2 uses the maintenance-packages MIT LICENSE at its pinned source commit, with the same .NET Foundation copyright and permission text.",
+    "NuGet can resolve additional framework-support packages. Unity uses its own .NET Standard 2.1 framework assets; only the explicit assets above are copied into the Unity distribution.",
+    "No SQLitePCLRaw, Microsoft.Data.Sqlite or native SQLite binary is redistributed. The native account store calls Windows winsqlite3 or Linux libsqlite3.so.0 supplied by the operating system."
+  ]
+}

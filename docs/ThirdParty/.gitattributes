@@ -1,0 +1,3 @@
+# Preserve the exact upstream notice bytes recorded in DotNet-Provenance.json.
+DotNet-LICENSE.txt -text
+DotNet-THIRD-PARTY-NOTICES.txt -text

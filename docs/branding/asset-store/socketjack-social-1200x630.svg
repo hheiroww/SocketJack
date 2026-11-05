@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#111315"/>
+  <polyline points="736,213 736,124 1108,124" fill="none" stroke="#343A40" stroke-width="2"/>
+  <circle cx="736" cy="213" r="5" fill="#737D87"/>
+  <circle cx="1108" cy="124" r="5" fill="#737D87"/>
+  <polyline points="736,450 736,526 1108,526" fill="none" stroke="#343A40" stroke-width="2"/>
+  <circle cx="736" cy="450" r="5" fill="#737D87"/>
+  <circle cx="1108" cy="526" r="5" fill="#737D87"/>
+  <rect x="72" y="37" width="28" height="4" fill="#EFF1F4"/>
+  <text x="72" y="112" fill="#F6F7F9" font-family="Segoe UI, sans-serif" font-size="54" font-weight="700">SocketJack</text>
+  <text x="72" y="286" fill="#DDE1E5" font-family="Segoe UI, sans-serif" font-size="60" font-weight="400">Make your game</text>
+  <text x="72" y="370" fill="#F6F7F9" font-family="Segoe UI, sans-serif" font-size="74" font-weight="700">multiplayer</text>
+  <line x1="72" y1="475" x2="653" y2="475" stroke="#343A40" stroke-width="2"/>
+  <text x="72" y="548" fill="#BFC6CD" font-family="Segoe UI, sans-serif" font-size="27" font-weight="400">Physics  /  UDP  /  Rooms</text>
+  <image href="../socketjack-unity-icon-master.png" x="785" y="145" width="360" height="360"/>
+</svg>

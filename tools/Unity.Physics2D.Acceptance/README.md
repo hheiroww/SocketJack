@@ -1,0 +1,5 @@
+This native acceptance fixture uses an installed Unity Editor and builds one reusable Windows Mono player outside the checkout. It runs four 20-second scenarios: UDP/TCP with server/owning-client authority, each with a real server and two clients. Every client owns a Rigidbody2D platformer and top-down character. Native collisions, grounded jumping, relayed intent, sparse compact keyframes, retained body settings and cross-peer movement are asserted from process receipts.
+
+Run `Build-And-Test.ps1` with the installed `-UnityEditor`, exact `-UnityVersion`, an owned `-OutputDirectory`, candidate `-RuntimeDll` and `-ExpectedRuntimeSha256`. The output folder contains the project, one player, logs, input ownership and acceptance receipts. It remains outside source control. The fixture never requests router mappings, terminates hung processes or deletes output. A timeout retains the process for inspection. Reuse requires the matching ownership manifest and an idle project/player.
+
+This fixture is tooling and is excluded from consumer package/export allowlists. It is not an automatic bootstrap in customer scenes.

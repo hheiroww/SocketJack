@@ -1,0 +1,55 @@
+SocketJack.Unity — third-party notices
+
+First-party code
+The SocketJack multiplayer runtime, Unity components, new self-hosted game
+account/site modules and sample code are SocketJack source under the included
+MIT license. They are separate from SocketJack.com/Portal application code.
+Source: https://github.com/hheiroww/SocketJack
+See Documentation/LICENSE.txt (Asset Store) or LICENSE.md (UPM).
+
+Optional redistributed managed dependencies
+The base SocketJack.Unity.dll has no third-party NuGet dependencies. The
+complete expansion additionally redistributes these managed dependencies:
+
+System.Text.Json 10.0.14 — MIT, Microsoft / .NET Foundation contributors
+System.Text.Encodings.Web 10.0.14 — MIT, Microsoft / .NET Foundation contributors
+System.IO.Pipelines 10.0.14 — MIT, Microsoft / .NET Foundation contributors
+Microsoft.Bcl.AsyncInterfaces 10.0.14 — MIT, Microsoft / .NET Foundation contributors
+System.Runtime.CompilerServices.Unsafe 6.1.2 — MIT, Microsoft / .NET Foundation contributors
+Source: https://github.com/dotnet/runtime
+See the included ThirdParty/DotNet-LICENSE.txt and the complete upstream
+ThirdParty/DotNet-THIRD-PARTY-NOTICES.txt. The upstream runtime notice is an
+omnibus informational notice; it lists components from the broader .NET
+runtime, not only the selected assemblies in this distribution.
+
+Concentus 2.2.2 — permissive Opus/Concentus license, including its redistribution,
+attribution and disclaimer terms. Managed Opus codec only; no native codec
+accelerator is included. Source: https://github.com/lostromb/concentus
+See the included Voice-Third-Party-Notices.md (Asset Store) or Voice Third Party
+Notices.md (UPM) for the complete copyright/license notice.
+
+System.Numerics.Vectors and other framework facades are supplied by Unity's
+.NET compatibility profile and are not copied as duplicate plugins. NuGet
+consumers resolve the modules' declared package dependencies normally.
+
+Operating-system dependency
+Native account hosting uses operating-system SQLite: winsqlite3 on Windows,
+libsqlite3.so.0 on Linux. No SQLite native binary, SQLitePCLRaw,
+Microsoft.Data.Sqlite, customer database or production configuration is bundled.
+Operators install/update the OS dependency and manage their own account data.
+
+Unity-provided dependencies
+Physics, Physics2D, Animation, Audio, IMGUI, JSON serialization and
+UnityWebRequest modules are supplied by the customer's Unity installation.
+Unity engine, built-in/SRP shaders and publishing-tool binaries are not
+redistributed by SocketJack. Samples reference compatible installed shaders;
+custom-pipeline users assign their own compatible material.
+
+Excluded components and game assets
+NAudio is not included. Voice uses Unity capture/playback plus managed Opus.
+No World of Warcraft artwork, fonts, audio, names, UI files or proprietary game
+assets are redistributed. MMO presets use first-party UI code and colors.
+No third-party hosted account/voice/relay subscription is included or required.
+
+The product description discloses the optional redistributed dependencies.
+Retain these notices when redistributing applicable component binaries.

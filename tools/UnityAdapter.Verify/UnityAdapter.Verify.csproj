@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>8.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <IsPackable>false</IsPackable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <DefineConstants Condition="'$(IncludeEditorIntegration)' == 'true' or '$(IncludePhysicsSample)' == 'true'">$(DefineConstants);UNITY_EDITOR</DefineConstants>
+    <DefineConstants>$(DefineConstants);$(UnityVersionSymbols)</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../SocketJack.Unity/SocketJack.Unity.csproj" />
+    <Compile Include="../../SocketJack.Unity/Unity/*.cs" />
+    <Compile Include="../../SocketJack.Unity/Unity/Editor/*.cs" Condition="'$(IncludeEditorIntegration)' == 'true' or '$(IncludePhysicsSample)' == 'true'" />
+    <Reference Include="UnityEngine.Physics2DModule" Condition="'$(IncludePhysicsSample)' != 'true' and '$(IncludeEditorIntegration)' != 'true'"><HintPath>$(UnityManagedPath)/UnityEngine/UnityEngine.Physics2DModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.AudioModule" Condition="'$(IncludePhysicsSample)' != 'true' and '$(IncludeEditorIntegration)' != 'true'"><HintPath>$(UnityManagedPath)/UnityEngine/UnityEngine.AudioModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.IMGUIModule" Condition="'$(IncludePhysicsSample)' != 'true' and '$(IncludeEditorIntegration)' != 'true'"><HintPath>$(UnityManagedPath)/UnityEngine/UnityEngine.IMGUIModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine" Condition="'$(IncludePhysicsSample)' != 'true' and '$(IncludeEditorIntegration)' == 'true'"><HintPath>$(UnityManagedPath)/UnityEngine.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.CoreModule" Condition="'$(IncludePhysicsSample)' != 'true' and '$(IncludeEditorIntegration)' != 'true'">
+      <HintPath>$(UnityManagedPath)/UnityEngine/UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.PhysicsModule" Condition="'$(IncludePhysicsSample)' != 'true' and '$(IncludeEditorIntegration)' != 'true'">
+      <HintPath>$(UnityManagedPath)/UnityEngine/UnityEngine.PhysicsModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule" Condition="'$(IncludePhysicsSample)' != 'true' and '$(IncludeEditorIntegration)' != 'true'">
+      <HintPath>$(UnityManagedPath)/UnityEngine/UnityEngine.InputLegacyModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup Condition="'$(IncludeEditorIntegration)' == 'true' and '$(IncludePhysicsSample)' != 'true'">
+    <Reference Include="UnityEditor">
+      <HintPath>$(UnityManagedPath)/UnityEditor.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup Condition="'$(IncludePhysicsSample)' == 'true'">
+    <Compile Include="../../Examples/UnityPhysics/Assets/Scripts/*.cs" />
+    <Compile Include="../../Examples/UnityPhysics/Assets/Editor/*.cs" />
+    <Reference Include="UnityEditor">
+      <HintPath>$(UnityManagedPath)/UnityEditor.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>$(UnityManagedPath)/UnityEngine.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+  <Target Name="RequireUnityReference" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(UnityManagedPath)/UnityEngine/UnityEngine.CoreModule.dll')" Text="Set UnityManagedPath to an installed Unity Editor's Editor/Data/Managed directory. This check compiles against real Unity reference assemblies." />
+  </Target>
+</Project>

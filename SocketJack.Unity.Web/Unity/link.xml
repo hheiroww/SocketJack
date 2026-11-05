@@ -1,0 +1,9 @@
+<linker>
+  <!-- Public account/chat DTOs are serialized by the optional JSON adapter. Native server assemblies
+       are excluded from WebGL by the distribution's plugin/assembly platform settings. -->
+  <assembly fullname="SocketJack.Unity.Web.Client" preserve="all" />
+  <assembly fullname="SocketJack.Unity.Web" preserve="all" ignoreIfMissing="1" />
+  <assembly fullname="SocketJack.Unity.Voice" preserve="all" ignoreIfMissing="1" />
+  <assembly fullname="SocketJack.Unity.Voice.Web.Client" preserve="all" ignoreIfMissing="1" />
+  <assembly fullname="SocketJack.Unity.Voice.Web" preserve="all" ignoreIfMissing="1" />
+</linker>

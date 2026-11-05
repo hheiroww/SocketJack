@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>disable</Nullable></PropertyGroup>
+  <ItemGroup><ProjectReference Include="../../../SocketJack.Unity/SocketJack.Unity.csproj" Condition="'$(SocketJackRuntimePath)' == ''" /><Reference Include="SocketJack.Unity" Condition="'$(SocketJackRuntimePath)' != ''"><HintPath>$(SocketJackRuntimePath)</HintPath></Reference></ItemGroup>
+</Project>

@@ -1,0 +1,5 @@
+The voice fixture reuses a matching, idle project/player previously created by `Unity.Physics2D.Acceptance`; it does not make another full player copy. Prior 2D receipts and build identity are retained. The native player is rebuilt for this fixture and can be rebuilt for 2D again from its source.
+
+`Build-And-Test.ps1` requires the installed Editor/version, the owned `-Physics2DOutputDirectory`, a separate receipt `-OutputDirectory`, and exact `-RuntimeDll`, `-VoiceDll`, `-ConcentusDll` inputs. It records all three runtime hashes. The fixture uses synthetic PCM, two real clients/server over both UDP and TCP, Opus compression, the Unity audio DSP callback, ownership transfer and visibility re-entry. It never opens a microphone and mutes the fixture's own listener so its synthetic tone is inaudible.
+
+The reusable project, single player, logs and receipts remain outside source control. No outputs are deleted and no timed-out process is terminated. These fixture sources are excluded from consumer package allowlists.

@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>SocketJack · Multiplayer</title>
+  <link rel="icon" href="/logo.png" type="image/png">
+  <link rel="stylesheet" href="/app.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#workspace">Skip to content</a>
+  <header class="topbar">
+    <a class="brand" href="#chat" aria-label="SocketJack home"><img src="/logo.png" width="34" height="34" alt=""><span>SOCKET<span class="muted">JACK</span></span></a>
+    <span id="deployment-name" class="deployment">MULTIPLAYER</span>
+    <div class="connection"><span id="connection-light" class="signal"></span><span id="connection-status">Connecting</span></div>
+    <button id="account-button" class="account-button">Sign in</button>
+  </header>
+  <div class="app-shell">
+    <nav class="primary-nav" aria-label="Main navigation">
+      <div class="nav-label">WORKSPACE</div>
+      <a href="#chat" data-page="chat"><span class="nav-glyph">#</span> Chat</a>
+      <a href="#communities" data-page="communities"><span class="nav-glyph">◇</span> Communities</a>
+      <a href="#groups" data-page="groups"><span class="nav-glyph">≡</span> Party &amp; raid</a>
+      <a href="#status" data-page="status"><span class="nav-glyph">⌁</span> Server status</a>
+      <a href="#admin" data-page="admin" id="admin-nav" hidden><span class="nav-glyph">⚙</span> Administration</a>
+      <div class="nav-bottom"><span class="eyebrow">YOUR GAME. YOUR SERVER.</span><span id="version-label" class="muted">SocketJack</span></div>
+    </nav>
+    <main id="workspace" tabindex="-1">
+      <div id="notification" class="notification" role="status" aria-live="polite" hidden></div>
+      <section id="page-chat" class="page chat-page" aria-label="Chat">
+        <aside class="channel-sidebar">
+          <div class="section-heading"><h1>Chat</h1><span class="eyebrow">MMO PRESET</span></div>
+          <div class="nav-label">PUBLIC CHANNELS</div>
+          <div id="public-channels" class="channel-list"></div>
+          <div class="nav-label">YOUR CHANNELS</div>
+          <div id="private-channels" class="channel-list"></div>
+          <div class="sidebar-note">Channel colors, filters and history stay under your control.</div>
+          <button id="chat-preferences" class="text-button">Chat preferences</button>
+        </aside>
+        <div class="conversation">
+          <header class="conversation-header"><div><h2 id="channel-title">Global</h2><p id="channel-description">Everyone in this game deployment.</p></div><button id="clear-chat" class="text-button">Clear view</button></header>
+          <div id="chat-sign-in" class="empty-state"><span class="eyebrow">WELCOME TO THE WORLD</span><h2>Join the conversation.</h2><p>Sign in to chat across servers, find a party and connect with your Communities.</p><button data-open-account>Sign in / Create account</button></div>
+          <div id="messages" class="messages" role="log" aria-label="Chat messages" aria-live="polite" aria-relevant="additions" hidden></div>
+          <button id="new-messages" class="new-messages" hidden>New messages ↓</button>
+          <form id="chat-form" class="chat-composer" autocomplete="off">
+            <div id="whisper-target-row" class="recipient-row" hidden><label for="whisper-target">To</label><input id="whisper-target" name="target" placeholder="Player username" maxlength="64"></div>
+            <div class="composer-row"><label id="composer-channel" for="chat-text">[Global]</label><input id="chat-text" name="text" maxlength="512" placeholder="Press Enter to chat · /help for commands" aria-label="Message" disabled><button id="send-message" type="submit" disabled>Send</button></div>
+            <div class="composer-help"><span id="chat-context">Server-verified channels</span><span>ENTER TO SEND · / TO SWITCH CHANNEL</span></div>
+          </form>
+          <div class="chat-tabs" role="tablist" aria-label="Chat channel tabs" id="chat-tabs"></div>
+        </div>
+      </section>
+      <section id="page-communities" class="page content-page" hidden>
+        <header class="page-heading"><div><span class="eyebrow">STAY CONNECTED</span><h1>Communities</h1><p>A shared home for your players, across rooms and servers.</p></div><button id="create-community">Create Community</button></header>
+        <div class="split-layout"><aside id="community-list" class="selection-list" aria-label="Communities"></aside><div id="community-detail" class="detail-panel"><div class="empty-state"><h2>Your people, in one place.</h2><p>Select a Community to view members, manage invitations or open its chat.</p></div></div></div>
+      </section>
+      <section id="page-groups" class="page content-page" hidden>
+        <header class="page-heading"><div><span class="eyebrow">PLAY TOGETHER</span><h1>Party &amp; raid</h1><p>Invite players and coordinate your next adventure.</p></div><div class="button-row"><button id="create-party">Create party</button><button id="create-raid" class="secondary">Create raid</button></div></header>
+        <div id="group-detail" class="detail-panel"></div>
+        <section class="invitations-panel"><h2>Invitations</h2><div id="invitations-list"></div></section>
+      </section>
+      <section id="page-status" class="page content-page" hidden>
+        <header class="page-heading"><div><span class="eyebrow">LIVE CONNECTION</span><h1>Server status</h1><p>What this server is running right now.</p></div><button id="refresh-status" class="secondary">Refresh</button></header>
+        <div id="server-status" class="metric-grid"></div><div id="server-status-note" class="technical-note"></div>
+      </section>
+      <section id="page-admin" class="page content-page" hidden>
+        <header class="page-heading"><div><span class="eyebrow">OPERATOR CONSOLE</span><h1>Administration</h1><p>Diagnostics and moderation for authorized operators.</p></div><button id="refresh-diagnostics" class="secondary">Refresh diagnostics</button></header>
+        <div id="diagnostics" class="metric-grid"></div>
+        <section class="admin-section"><h2>Moderation</h2><form id="moderation-form" class="inline-form"><label>Player<input name="targetUsername" placeholder="Username" required maxlength="64"></label><label>Action<select name="action"><option value="mute">Mute chat</option><option value="unmute">Unmute chat</option><option value="ban">Ban account</option><option value="unban">Unban account</option></select></label><label>Reason<input name="reason" maxlength="240" placeholder="Optional reason"></label><button type="submit">Apply</button></form></section>
+      </section>
+    </main>
+  </div>
+  <dialog id="account-dialog" class="dialog account-dialog">
+    <div class="dialog-heading"><img src="/logo.png" width="32" height="32" alt=""><h2 id="account-heading">Welcome back.</h2><button class="icon-button" data-close-dialog aria-label="Close">×</button></div>
+    <p id="account-description" class="muted">Your account belongs to this game operator.</p>
+    <div id="account-tabs" class="form-tabs"><button type="button" data-account-mode="login" class="active">Sign in</button><button type="button" data-account-mode="register">Create account</button><button type="button" data-account-mode="bootstrap">Operator setup</button></div>
+    <form id="account-form" class="stacked-form" autocomplete="on">
+      <label id="bootstrap-code-label" hidden>Setup code<input id="bootstrap-code" name="code" autocomplete="off"></label>
+      <label>Username<input id="username" name="username" autocomplete="username" maxlength="64" required></label>
+      <label id="display-name-label" hidden>Display name<input id="display-name" name="displayName" autocomplete="nickname" maxlength="64"></label>
+      <label>Password<input id="password" name="password" type="password" autocomplete="current-password" required></label>
+      <div id="account-error" class="form-error" role="alert" hidden></div>
+      <button id="account-submit" type="submit">Sign in</button>
+    </form>
+    <div id="signed-in-account" hidden><dl id="account-profile" class="profile-list"></dl><button id="sign-out" class="secondary">Sign out</button></div>
+  </dialog>
+  <dialog id="action-dialog" class="dialog"><div class="dialog-heading"><h2 id="action-title"></h2><button class="icon-button" data-close-dialog aria-label="Close">×</button></div><form id="action-form" class="stacked-form"><div id="action-fields"></div><div id="action-error" class="form-error" role="alert" hidden></div><button id="action-submit" type="submit">Save</button></form></dialog>
+  <dialog id="preferences-dialog" class="dialog"><div class="dialog-heading"><h2>Chat preferences</h2><button class="icon-button" data-close-dialog aria-label="Close">×</button></div><form id="preferences-form" class="stacked-form"><label class="checkbox-label"><input type="checkbox" name="timestamps" checked> Show timestamps</label><label class="checkbox-label"><input type="checkbox" name="localHistory"> Remember chat locally on this device</label><p class="muted small">Local history is optional. Account credentials are never stored here.</p><div id="channel-colors" class="color-settings"></div><button type="submit">Apply preferences</button></form></dialog>
+  <noscript><p class="noscript">Enable JavaScript to use this server's live chat and account features.</p></noscript>
+</body>
+</html>
