@@ -35,13 +35,15 @@ dotnet add package SocketJack --version 2026.10.28.0
 |---|---|---|
 | **[SocketJack](https://www.nuget.org/packages/SocketJack/2026.10.28.0)** | .NET Standard 2.1 | Core networking library; this release is **2026.10.28.0**. |
 | **[SocketJack.WPF](https://www.nuget.org/packages/SocketJack.WPF/2026.10.28.0)** | Windows / WPF | Companion package for live control capture and remote input; this release is **2026.10.28.0**. |
-| **[SocketJack.Unity](https://www.nuget.org/packages/SocketJack.Unity/2026.11.3)** | .NET Standard 2.1 / Unity 2022.3+ | Standalone multiplayer runtime, client physics, UDP/TCP transports, rooms and owned objects. See the [Unity installation and two-player guide](SocketJack.Unity/README.md). |
+| **[SocketJack.Unity](https://www.nuget.org/packages/SocketJack.Unity)** | .NET Standard 2.1 / Unity 6 and 2022.3 | Standalone multiplayer runtime with optional Web/account and Voice modules. See the [Unity installation and two-player guide](SocketJack.Unity/README.md). |
 
 ### Unity multiplayer
 
 `SocketJack.Unity` provides a dedicated-server/client API and Unity `SocketJackObject`, `NetworkManager`, `NetworkIdentity` and `NetworkTransform` components. `SocketJackObject` predicts local Rigidbody physics from compact binary input and reconciles sparse keyframes with interpolation/extrapolation. Reliable UDP is unordered by default, with explicit ordered delivery for lifecycle traffic. Object framing accounts for protocol and IP headers, keeps UDP frames below 999 bytes, and automatically reconstructs larger objects using the rebuilder shared with core TCP/UDP. Rooms limit replication to interested players. The package has no dependency on the base SocketJack assembly.
 
 The [physics cube game](Examples/UnityPhysics/README.md) supplies WASD/arrow controls, collisions, configurable synchronization and actual Unity build/server/client test scripts.
+
+The [SocketJack Premium guides](docs/unity-premium/index.md) cover the complete Unity workflow: existing-prefab setup, 3D/2D physics, configurable member authority and precision, scenes/pooling, MMO chat and Communities, accounts, a server-hosted website, relays, linked servers and optional Opus voice. Premium is a separate Asset Store distribution; the first-party source and NuGet modules remain public.
 
 Game scripts still define simulation rules and replicated state. Capacity limits and thousands-of-peer tests do not establish the player count of a particular game. Follow the [Unity guide](SocketJack.Unity/README.md) for setup, authoritative movement, transport contracts and platform limits, and the [capacity test report](docs/Unity-multiplayer-capacity.md) for measured scope.
 

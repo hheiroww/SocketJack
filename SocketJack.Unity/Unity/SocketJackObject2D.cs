@@ -150,13 +150,20 @@ namespace SocketJack.Multiplayer.Components
         }
         public void SetInput(float horizontal, float vertical, bool jump = false)
         { if (!Finite(horizontal) || !Finite(vertical)) return; localAxes = Vector2.ClampMagnitude(new Vector2(horizontal, vertical), 1); localJump |= jump; }
+        /// <summary>Release local controls without clearing remote simulation or correction state.</summary>
+        public void ClearInput()
+        {
+            localAxes = Vector2.zero; localJump = localJumpPredicted = false;
+            if (IsOwner) { intent.Horizontal = intent.Vertical = 0; jumpPending = false; }
+        }
         private void Update()
         {
             EnsureBody(); if (movementModeDirty) ApplyMovementMode();
             if (IsOwner && !UsesServerAuthority && CaptureEligible(Time.unscaledTimeAsDouble))
                 if (identity.Manager.Client.SendOwnerState(identity.ObjectId, CaptureState())) OwnerStatesSent++;
             if (!IsOwner || body.bodyType != RigidbodyType2D.Dynamic) return;
-            if (readKeyboard)
+            if (readKeyboard && NetworkInputBridge.SuppressGameplayInput) ClearInput();
+            else if (readKeyboard)
             {
 #if ENABLE_LEGACY_INPUT_MANAGER
                 float h = (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow) ? 1 : 0) - (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow) ? 1 : 0);

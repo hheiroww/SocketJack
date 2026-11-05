@@ -53,7 +53,7 @@ Write-JsonAsset 'package.json' ([ordered]@{
     unity = '2022.3'; unityRelease = '17f1'
     description = "Turn an existing Unity game into multiplayer. Unity 6 and 2022.3, UDP/TCP/WebSocket, predictive 3D/2D physics, configurable state synchronization and optional MMO services. Runtime $runtimeVersion."
     author = @{ name = 'SocketJack AS Publisher'; url = 'https://socketjack.com' }
-    documentationUrl = 'https://github.com/hheiroww/SocketJack'
+    documentationUrl = $(if ($includeExpansion) { 'https://github.com/hheiroww/SocketJack/blob/codex/unity-multiplayer/docs/unity-premium/index.md' } else { 'https://github.com/hheiroww/SocketJack' })
     repository = @{ type = 'git'; url = 'https://github.com/hheiroww/SocketJack.git' }
     license = 'MIT'; keywords = @('multiplayer', 'networking', 'udp', 'tcp', 'physics')
     dependencies = [ordered]@{
@@ -93,6 +93,11 @@ if ($includeExpansion) {
     foreach ($relative in $expansion.Keys) { Write-Asset $relative $expansion[$relative] '' }
     Write-Asset 'Documentation~/ReleaseTwo.md' (Join-Path $repository 'docs/Unity-ReleaseTwo.md') ''
     Write-Asset 'Documentation~/Voice-Licensing.md' (Join-Path $repository 'docs/Unity-Voice-Licensing.md') ''
+    $premiumDocumentation = Get-UnityPremiumDocumentationSources $repository
+    foreach ($relative in $premiumDocumentation.Keys) { Write-Asset ('Documentation~/Premium/' + $relative) $premiumDocumentation[$relative] '' }
+    $documentationEntrypoints = Get-UnityPremiumDocumentationEntrypoints $repository
+    foreach ($relative in $documentationEntrypoints.Keys) { Write-Asset ('Documentation~/' + $relative) '' $documentationEntrypoints[$relative] }
+    Write-Asset 'README.md' '' ([IO.File]::ReadAllText((Join-Path $repository 'SocketJack.Unity/README.md')) + "`n`n## Offline Premium manual`n`nOpen the [complete Premium guide](Documentation~/Premium/index.md).`n")
     foreach ($notice in @('DotNet-LICENSE.txt', 'DotNet-THIRD-PARTY-NOTICES.txt', 'DotNet-Provenance.json')) { Write-Asset ('ThirdParty/' + $notice) (Join-Path $repository ('docs/ThirdParty/' + $notice)) '' }
     Write-Asset 'Voice Third Party Notices.md' (Join-Path $repository 'SocketJack.Unity.Voice/THIRD-PARTY-NOTICES.md') ''
     Write-Asset 'Samples~/Multiplayer/Scripts/MultiplayerGame.cs' (Join-Path $repository 'Examples/UnityMultiplayer/Assets/Scripts/MultiplayerGame.cs') ''

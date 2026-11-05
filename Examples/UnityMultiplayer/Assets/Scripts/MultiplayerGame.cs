@@ -70,6 +70,7 @@ namespace SocketJack.Samples.Multiplayer
                 var sync = player.AddComponent<SocketJackObject>(); sync.PrecisionPreset = NetworkPrecisionPreset.Balanced; sync.Visual = visual.transform;
             }
             player.AddComponent<SocketJackHealth>();
+            player.AddComponent<NetworkInputBridge>();
             var anchor = player.AddComponent<SocketJackInterestObject>(); anchor.ObserverAnchor = true;
             return player;
         }

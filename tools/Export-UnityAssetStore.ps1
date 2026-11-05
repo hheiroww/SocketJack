@@ -143,6 +143,7 @@ foreach ($file in $componentManifest.files) {
     if ($file -notmatch '^(?:[A-Za-z][A-Za-z0-9_]*\.cs|Editor/[A-Za-z][A-Za-z0-9_]*\.cs|Plugins/[A-Za-z][A-Za-z0-9_]*\.jslib|link\.xml)$') { throw 'Invalid public component path.' }
     $sources["Runtime/Components/$file"] = Join-Path $repository "SocketJack.Unity/Unity/$file"
 }
+$generatedDocumentation = [ordered]@{}
 if ($includeExpansion) {
     $expansion = Get-UnityExpansionSources $repository $ExpansionRuntimeDirectory $ExpansionRuntimeManifest
     $bundleCore = Join-Path $ExpansionRuntimeDirectory 'SocketJack.Unity.dll'
@@ -155,6 +156,10 @@ if ($includeExpansion) {
         $sources[$relative] = $expansion[$relative]
     }
     $sources['Documentation/ReleaseTwo.md'] = Join-Path $repository 'docs/Unity-ReleaseTwo.md'
+    $premiumDocumentation = Get-UnityPremiumDocumentationSources $repository
+    foreach ($relative in $premiumDocumentation.Keys) { $sources['Documentation/Premium/' + $relative] = $premiumDocumentation[$relative] }
+    $generatedDocumentation = Get-UnityPremiumDocumentationEntrypoints $repository
+    foreach ($relative in $generatedDocumentation.Keys) { [void]$sources.Remove('Documentation/' + $relative) }
     $sources['Documentation/Voice-Licensing.md'] = Join-Path $repository 'docs/Unity-Voice-Licensing.md'
     $sources['Documentation/ThirdParty/DotNet-LICENSE.txt'] = Join-Path $repository 'docs/ThirdParty/DotNet-LICENSE.txt'
     $sources['Documentation/ThirdParty/DotNet-THIRD-PARTY-NOTICES.txt'] = Join-Path $repository 'docs/ThirdParty/DotNet-THIRD-PARTY-NOTICES.txt'
@@ -194,6 +199,12 @@ foreach ($relative in $sources.Keys) {
         Set-StableMeta $target $asset
     }
     [void]$assets.Add($asset)
+}
+foreach ($relative in $generatedDocumentation.Keys) {
+    $asset = "$packageRoot/Documentation/$relative"; $target = Join-Path $exportProject $asset
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $target) | Out-Null
+    [IO.File]::WriteAllText($target, $generatedDocumentation[$relative], [Text.UTF8Encoding]::new($false))
+    Set-StableMeta $target $asset; [void]$assets.Add($asset)
 }
 foreach ($relative in $definitions.Keys) {
     $asset = "$packageRoot/$relative"; $target = Join-Path $exportProject $asset

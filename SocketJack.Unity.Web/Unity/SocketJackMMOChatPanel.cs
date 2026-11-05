@@ -93,7 +93,8 @@ namespace SocketJack.Multiplayer.Web.Components
             var area = new Rect(offset.x, Mathf.Max(offset.y, Screen.height - height - offset.y), Mathf.Max(280, width), Mathf.Max(160, height));
             Color oldColor = GUI.color; GUI.color = settings.Background; GUI.DrawTexture(area, Texture2D.whiteTexture); GUI.color = oldColor;
             GUILayout.BeginArea(new Rect(area.x + 7, area.y + 5, area.width - 14, area.height - 10));
-            GUILayout.BeginHorizontal(); GUILayout.Label("SocketJack", headingStyle, GUILayout.Width(74));
+            GUILayout.BeginHorizontal(); GUILayout.Label("SocketJack", headingStyle,
+                GUILayout.Width(Mathf.Max(74, headingStyle.CalcSize(new GUIContent("SocketJack")).x + 8)));
             GUILayout.Label(web.IsSignedIn ? web.User.DisplayName + (web.IsLive ? " · live" : " · HTTP") : "Sign in to chat", textStyle);
             var social = GetComponent<SocketJackSocialPanel>(); if (social != null && web.IsSignedIn && GUILayout.Button("Social", GUILayout.Width(48))) social.Toggle();
             if (web.IsSignedIn && GUILayout.Button("Out", GUILayout.Width(34))) Observe(() => web.LogoutAsync()); GUILayout.EndHorizontal();

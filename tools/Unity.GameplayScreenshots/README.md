@@ -1,0 +1,9 @@
+# Actual Physics Arena screenshot
+
+`Capture.ps1` builds a fresh isolated copy of the public PhysicsGame with a test-only screenshot component. Supply an installed licensed Windows Editor, the accepted `SocketJack.Unity.dll` and SHA256, and a fresh output directory outside source. Production sample/components are copied without edits.
+
+The tool runs one hidden D3D11 host and two headless loopback autoplay peers. It waits for three admitted visible player cubes, more than0.5world-unit horizontal movement per cube and the normal simulation/input metrics, then saves one raw1920x1080 readback from the live arena camera. Its camera pose, scene, materials and gameplay are unchanged; IMGUI is not part of this camera-only image. Pixel checks reject blank or broken-shader output. All players have finite lifetimes. It performs no router mapping, user input, microphone access, foregrounding, compositing, process killing or deletion. Total generated output is bounded to512MiB. Logs, movement proof, metrics and input hash receipts remain private. A matching owned project may be reused with a fresh RunName; earlier receipts remain retained.
+
+The screenshot is evidence of this sample in a local synthetic-input test, not an MMO scene, WAN performance result or a promise that arbitrary game logic converts automatically. This test tooling is excluded from product packages.
+
+The documentation image is [physics-arena.png](../../docs/unity-premium/images/physics-arena.png). Caption: **Physics Arena in Unity 2022.3 on Windows Direct3D11: one local host and two real loopback UDP peers, moving through autoplay input. Raw 1920×1080 live-camera capture; this minimal sample is not an MMO scene or a WAN performance result.** The orange cube is the host's local player; the two cyan cubes are remote peers.

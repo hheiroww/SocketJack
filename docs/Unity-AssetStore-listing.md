@@ -14,8 +14,6 @@ Bring other players into the game you are already building. SocketJack connects 
 
 Use the same foundation for a physics arena, cooperative adventure, platformer, shared sandbox or persistent online world. The complete Premium distribution includes optional MMO chat, accounts, Communities, voice, a server-hosted website and linked-server services alongside its 3D/2D networking tools.
 
-### Connect an existing game in a few steps
-
 ### Why choose Premium over the basic asset?
 
 The basic asset provides the original UDP/TCP, 3D physics and selected-member synchronization foundation. Premium adds the surrounding production workflow: an undoable prefab setup wizard, real 2D synchronization, precision/spatial/lifecycle tools, browser WebSocket integration, account-backed MMO chat and Communities, the hosted website/API, linked servers, authenticated self-hosted relays and Opus voice. It includes the updated core, so you do not need a second Basic copy installed. Detailed task guides, examples and actual-UI screenshots help you integrate and verify each stage.
@@ -88,7 +86,7 @@ The package includes the sliding-cube Physics Arena and complete native 3D/2D ac
 
 Unity 6.3 LTS is the primary support target; Unity 2022.3 LTS is the compatibility bracket. Tested Editors: 6000.3.27f2 and 2022.3.17f1. Use .NET Standard 2.1 API compatibility. Networking supports Built-in, HDRP, URP and Custom RP independently of the renderer; assign and retain compatible sample materials/shaders for your pipeline.
 
-Actual native Windows x64 Mono checks cover UDP/TCP, 3D/2D physics, authority, lifecycle, scenes, pooling, precision and audio DSP. Actual Unity 2022.3 WebGL/IL2CPP gameplay checks cover direct and relayed browser WebSocket paths and large-value reconstruction. These do not establish Unity 6 WebGL, mobile/console, physical microphone, public-WAN or production-capacity acceptance. See the included validation notes for the precise checked boundaries.
+Actual native Windows x64 Mono checks cover UDP/TCP, 3D/2D physics, authority, lifecycle, scenes, pooling, precision and audio DSP. Actual Unity 2022.3 WebGL/IL2CPP checks cover direct and relayed browser WebSocket gameplay, large-value reconstruction, account sign-in, realtime chat, binary Opus voice and browser audio DSP with synthetic microphone input. These do not establish Unity 6 WebGL, mobile/console, physical microphone, public-WAN or production-capacity acceptance. See the included validation notes for the precise checked boundaries.
 
 Native account/site hosting supports Windows and Linux. Windows uses OS winsqlite3; Linux requires libsqlite3.so.0. Public HTTP/WebSocket services require valid TLS certificates/origin configuration. Browser clients cannot host listeners or open raw UDP/TCP sockets. A 2,000-peer transport check is not a guarantee of 2,000 mutually visible physics players; measure and partition your actual workload.
 

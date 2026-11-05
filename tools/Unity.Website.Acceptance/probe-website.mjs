@@ -25,7 +25,12 @@ async function until(label, expression) {
   for (let i = 0; i < 100; i++) { if (await evaluate(expression)) { checks.push(label); return; } await delay(100); }
   throw new Error(`Website did not complete: ${label}`);
 }
-async function screenshot(name) { const value = await command('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false }); await fs.writeFile(path.join(output, name + '.png'), Buffer.from(value.data, 'base64')); }
+async function screenshot(name) {
+  await evaluate('document.activeElement?.blur(); document.documentElement.scrollTop = 0; document.body.scrollTop = 0; window.scrollTo(0, 0)'); await delay(300);
+  if (await evaluate("document.querySelector('.topbar').getBoundingClientRect().top < -1")) throw new Error('Website header is clipped before capture.');
+  const value = await command('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
+  await fs.writeFile(path.join(output, name + '.png'), Buffer.from(value.data, 'base64'));
+}
 let result = { result: 'FAIL' };
 try {
   let endpoint;
@@ -40,7 +45,7 @@ try {
   const target = await command('Target.createTarget', { url: 'about:blank' }, null);
   ({ sessionId } = await command('Target.attachToTarget', { targetId: target.targetId, flatten: true }, null));
   await command('Runtime.enable'); await command('Page.enable');
-  await command('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+  await command('Emulation.setDeviceMetricsOverride', { width: 1920, height: 1080, deviceScaleFactor: 1, mobile: false });
   await command('Page.navigate', { url: origin });
   await until('guest page loads live status', "document.getElementById('connection-status')?.textContent !== 'Connecting' && document.getElementById('channel-title')?.textContent === 'Global'");
   await screenshot('01-guest');
@@ -52,8 +57,9 @@ try {
   await screenshot('02-live-chat');
   await evaluate("location.hash='communities'; document.getElementById('create-community').click();");
   await until('community creation form opens', "document.getElementById('action-dialog').open && document.querySelector('#action-fields [name=name]')");
-  await evaluate("document.querySelector('#action-fields [name=name]').value='SocketJack Explorers'; document.querySelector('#action-fields [name=description]').value='Created through the real website UI'; document.getElementById('action-form').requestSubmit();");
-  await until('community creation persists and displays', "!document.getElementById('action-dialog').open && document.getElementById('community-list').textContent.includes('SocketJack Explorers')");
+  const communityName = 'SocketJack Explorers ' + username.slice(-5);
+  await evaluate(`document.querySelector('#action-fields [name=name]').value=${JSON.stringify(communityName)}; document.querySelector('#action-fields [name=description]').value='Created through the real website UI'; document.getElementById('action-form').requestSubmit();`);
+  await until('community creation persists and displays', `!document.getElementById('action-dialog').open && document.getElementById('community-list').textContent.includes(${JSON.stringify(communityName)})`);
   await screenshot('03-community');
   await evaluate("location.hash='groups'; document.getElementById('create-party').click();");
   await until('party creation displays membership', "document.getElementById('group-detail').textContent.includes('UI Explorer')");

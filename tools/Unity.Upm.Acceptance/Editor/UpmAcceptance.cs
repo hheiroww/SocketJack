@@ -25,6 +25,7 @@ namespace SocketJack.Acceptance.Upm.Editor
         private const string Pending = "SocketJack.UpmAcceptance.SamplesPending";
         private const string Deadline = "SocketJack.UpmAcceptance.Deadline";
         private const string SamplePaths = "SocketJack.UpmAcceptance.SamplePaths";
+        private const string Compiled = "SocketJack.UpmAcceptance.SourcesCompiled";
         [Serializable] private sealed class Definition { public string name = ""; public string[] includePlatforms = Array.Empty<string>(), excludePlatforms = Array.Empty<string>(); }
         [Serializable] private sealed class PackageMetadata { public string name = "", version = "", socketjackRuntimeSha256 = ""; }
         [Serializable] private sealed class Receipt
@@ -56,10 +57,18 @@ namespace SocketJack.Acceptance.Upm.Editor
                     if ((!sample.isImported || refresh) && !sample.Import(refresh ? Sample.ImportOptions.OverridePreviousImports : Sample.ImportOptions.None))
                         throw new InvalidOperationException("Package Manager could not import sample: " + sample.displayName);
                 }
+                // Reused projects can retain script-to-asset registrations when Package Manager's
+                // sample folder changes. Rebuild through Unity's supported compilation API rather
+                // than editing/deleting its caches or accepting stale assemblies.
+                SessionState.SetBool(Compiled, false);
+                CompilationPipeline.compilationFinished -= OnCompilationFinished;
+                CompilationPipeline.compilationFinished += OnCompilationFinished;
+                CompilationPipeline.RequestScriptCompilation(RequestScriptCompilationOptions.CleanBuildCache);
                 ResumeImport();
             }
             catch (Exception error) { Fail(error); }
         }
+        private static void OnCompilationFinished(object context) { SessionState.SetBool(Compiled, true); }
         [InitializeOnLoadMethod]
         private static void ResumeImport()
         {
@@ -75,6 +84,7 @@ namespace SocketJack.Acceptance.Upm.Editor
                 double end; double.TryParse(SessionState.GetString(Deadline, "0"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out end);
                 if (EditorApplication.timeSinceStartup > end) throw new TimeoutException("Package Manager sample import did not finish within four minutes.");
                 if (EditorApplication.isCompiling || EditorApplication.isUpdating) return;
+                if (!SessionState.GetBool(Compiled, false)) return;
                 if (EditorUtility.scriptCompilationFailed) throw new InvalidOperationException("Imported samples have script compilation errors.");
                 if (FindType("SocketJack.Samples.Physics.PhysicsGame") == null || FindType("SocketJack.Samples.Multiplayer.MultiplayerGame") == null) return;
                 SessionState.SetBool(Pending, false); EditorApplication.update -= CheckSampleImport;
@@ -91,6 +101,17 @@ namespace SocketJack.Acceptance.Upm.Editor
                 if (EditorUtility.scriptCompilationFailed) throw new InvalidOperationException("The isolated project has script compilation errors.");
                 Check(Sample.FindByPackage(PackageName, Required("-socketjackVersion")).Count(sample => sample.isImported) == 2, "Both samples remain imported after a fresh Editor launch.");
                 foreach (var sample in Sample.FindByPackage(PackageName, Required("-socketjackVersion"))) Check(SampleMatches(sample), "Imported sample sources match this exact installed tarball: " + sample.displayName);
+                // Unity2022 can leave a null MonoScript class registration after sample folders move
+                // during a package display-name change. Reimport the task-owned sample assets through
+                // the public API; compilation alone does not rebuild those importer registrations.
+                foreach (var sample in Sample.FindByPackage(PackageName, Required("-socketjackVersion")))
+                    foreach (string file in Directory.GetFiles(sample.importPath, "*.cs", SearchOption.AllDirectories))
+                    {
+                        string path = "Assets/" + Path.GetRelativePath(Application.dataPath, file).Replace('\\', '/');
+                        var script = AssetDatabase.LoadAssetAtPath<MonoScript>(path);
+                        if (script == null || script.GetClass() == null) AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate | ImportAssetOptions.ForceSynchronousImport);
+                        Check(AssetDatabase.LoadAssetAtPath<MonoScript>(path)?.GetClass() != null, "Imported sample script is bound to its asset: " + path);
+                    }
                 var expectedAssemblies = new[] {
                     "SocketJack.Unity", "SocketJack.Unity.Web.Client", "SocketJack.Unity.Web", "SocketJack.Unity.Voice", "SocketJack.Unity.Voice.Web.Client", "SocketJack.Unity.Voice.Web",
                     "SocketJack.Multiplayer.Components", "SocketJack.Multiplayer.Editor", "SocketJack.Multiplayer.Web.Components", "SocketJack.Multiplayer.Web.NativeHost", "SocketJack.Multiplayer.Web.Editor",
@@ -125,30 +146,6 @@ namespace SocketJack.Acceptance.Upm.Editor
                 Debug.Log("SOCKETJACK_UPM_ACCEPTANCE_PASS " + checks); EditorApplication.Exit(0);
             }
             catch (Exception error) { Fail(error); }
-        }
-        public static void InspectPluginPolicies()
-        {
-            try
-            {
-                VerifyPackage();
-                foreach (string name in new[] { "SocketJack.Unity.Web.dll", "SocketJack.Unity.Voice.Web.dll", "SocketJack.Unity.Web.Client.dll" })
-                {
-                    string path = PackageRoot + "/Optional/Plugins/" + name;
-                    PrintPolicy(path, "before");
-                    AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate | ImportAssetOptions.ForceSynchronousImport);
-                    PrintPolicy(path, "after");
-                }
-                EditorApplication.Exit(0);
-            }
-            catch (Exception error) { Fail(error); }
-        }
-        private static void PrintPolicy(string path, string phase)
-        {
-            var importer = AssetImporter.GetAtPath(path) as PluginImporter;
-            Debug.Log("SOCKETJACK_PLUGIN_POLICY " + phase + " " + path + " " + (importer == null ? "missing" :
-                "rawEditor=" + importer.GetCompatibleWithEditor() + " any=" + importer.GetCompatibleWithAnyPlatform() + " rawWebGL=" + importer.GetCompatibleWithPlatform(BuildTarget.WebGL) +
-                " excludeEditor=" + importer.GetExcludeEditorFromAnyPlatform() + " excludeWebGL=" + importer.GetExcludeFromAnyPlatform(BuildTarget.WebGL) +
-                " listedForWebGL=" + PluginImporter.GetImporters(BuildTarget.WebGL).Any(value => value.assetPath == path)));
         }
         private static PackageInfo VerifyPackage()
         {
@@ -228,6 +225,9 @@ namespace SocketJack.Acceptance.Upm.Editor
                 Check(manager.GetComponent(name) != null, "Full installed wizard configures: " + name);
             Check(!new SerializedObject(manager.GetComponent("SocketJackVoiceManager")).FindProperty("startMicrophone").boolValue, "Full setup leaves microphone capture off.");
             Check(EditorSceneManager.SaveScene(scene, "Assets/UpmAcceptance/FullSetup.unity"), "Full setup scene is saved.");
+            scene = EditorSceneManager.OpenScene("Assets/UpmAcceptance/FullSetup.unity", OpenSceneMode.Single);
+            manager = scene.GetRootGameObjects().Select(root => root.GetComponent(managerType)).FirstOrDefault(value => value != null);
+            Check(manager != null && manager.GetComponent("SocketJackWebHost") != null && manager.GetComponent("SocketJackBrowserMicrophone") != null && manager.GetComponent("SocketJackBrowserVoiceSocket") != null, "Full setup retains serialized base and optional components after reopening.");
         }
         private static Type FindType(string name) { foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies()) { var type = assembly.GetType(name, false); if (type != null) return type; } return null; }
         private static void RequireType(string name, string assemblyName) { var type = FindType(name); Check(type != null && type.Assembly.GetName().Name == assemblyName, "Compiled type has the correct assembly: " + name); }

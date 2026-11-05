@@ -1,4 +1,6 @@
-# SocketJack release two: complete multiplayer setup
+# SocketJack Premium: complete multiplayer setup
+
+SocketJack Premium is the separate complete Asset Store offering at a US list price of **$9.99**. The original Basic asset remains separate. Premium includes the updated core; keep one SDK installation in a project. The detailed tutorial series starts at [socketjack.com/docs](https://socketjack.com/docs/?product=socketjack-unity-premium), with the [edition comparison](unity-premium/comparison.md) in the source documentation. Public source/NuGet availability does not depend on an Asset Store runtime paywall.
 
 SocketJack helps turn an existing single-player Unity game into a multiplayer game. Its setup wizard connects your player prefab, spawning, ownership and connection controls. `SocketJackObject` or `SocketJackObject2D` synchronizes movement; selected gameplay fields and properties use `SocketJackMemberSync`. The optional MMO modules add accounts, persistent Communities, colored chat, a server-hosted website, relays and voice.
 
@@ -16,7 +18,7 @@ Use one installation route per project. Remove duplicate SDK copies through your
 
 | Route | Contents and installation |
 | --- | --- |
-| Asset Store | Import `SocketJack.Unity`. Editable components live in `Runtime/Components`; optional account/chat and voice components live in `Optional`. Open `Documentation/QuickStart.md` and this guide. |
+| Asset Store | Import **SocketJack Premium**. The stable asset root remains `SocketJack.Unity`. Editable components live in `Runtime/Components`; optional account/chat and voice components live in `Optional`. Open `Documentation/QuickStart.md` and this guide. |
 | UPM tarball | Package Manager → **Add package from tarball**, choose `com.socketjack.multiplayer-2.0.0.tgz`. Import Physics Arena from the package's Samples tab. The complete distribution includes the optional modules. |
 | NuGet | Dedicated .NET applications can reference the modules below normally. For Unity, extract the `lib/netstandard2.1` DLLs and the relevant `contentFiles` sources. Unity does not automatically import NuGet content. Preserve the supplied folder/assembly definitions from the Asset Store/UPM distribution when using all modules. |
 
@@ -70,7 +72,7 @@ Full preserves the existing float layout. Reduced profiles have explicit ranges/
 
 Scalar grid rounding is bounded to half a step or escapes to raw precision. Quaternion normalization means a component grid step is not an Euler-angle error guarantee. Quantization changes transmitted values; local physics still uses native precision.
 
-Adaptive precision is opt-in: add `SocketJackAdaptiveNetworking` to the manager and `SocketJackAdaptiveObject` to applicable prefabs. Selected numeric member bindings can also opt in. The server uses measured peer backlog/RTT or an explicitly supplied game latency measurement, waits for sustained pressure before reducing precision, and waits longer before restoring it. Compact may reduce per-peer snapshot cadence; physics simulation and local input remain unchanged. Fixed-profile objects stay fixed. Choose a minimum precision appropriate for the game; adaptive policy is not congestion control for unrelated bulk traffic.
+Adaptive precision is opt-in: add `SocketJackAdaptiveNetworking` to the manager and `SocketJackAdaptiveObject` to applicable prefabs. Selected numeric member bindings can also opt in. The server samples measured peer backlog/RTT once a second, waits for sustained pressure before reducing precision, and waits longer before restoring it. Object work is spread across frames under **Max Objects Per Frame**, default 128. Owned objects follow their owner's measured policy; server-owned objects use the conservative worst connected-peer policy. Only owners need revisioned policy notifications; observers decode the packet's declared precision directly. Compact may reduce per-peer snapshot cadence. Fixed-profile objects stay fixed. Choose a minimum precision appropriate for the game; adaptive policy is not congestion control for unrelated bulk traffic.
 
 `SocketJackInterestManager` partitions visibility by room and spatial grid, with XZ/XY/XYZ dimensions, radius, hysteresis and visible-object limits. Mark the actual player as the observer anchor when a peer owns other objects. Movement, members and events share the server's visibility permission. Re-entry sends a fresh baseline/view token. Stale owner input from a prior view or ownership epoch is rejected. Partition large worlds and measure CPU, bandwidth and visible-object counts with representative gameplay. A 2,000-peer transport check does not establish 2,000 mutually visible physics players.
 
@@ -124,7 +126,7 @@ Add `SocketJackVoiceManager` and `SocketJackVoiceControls` to the manager/UI. Mi
 
 The optional codec is managed Opus through Concentus. Native session voice uses bounded unreliable frames; authenticated account voice uses a separate bounded binary WSS socket. There are per-speaker jitter buffers, sequence filtering, packet-loss concealment and finite speaker/queue limits. Old audio is dropped under pressure rather than building a long playback delay. Unknown account membership is denied by default. Trusted-guest mode is an explicit development/cooperative choice, and does not enable account-controlled party/Community membership.
 
-Voice is not end-to-end encrypted: the trusted server relays audio; WSS encrypts the connection to that server. No recording or transcript service is included. Native codec/AudioSource acceptance uses synthetic PCM so it does not record the developer's microphone. Test actual microphone devices, permissions, audio routing and platform policies with your intended hardware. Browser microphone/audio acceptance and Unity 6 WebGL player acceptance require their own platform run; do not infer them from native audio or Unity 2022 WebGL gameplay checks.
+Voice is not end-to-end encrypted: the trusted server relays audio; WSS encrypts the connection to that server. No recording or transcript service is included. Native codec/AudioSource acceptance uses synthetic PCM. Actual Unity **2022.3 WebGL/IL2CPP** acceptance also passed account login, concurrent API requests, realtime chat, binary Opus duplex, Web Audio output, synthetic microphone/PTT gating, capture stop and logout cleanup. Chromium generated the input; no physical microphone or speakers were tested. Test real devices, permissions, audio routing and platform policies with your intended hardware. **Unity 6 WebGL remains unverified** because its matching build module was not installed for this run.
 
 ## Migration from release one
 

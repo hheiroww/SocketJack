@@ -1,4 +1,40 @@
 # Shared explicit public source and assembly layout for Asset Store and UPM exports.
+function Get-UnityPremiumDocumentationSources([string]$Repository) {
+    $root = [IO.Path]::GetFullPath((Join-Path $Repository 'docs/unity-premium'))
+    $directory = Get-Item -LiteralPath $root
+    $excluded = [IO.FileAttributes]::Hidden -bor [IO.FileAttributes]::System -bor [IO.FileAttributes]::ReparsePoint
+    if (!$directory.PSIsContainer -or ($directory.Attributes -band $excluded)) { throw 'Premium documentation must be a normal public source directory.' }
+    $sources = [ordered]@{}
+    foreach ($file in Get-ChildItem -LiteralPath $root -Recurse -File -Force | Sort-Object FullName) {
+        $relative = [IO.Path]::GetRelativePath($root, $file.FullName).Replace('\', '/')
+        # Only Markdown and reviewed PNG figures belong in
+        # offline guides. Hidden files, scripts, credentials, editor/cache files and runtime data
+        # cannot enter an archive merely because they happen to be under the documentation folder.
+        if ($relative -cnotmatch '^(?:[a-z0-9][a-z0-9-]*/)*[a-z0-9][a-z0-9-]*\.(?:md|png)$') { continue }
+        $current = $file; $skip = $false
+        while ($current.FullName -ne $root) {
+            if ($current.Attributes -band $excluded) { $skip = $true; break }
+            $current = if ($current -is [IO.FileInfo]) { $current.Directory } else { $current.Parent }
+            if ($null -eq $current) { throw 'Premium documentation source escaped its root.' }
+        }
+        if ($skip) { continue }
+        if (!$file.FullName.StartsWith($root + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw 'Premium documentation path escaped its root.' }
+        if ($file.Length -gt 16777216) { throw "Oversized public documentation asset: $relative" }
+        $sources[$relative] = $file.FullName
+    }
+    if (!$sources.Contains('index.md') -or !$sources.Contains('installation.md')) { throw 'Premium offline documentation is incomplete.' }
+    return $sources
+}
+
+function Get-UnityPremiumDocumentationEntrypoints([string]$Repository) {
+    $link = "`n`n## Complete Premium manual`n`nOpen the [offline Premium task guides](Premium/index.md) for installation, single-player conversion, physics, gameplay values, accounts, chat, voice, relays and troubleshooting.`n"
+    return [ordered]@{
+        'README.md' = "# SocketJack Premium offline documentation`n`nStart with the [complete Premium guide](Premium/index.md), or open the [quick start](QuickStart.md) and [release-two notes](ReleaseTwo.md). The Premium guide's relative links include its actual Unity and website screenshots.`n"
+        'QuickStart.md' = [IO.File]::ReadAllText((Join-Path $Repository 'docs/Unity-AssetStore-QuickStart.md')) + $link
+        'ReleaseTwo.md' = [IO.File]::ReadAllText((Join-Path $Repository 'docs/Unity-ReleaseTwo.md')).Replace('(unity-premium/', '(Premium/') + $link
+    }
+}
+
 function Get-UnityExpansionSources([string]$Repository, [string]$RuntimeDirectory, [string]$RuntimeManifest) {
     $expected = @('Concentus.dll', 'Microsoft.Bcl.AsyncInterfaces.dll', 'SocketJack.Unity.dll', 'SocketJack.Unity.Web.Client.dll', 'SocketJack.Unity.Web.dll', 'SocketJack.Unity.Voice.dll', 'SocketJack.Unity.Voice.Web.Client.dll', 'SocketJack.Unity.Voice.Web.dll', 'System.IO.Pipelines.dll', 'System.Runtime.CompilerServices.Unsafe.dll', 'System.Text.Encodings.Web.dll', 'System.Text.Json.dll')
     $manifest = Get-Content -LiteralPath $RuntimeManifest -Raw | ConvertFrom-Json

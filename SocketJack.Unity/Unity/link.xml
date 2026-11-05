@@ -3,4 +3,12 @@
        Optional member syncing reflects explicitly selected GAME component members;
        preserve those members in the game's own link.xml or with preservation attributes. -->
   <assembly fullname="SocketJack.Unity" preserve="all" />
+  <!-- Fixed optional Input System API, without a required asmdef/package dependency. -->
+  <assembly fullname="Unity.InputSystem" ignoreIfMissing="1">
+    <type fullname="UnityEngine.InputSystem.InputActionReference" preserve="all" />
+    <type fullname="UnityEngine.InputSystem.InputAction" preserve="all" />
+    <type fullname="UnityEngine.InputSystem.Keyboard" preserve="all" />
+    <type fullname="UnityEngine.InputSystem.Controls.ButtonControl" preserve="all" />
+    <type fullname="UnityEngine.InputSystem.Controls.KeyControl" preserve="all" />
+  </assembly>
 </linker>

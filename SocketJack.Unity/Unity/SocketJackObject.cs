@@ -147,6 +147,12 @@ namespace SocketJack.Multiplayer.Components
             localAxes = Vector2.ClampMagnitude(new Vector2(horizontal, vertical), 1);
             localJump |= jump;
         }
+        /// <summary>Release local controls, including a queued jump, without clearing remote input or physics prediction.</summary>
+        public void ClearInput()
+        {
+            localAxes = Vector2.zero; localJump = localJumpPredicted = false;
+            if (IsOwner) { intent.Horizontal = intent.Vertical = 0; jumpPending = false; }
+        }
         private void Update()
         {
             if (movementModeDirty) ApplyMovementMode();
@@ -156,7 +162,8 @@ namespace SocketJack.Multiplayer.Components
             }
             if (identity == null || !identity.IsOwner) return;
             if (body.isKinematic && inputMotor == null) return;
-            if (readKeyboard)
+            if (readKeyboard && NetworkInputBridge.SuppressGameplayInput) ClearInput();
+            else if (readKeyboard)
             {
 #if ENABLE_LEGACY_INPUT_MANAGER
                 float h = (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow) ? 1 : 0) -
