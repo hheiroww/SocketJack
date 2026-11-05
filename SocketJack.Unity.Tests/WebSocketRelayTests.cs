@@ -126,8 +126,11 @@ namespace SocketJack.Multiplayer.Tests
             using (var pending = new ClientWebSocket())
             {
                 await pending.ConnectAsync(fixture.Uri, CancellationToken.None);
-                await fixture.Service.StopAsync(); Assert.AreEqual(0, fixture.Service.ConnectionCount);
+                await fixture.Service.StopAsync(); Assert.AreEqual(0, fixture.Service.ConnectionCount); Assert.AreEqual(0, fixture.Service.SessionCount);
             }
+            // StopAsync awaits the service's local cleanup. The remote host observes the socket
+            // closure on its independent receive continuation, which may run after StopAsync returns.
+            await Pump(() => !host.IsConnected && host.ClientCount == 0, server);
             Assert.IsFalse(host.IsConnected);
         }
 
