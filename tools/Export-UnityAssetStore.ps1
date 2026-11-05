@@ -126,6 +126,12 @@ $sources = [ordered]@{
     'Documentation/Third-Party Notices.txt' = (Join-Path $repository 'docs/Unity-Third-Party-Notices.txt')
     'Branding/SocketJackUnityIcon.png' = (Join-Path $repository 'SocketJack.Unity/SocketJackUnityIcon.png')
 }
+$componentManifest = Get-Content -LiteralPath (Join-Path $repository 'SocketJack.Unity/Unity/package-files.json') -Raw | ConvertFrom-Json
+if ($componentManifest.format -ne 1) { throw 'Unsupported public Unity component manifest.' }
+foreach ($file in $componentManifest.files) {
+    if ($file -notmatch '^(?:[A-Za-z][A-Za-z0-9_]*\.cs|Editor/[A-Za-z][A-Za-z0-9_]*\.cs|Plugins/[A-Za-z][A-Za-z0-9_]*\.jslib|link\.xml)$') { throw 'Invalid public component path.' }
+    $sources["Runtime/Components/$file"] = Join-Path $repository "SocketJack.Unity/Unity/$file"
+}
 if ($DocumentationOnly) {
     if (!$RuntimeDll) { throw 'A documentation-only update must reuse the explicit verified runtime DLL.' }
     $priorVerification = Get-Content -LiteralPath (Join-Path $staging 'package-verification.json') -Raw | ConvertFrom-Json

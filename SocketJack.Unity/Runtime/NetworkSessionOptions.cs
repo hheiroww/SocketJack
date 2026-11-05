@@ -21,15 +21,22 @@ namespace SocketJack.Multiplayer
         public int MaxReliableSendsPerUpdate { get; set; } = 64;
         public int MaxStateUpdatesPerTick { get; set; } = 64;
         public int MaxInboundMessagesPerPeerPerSecond { get; set; } = 240;
+        public int MaxVisibleObjectsPerPeer { get; set; } = 4096;
+        public int MaxInterestPeersPerUpdate { get; set; } = 64;
+        public int MaxInterestChecksPerUpdate { get; set; } = 16384;
+        /// <summary>Optional application/prefab/codec manifest. Peers must supply the same value.</summary>
+        public string CompatibilityId { get; set; } = "";
 
         internal NetworkSessionOptions Snapshot(IGameTransport transport)
         {
-            if (TickRate < 1 || TickRate > 240 || SnapshotRate < 1 || SnapshotRate > TickRate || MaxCatchUpTicks < 1 || MaxCatchUpTicks > 32 ||
+            if (CompatibilityId == null || System.Text.Encoding.UTF8.GetByteCount(CompatibilityId) > 512 ||
+                TickRate < 1 || TickRate > 240 || SnapshotRate < 1 || SnapshotRate > TickRate || MaxCatchUpTicks < 1 || MaxCatchUpTicks > 32 ||
                 MaxPeers < 1 || MaxPeers > 65535 || MaxObjects < 1 || MaxObjectsPerRoom < 1 || MaxObjectsPerRoom > MaxObjects ||
                 MaxStateBytes < 0 || MaxStateBytes > ushort.MaxValue || MaxStateBytes > transport.MaxPayloadSize - SessionWire.SpawnHeaderSize ||
                 MaxMessageBytes < 0 || MaxMessageBytes > ushort.MaxValue || MaxMessageBytes > transport.MaxPayloadSize - 17 ||
                 MaxQueuedMessagesPerPeer < 1 || MaxQueuedBytesPerPeer < Math.Max(MaxStateBytes + SessionWire.SpawnHeaderSize, MaxMessageBytes + 17) ||
-                MaxReliableSendsPerUpdate < 1 || MaxStateUpdatesPerTick < 1 || MaxInboundMessagesPerPeerPerSecond < 1)
+                MaxReliableSendsPerUpdate < 1 || MaxStateUpdatesPerTick < 1 || MaxInboundMessagesPerPeerPerSecond < 1 ||
+                MaxVisibleObjectsPerPeer < 1 || MaxVisibleObjectsPerPeer > 100000 || MaxInterestPeersPerUpdate < 1 || MaxInterestChecksPerUpdate < 1)
                 throw new ArgumentOutOfRangeException(nameof(NetworkSessionOptions), "Session limits must fit transport packet size and have positive budgets.");
             return (NetworkSessionOptions)MemberwiseClone();
         }
@@ -45,6 +52,10 @@ namespace SocketJack.Multiplayer
         public uint Revision { get; internal set; }
         public uint Tick { get; internal set; }
         public bool ServerAuthority { get; internal set; } = true;
+        /// <summary>Incremented by the server whenever authority changes. Revokes in-flight owner traffic.</summary>
+        public uint AuthorityEpoch { get; internal set; } = 1;
+        /// <summary>Client view token. Changes whenever this peer re-enters visibility for the object.</summary>
+        public ulong ViewId { get; internal set; }
         internal uint LastOwnerStateSequence;
         internal bool HasOwnerStateSequence;
         internal byte[] StateData = Array.Empty<byte>();

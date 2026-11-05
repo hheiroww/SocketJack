@@ -15,7 +15,7 @@ namespace SocketJack.Multiplayer.Transport
     /// and unreliable sequenced channels without a thread per peer.
     /// Cookies prevent off-path source spoofing from allocating a connection. This protocol does not encrypt traffic.
     /// </summary>
-    public sealed class UdpGameTransport : IGameTransport
+    public sealed class UdpGameTransport : IGameTransport, ITransportMetricsSource
     {
         // SJG1 protocol family, wire version 2. Integer fields are little endian.
         private const uint Magic = 0x31474a53;
@@ -56,6 +56,7 @@ namespace SocketJack.Multiplayer.Transport
             public ChannelState[] Channels;
             public double LastReceive;
             public double LastSend;
+            public double? RoundTripMilliseconds;
             public int PendingBytes;
             public int BufferedBytes;
             public int BufferedPackets;
@@ -91,6 +92,7 @@ namespace SocketJack.Multiplayer.Transport
         private byte[] _connectionData;
         private double _connectStarted;
         private double _nextHandshake;
+        private long _bytesSent, _bytesReceived, _packetsSent, _packetsReceived, _retransmitted, _invalidPackets, _sendRejected;
 
         public UdpGameTransport(TransportOptions options = null)
         {
@@ -174,8 +176,10 @@ namespace SocketJack.Multiplayer.Transport
                     try { length = _socket.ReceiveFrom(_receive, 0, _receive.Length, SocketFlags.None, ref source); }
                     catch (SocketException ex) when (Transient(ex.SocketErrorCode)) { break; }
                     catch (SocketException ex) when (ex.SocketErrorCode == SocketError.MessageSize || ex.SocketErrorCode == SocketError.ConnectionReset) { continue; }
+                    _bytesReceived += length; _packetsReceived++;
                     if (length <= _options.MaxPacketSize)
                         Receive((IPEndPoint)source, length, now);
+                    else _invalidPackets++;
                     Dispatch(ref callbacks, maxEvents);
                 }
             }
@@ -189,12 +193,12 @@ namespace SocketJack.Multiplayer.Transport
             if (payload.Count > MaxPayloadSize) throw new ArgumentOutOfRangeException(nameof(payload), "Fragment application data to fit MaxPayloadSize.");
             if (channel >= _options.Channels) throw new ArgumentOutOfRangeException(nameof(channel));
             if ((byte)delivery > (byte)DeliveryMode.ReliableUnordered) throw new ArgumentOutOfRangeException(nameof(delivery));
-            if (!_peers.TryGetValue(peerId, out var peer)) return false;
-            if (channel >= peer.Channels.Length || payload.Count > peer.PacketSize - HeaderSize) return false;
+            if (!_peers.TryGetValue(peerId, out var peer)) { _sendRejected++; return false; }
+            if (channel >= peer.Channels.Length || payload.Count > peer.PacketSize - HeaderSize) { _sendRejected++; return false; }
             var state = peer.Channels[channel];
             bool reliable = delivery == DeliveryMode.ReliableOrdered || delivery == DeliveryMode.ReliableUnordered;
             if (reliable && (peer.Pending.Count >= _options.MaxPendingReliablePerPeer ||
-                peer.PendingBytes + HeaderSize + payload.Count > _options.MaxQueuedBytesPerPeer)) return false;
+                peer.PendingBytes + HeaderSize + payload.Count > _options.MaxQueuedBytesPerPeer)) { _sendRejected++; return false; }
             uint sequence = delivery == DeliveryMode.ReliableOrdered ? state.NextSendReliable : delivery == DeliveryMode.ReliableUnordered ? state.NextSendUnordered : delivery == DeliveryMode.UnreliableSequenced ? state.NextSendSequenced : 0;
             byte[] packet = Packet(Kind.Data, peer.Id, peer.Token, channel, delivery, sequence, payload);
             double now = Now;
@@ -210,7 +214,7 @@ namespace SocketJack.Multiplayer.Transport
             }
             else
             {
-                if (!TrySend(peer.Endpoint, packet)) return false;
+                if (!TrySend(peer.Endpoint, packet)) { _sendRejected++; return false; }
                 if (delivery == DeliveryMode.UnreliableSequenced) state.NextSendSequenced++;
             }
             peer.LastSend = now;
@@ -263,7 +267,7 @@ namespace SocketJack.Multiplayer.Transport
 
         private void Receive(IPEndPoint endpoint, int length, double now)
         {
-            if (length < HeaderSize || Read32(0) != Magic || _receive[4] != WireVersion || Read16(36) != length - HeaderSize || Read16(38) != 0) return;
+            if (length < HeaderSize || Read32(0) != Magic || _receive[4] != WireVersion || Read16(36) != length - HeaderSize || Read16(38) != 0) { _invalidPackets++; return; }
             var kind = (Kind)_receive[5];
             byte channel = _receive[6];
             var delivery = (DeliveryMode)_receive[7];
@@ -363,6 +367,12 @@ namespace SocketJack.Multiplayer.Transport
                 ulong key = Key(channel, Read32(32), delivery);
                 if (active.Pending.TryGetValue(key, out var pending))
                 {
+                    // An ACK after retransmission cannot identify which send it acknowledges.
+                    if (pending.Retransmits == 0)
+                    {
+                        double sample = Math.Max(0, (now - pending.SentAt) * 1000);
+                        active.RoundTripMilliseconds = active.RoundTripMilliseconds.HasValue ? active.RoundTripMilliseconds.Value * .875 + sample * .125 : sample;
+                    }
                     active.Pending.Remove(key);
                     if (active.RetryCursor == pending.Node) active.RetryCursor = pending.Node.Next ?? active.RetryQueue.First;
                     active.RetryQueue.Remove(pending.Node);
@@ -467,6 +477,7 @@ namespace SocketJack.Multiplayer.Transport
                     pending.SentAt = now;
                     if (TrySend(peer.Endpoint, pending.Packet))
                     {
+                        _retransmitted++;
                         peer.LastSend = now;
                     }
                     sends++;
@@ -582,7 +593,7 @@ namespace SocketJack.Multiplayer.Transport
         private bool TrySend(IPEndPoint endpoint, byte[] packet)
         {
             if (_socket == null) return false;
-            try { return _socket.SendTo(packet, endpoint) == packet.Length; }
+            try { int count = _socket.SendTo(packet, endpoint); _bytesSent += count; _packetsSent++; return count == packet.Length; }
             catch (SocketException ex) when (Transient(ex.SocketErrorCode) || ex.SocketErrorCode == SocketError.ConnectionReset || ex.SocketErrorCode == SocketError.NetworkUnreachable || ex.SocketErrorCode == SocketError.HostUnreachable || ex.SocketErrorCode == SocketError.MessageSize) { return false; }
         }
 
@@ -625,5 +636,15 @@ namespace SocketJack.Multiplayer.Transport
         private static bool Transient(SocketError error) => error == SocketError.WouldBlock || error == SocketError.IOPending || error == SocketError.NoBufferSpaceAvailable || error == SocketError.TryAgain;
         private static byte[] RandomBytes(int size) { var bytes = new byte[size]; using (var random = RandomNumberGenerator.Create()) random.GetBytes(bytes); return bytes; }
         private static double Now => (double)Stopwatch.GetTimestamp() / Stopwatch.Frequency;
+        public TransportMetricsSnapshot GetTransportMetrics(int maxPeerDetails = 64)
+        {
+            TransportMetrics.ValidateDetailLimit(maxPeerDetails); var details = new List<PeerTransportMetrics>(); long queued = 0;
+            foreach (var entry in _peers)
+            {
+                queued += entry.Value.PendingBytes;
+                if (details.Count < maxPeerDetails) details.Add(new PeerTransportMetrics(entry.Key, entry.Value.RoundTripMilliseconds, entry.Value.Pending.Count, entry.Value.PendingBytes));
+            }
+            return new TransportMetricsSnapshot(Type, _bytesSent, _bytesReceived, _packetsSent, _packetsReceived, _retransmitted, _invalidPackets, _sendRejected, _peers.Count, queued, details);
+        }
     }
 }

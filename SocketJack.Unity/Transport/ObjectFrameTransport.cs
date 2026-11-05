@@ -84,7 +84,7 @@ namespace SocketJack.Multiplayer.Transport
             if (inner is ObjectFrameTransport) throw new ArgumentException("Transport is already object framed.", nameof(inner));
             if (inner.IsRunning) throw new InvalidOperationException("Wrap the transport before starting it.");
             _options = (options ?? new ObjectFrameOptions()).Snapshot();
-            Budget = budget ?? (inner as UdpGameTransport)?.Budget ?? (inner as TcpGameTransport)?.Budget ?? PacketBudget.Default;
+            Budget = budget ?? (inner as UdpGameTransport)?.Budget ?? (inner as TcpGameTransport)?.Budget ?? (inner as WebSocketGameTransport)?.Budget ?? PacketBudget.Default;
             MaxFramePayloadSize = Math.Min(inner.MaxPayloadSize, Budget.MaxFramePayloadBytes);
             if (MaxFramePayloadSize <= HeaderSize) throw new ArgumentException("Transport leaves no fragment payload capacity.", nameof(inner));
             _inner.EventReceived += OnNativeEvent;

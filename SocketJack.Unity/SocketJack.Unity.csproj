@@ -40,5 +40,7 @@
     <None Include="SocketJackUnityIcon.png" Pack="true" PackagePath="/" />
     <None Include="../LICENSE" Pack="true" PackagePath="/" />
     <None Include="Unity/*.cs;Unity/link.xml" Pack="true" PackagePath="contentFiles/any/any/SocketJack.Unity/" BuildAction="None" PackageCopyToOutput="true" />
+    <None Include="Unity/Editor/*.cs" Pack="true" PackagePath="contentFiles/any/any/SocketJack.Unity/Editor/" BuildAction="None" PackageCopyToOutput="true" />
+    <None Include="Unity/Plugins/*.jslib" Pack="true" PackagePath="contentFiles/any/any/SocketJack.Unity/Plugins/" BuildAction="None" PackageCopyToOutput="true" />
   </ItemGroup>
 </Project>

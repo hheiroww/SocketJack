@@ -33,7 +33,7 @@ namespace SocketJack.Multiplayer.Tests
             Pump(() => obj.State[0] == 7 && observer.Objects[obj.Id].State[0] == 7, server, owner, observer);
             Assert.AreEqual(1, changes);
             Assert.IsFalse(observer.SendOwnerState(obj.Id, new byte[] { 8 }));
-            Assert.IsTrue(observer.Transport.Send(0, new ArraySegment<byte>(OwnerPacket(obj.Id, 10, 8)), DeliveryMode.ReliableUnordered, 2));
+            Assert.IsTrue(observer.Transport.Send(0, new ArraySegment<byte>(OwnerPacket(obj.Id, 10, 8, observer.Objects[obj.Id].ViewId)), DeliveryMode.ReliableUnordered, 2));
             Pump(() => !observer.IsConnected, server, owner, observer);
             Assert.AreEqual((byte)7, obj.State[0]); Assert.IsTrue(owner.IsConnected);
         }
@@ -76,10 +76,10 @@ namespace SocketJack.Multiplayer.Tests
             Assert.AreEqual((byte)2, obj.State[0]);
         }
 
-        private static byte[] OwnerPacket(ulong objectId, uint sequence, byte value)
+        private static byte[] OwnerPacket(ulong objectId, uint sequence, byte value, ulong view = 1)
         {
             using var stream = new MemoryStream(); using var writer = new BinaryWriter(stream);
-            writer.Write((byte)2); writer.Write((byte)8); writer.Write(objectId); writer.Write(sequence);
+            writer.Write((byte)3); writer.Write((byte)8); writer.Write(objectId); writer.Write((uint)1); writer.Write(view); writer.Write(sequence);
             writer.Write((ushort)1); writer.Write(value); return stream.ToArray();
         }
         private static void Pump(Func<bool> complete, NetworkServer server, params NetworkClient[] clients)

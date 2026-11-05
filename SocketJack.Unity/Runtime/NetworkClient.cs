@@ -19,6 +19,7 @@ namespace SocketJack.Multiplayer
         private bool _disposed, _updating, _connectionActive;
         private uint _connectionGeneration;
         private uint _nextOwnerStateSequence;
+        private bool _helloPending;
 
         public bool IsRunning => _transport.IsRunning && !_transport.IsServer;
         public bool IsConnected { get; private set; }
@@ -30,6 +31,7 @@ namespace SocketJack.Multiplayer
         public event Action<string> Disconnected;
         public event Action<NetworkObject> ObjectSpawned;
         public event Action<NetworkObject> ObjectChanged;
+        public event Action<NetworkObject, ulong> OwnershipChanged;
         public event Action<ulong> ObjectDespawned;
         public event Action<NetworkMessage> MessageReceived;
 
@@ -59,6 +61,11 @@ namespace SocketJack.Multiplayer
             _updating = true;
             try { _transport.Poll(maxEvents); }
             finally { _updating = false; }
+            if (_helloPending && IsRunning)
+            {
+                var hello = SessionWire.Write(SessionWire.Kind.Hello, w => SessionWire.Bytes(w, System.Text.Encoding.UTF8.GetBytes(_options.CompatibilityId)));
+                if (_transport.Send(0, new ArraySegment<byte>(hello), DeliveryMode.ReliableOrdered, 0)) _helloPending = false;
+            }
         }
 
         /// <summary>Sends player intent. Server input handlers must still validate game rules, movement speed and cooldowns.</summary>
@@ -67,7 +74,7 @@ namespace SocketJack.Multiplayer
             ThrowIfDisposed();
             var bytes = SessionWire.Copy(payload, _options.MaxMessageBytes, nameof(payload));
             if (!IsConnected || !_objects.TryGetValue(objectId, out var obj) || obj.OwnerId != LocalPeerId) return false;
-            var packet = SessionWire.Write(SessionWire.Kind.Input, w => { w.Write(objectId); SessionWire.Bytes(w, bytes); });
+            var packet = SessionWire.Write(SessionWire.Kind.Input, w => { w.Write(objectId); w.Write(obj.AuthorityEpoch); w.Write(obj.ViewId); SessionWire.Bytes(w, bytes); });
             return _transport.Send(0, new ArraySegment<byte>(packet), delivery, 2);
         }
 
@@ -79,7 +86,7 @@ namespace SocketJack.Multiplayer
             var bytes = SessionWire.Copy(state, _options.MaxStateBytes, nameof(state));
             if (!IsConnected || !_objects.TryGetValue(objectId, out var obj) || obj.OwnerId != LocalPeerId || obj.ServerAuthority) return false;
             uint sequence = unchecked(_nextOwnerStateSequence + 1);
-            var packet = SessionWire.Write(SessionWire.Kind.OwnerState, w => { w.Write(objectId); w.Write(sequence); SessionWire.Bytes(w, bytes); });
+            var packet = SessionWire.Write(SessionWire.Kind.OwnerState, w => { w.Write(objectId); w.Write(obj.AuthorityEpoch); w.Write(obj.ViewId); w.Write(sequence); SessionWire.Bytes(w, bytes); });
             if (!_transport.Send(0, new ArraySegment<byte>(packet), delivery, 2)) return false;
             _nextOwnerStateSequence = sequence;
             return true;
@@ -110,7 +117,7 @@ namespace SocketJack.Multiplayer
 
         private void OnTransportEvent(TransportEvent ev)
         {
-            if (ev.Type == TransportEventType.Connected) return; // session Welcome completes connection
+            if (ev.Type == TransportEventType.Connected) { _helloPending = true; return; } // Welcome completes connection
             if (ev.Type == TransportEventType.Disconnected)
             { EndConnection(ev.Reason); return; }
             if (ev.PeerId != 0) { InvalidPacket(); return; }
@@ -125,7 +132,10 @@ namespace SocketJack.Multiplayer
                     {
                         case SessionWire.Kind.Welcome:
                             if (IsConnected) throw new InvalidDataException();
-                            ulong id = reader.ReadUInt64(); uint tick = reader.ReadUInt32(); SessionWire.End(reader);
+                            ulong id = reader.ReadUInt64(); uint tick = reader.ReadUInt32();
+                            string compatibility = System.Text.Encoding.UTF8.GetString(SessionWire.Bytes(reader, 512)); SessionWire.End(reader);
+                            if (!string.Equals(compatibility, _options.CompatibilityId, StringComparison.Ordinal))
+                            { EndConnection("Game, prefab, serializer or precision configuration mismatch"); return; }
                             if (id == 0 || id != _transport.LocalPeerId) throw new InvalidDataException();
                             LocalPeerId = id; ServerTick = tick; IsConnected = true;
                             callback = () =>
@@ -140,6 +150,19 @@ namespace SocketJack.Multiplayer
                             break;
                         case SessionWire.Kind.Spawn:
                             RequireConnected(); callback = ReadSpawn(reader); break;
+                        case SessionWire.Kind.Ownership:
+                            RequireConnected();
+                            ulong changedId = reader.ReadUInt64(), newOwner = reader.ReadUInt64();
+                            bool serverAuthority = reader.ReadBoolean(); uint epoch = reader.ReadUInt32(), ownershipRevision = reader.ReadUInt32(); SessionWire.End(reader);
+                            if (epoch == 0) throw new InvalidDataException();
+                            if (_objects.TryGetValue(changedId, out var changed) && epoch > changed.AuthorityEpoch)
+                            {
+                                ulong previousOwner = changed.OwnerId;
+                                changed.OwnerId = newOwner; changed.ServerAuthority = serverAuthority; changed.AuthorityEpoch = epoch;
+                                changed.Revision = ownershipRevision;
+                                callback = () => { OwnershipChanged?.Invoke(changed, previousOwner); ObjectChanged?.Invoke(changed); };
+                            }
+                            break;
                         case SessionWire.Kind.Despawn:
                             RequireConnected(); ulong removed = reader.ReadUInt64(); SessionWire.End(reader);
                             if (_objects.Remove(removed)) callback = () => ObjectDespawned?.Invoke(removed);
@@ -151,11 +174,11 @@ namespace SocketJack.Multiplayer
                             break;
                         case SessionWire.Kind.State:
                             if (ev.Channel != 1 || ev.Delivery != DeliveryMode.UnreliableSequenced) throw new InvalidDataException();
-                            ulong objectId = reader.ReadUInt64(); uint revision = reader.ReadUInt32(); uint stateTick = reader.ReadUInt32();
+                            ulong objectId = reader.ReadUInt64(); uint revision = reader.ReadUInt32(); uint stateTick = reader.ReadUInt32(); uint stateEpoch = reader.ReadUInt32();
                             var state = SessionWire.Bytes(reader, _options.MaxStateBytes); SessionWire.End(reader);
                             if (!IsConnected) break; // state may overtake reliable Welcome/spawn across channels
                             AdvanceTick(stateTick);
-                            if (_objects.TryGetValue(objectId, out var obj) && SessionWire.Newer(revision, obj.Revision))
+                            if (_objects.TryGetValue(objectId, out var obj) && obj.AuthorityEpoch == stateEpoch && SessionWire.Newer(revision, obj.Revision))
                             { obj.StateData = state; obj.Revision = revision; obj.Tick = stateTick; callback = () => ObjectChanged?.Invoke(obj); }
                             break;
                         case SessionWire.Kind.Message:
@@ -181,13 +204,13 @@ namespace SocketJack.Multiplayer
         private Action ReadSpawn(BinaryReader reader)
         {
             var obj = new NetworkObject { Id = reader.ReadUInt64(), PrefabId = reader.ReadUInt32(), OwnerId = reader.ReadUInt64(),
-                RoomId = reader.ReadInt32(), Revision = reader.ReadUInt32(), Tick = reader.ReadUInt32(), ServerAuthority = reader.ReadBoolean(), StateData = SessionWire.Bytes(reader, _options.MaxStateBytes) };
+                RoomId = reader.ReadInt32(), Revision = reader.ReadUInt32(), Tick = reader.ReadUInt32(), ServerAuthority = reader.ReadBoolean(), AuthorityEpoch = reader.ReadUInt32(), ViewId = reader.ReadUInt64(), StateData = SessionWire.Bytes(reader, _options.MaxStateBytes) };
             SessionWire.End(reader);
-            if (obj.Id == 0) throw new InvalidDataException();
+            if (obj.Id == 0 || obj.AuthorityEpoch == 0 || obj.ViewId == 0) throw new InvalidDataException();
             AdvanceTick(obj.Tick);
             if (_objects.TryGetValue(obj.Id, out var previous))
             {
-                if (previous.PrefabId != obj.PrefabId || previous.OwnerId != obj.OwnerId || previous.RoomId != obj.RoomId || previous.ServerAuthority != obj.ServerAuthority) throw new InvalidDataException();
+                if (previous.PrefabId != obj.PrefabId || previous.OwnerId != obj.OwnerId || previous.RoomId != obj.RoomId || previous.ServerAuthority != obj.ServerAuthority || previous.AuthorityEpoch != obj.AuthorityEpoch || previous.ViewId != obj.ViewId) throw new InvalidDataException();
                 if (SessionWire.Newer(obj.Revision, previous.Revision))
                 { previous.StateData = obj.StateData; previous.Revision = obj.Revision; previous.Tick = obj.Tick; return () => ObjectChanged?.Invoke(previous); }
                 return null;
@@ -208,7 +231,7 @@ namespace SocketJack.Multiplayer
         }
         private void ClearView()
         {
-            IsConnected = false; LocalPeerId = 0; _beforeWelcome.Clear(); _beforeWelcomeBytes = 0;
+            IsConnected = false; LocalPeerId = 0; _helloPending = false; _beforeWelcome.Clear(); _beforeWelcomeBytes = 0;
             var ids = new List<ulong>(_objects.Keys); _objects.Clear();
             foreach (ulong id in ids) ObjectDespawned?.Invoke(id);
         }

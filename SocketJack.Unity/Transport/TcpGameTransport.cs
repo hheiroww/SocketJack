@@ -10,7 +10,7 @@ namespace SocketJack.Multiplayer.Transport
     /// <summary>Bounded, manually pumped TCP transport. All delivery modes use TCP's reliable
     /// stream and can incur head-of-line blocking. Traffic is plaintext; use a trusted network
     /// or a separately secured tunnel when confidentiality is required.</summary>
-    public sealed class TcpGameTransport : IGameTransport
+    public sealed class TcpGameTransport : IGameTransport, ITransportMetricsSource
     {
         private sealed class Frame { internal byte[] Bytes; internal int Offset; }
         private sealed class Peer
@@ -34,6 +34,7 @@ namespace SocketJack.Multiplayer.Transport
         private int cursor;
         private byte[] connectionData;
         private bool disposed, polling;
+        private long bytesSent, bytesReceived, framesSent, framesReceived, invalidPackets, sendRejected;
         public TransportType Type => TransportType.Tcp;
         public bool IsServer { get; private set; }
         public bool IsRunning { get; private set; }
@@ -133,8 +134,8 @@ namespace SocketJack.Multiplayer.Transport
         {
             if (disposed) throw new ObjectDisposedException(nameof(TcpGameTransport));
             ValidatePayload(payload, delivery, channel);
-            if (!IsRunning || !peers.TryGetValue(peerId, out Peer peer) || !peer.Ready) return false;
-            return Enqueue(peer, 3, Copy(payload), delivery, channel);
+            if (!IsRunning || !peers.TryGetValue(peerId, out Peer peer) || !peer.Ready) { sendRejected++; return false; }
+            bool accepted = Enqueue(peer, 3, Copy(payload), delivery, channel); if (!accepted) sendRejected++; return accepted;
         }
         public void Disconnect(ulong peerId, string reason = "Disconnected")
         {
@@ -183,8 +184,9 @@ namespace SocketJack.Multiplayer.Transport
             {
                 int count = peer.Socket.Send(frame.Bytes, frame.Offset, frame.Bytes.Length - frame.Offset, SocketFlags.None);
                 if (count == 0) return false;
+                bytesSent += count;
                 frame.Offset += count; peer.QueuedBytes -= count; peer.LastSend = Now;
-                if (frame.Offset == frame.Bytes.Length) peer.Out.Dequeue();
+                if (frame.Offset == frame.Bytes.Length) { peer.Out.Dequeue(); framesSent++; }
                 return true;
             }
             catch (SocketException ex) when (WouldBlock(ex)) { return true; }
@@ -199,17 +201,20 @@ namespace SocketJack.Multiplayer.Transport
                 {
                     int n = peer.Socket.Receive(peer.Length, peer.LengthRead, 4 - peer.LengthRead, SocketFlags.None);
                     if (n == 0) throw new IOException("Closed");
+                    bytesReceived += n;
                     peer.LengthRead += n;
                     if (peer.LengthRead < 4) return null;
                 }
                 uint length = Read32(peer.Length, 0);
-                if (length < 3 || length > options.MaxPacketSize) throw new IOException("Invalid length");
+                if (length < 3 || length > options.MaxPacketSize) { invalidPackets++; throw new IOException("Invalid length"); }
                 int received = peer.Socket.Receive(peer.Body, peer.BodyRead, (int)length - peer.BodyRead, SocketFlags.None);
                 if (received == 0) throw new IOException("Closed");
+                bytesReceived += received;
                 peer.BodyRead += received;
                 if (peer.BodyRead < length) return null;
                 var result = new byte[length]; Buffer.BlockCopy(peer.Body, 0, result, 0, result.Length);
                 peer.LengthRead = 0; peer.BodyRead = 0;
+                framesReceived++;
                 return result;
             }
             catch (SocketException ex) when (WouldBlock(ex)) { return null; }
@@ -217,7 +222,7 @@ namespace SocketJack.Multiplayer.Transport
         private void ProcessFrame(Peer peer, byte[] frame)
         {
             byte kind = frame[0], channel = frame[1];
-            if (channel >= options.Channels || frame[2] > (byte)DeliveryMode.ReliableUnordered) { Remove(peer, "Invalid frame"); return; }
+            if (channel >= options.Channels || frame[2] > (byte)DeliveryMode.ReliableUnordered) { invalidPackets++; Remove(peer, "Invalid frame"); return; }
             if (!peer.Ready)
             {
                 if (IsServer && kind == 1 && frame.Length >= 12 && frame.Length - 12 <= options.MaxConnectionDataSize && frame[3] == 0x53 && frame[4] == 0x4a && frame[5] == 0x47 && frame[6] == 2)
@@ -244,11 +249,11 @@ namespace SocketJack.Multiplayer.Transport
                     peer.Ready = true; peer.LastReceive = Now;
                     EventReceived?.Invoke(new TransportEvent(TransportEventType.Connected, 0));
                 }
-                else Remove(peer, "Invalid handshake");
+                else { invalidPackets++; Remove(peer, "Invalid handshake"); }
                 return;
             }
             if (kind == 4 && frame.Length == 3) { peer.LastReceive = Now; return; }
-            if (kind != 3 || frame.Length - 3 > MaxPayloadSize) { Remove(peer, "Invalid frame"); return; }
+            if (kind != 3 || frame.Length - 3 > MaxPayloadSize) { invalidPackets++; Remove(peer, "Invalid frame"); return; }
             peer.LastReceive = Now;
             var payload = new byte[frame.Length - 3]; Buffer.BlockCopy(frame, 3, payload, 0, payload.Length);
             EventReceived?.Invoke(new TransportEvent(TransportEventType.Data, peer.Id, payload, (DeliveryMode)frame[2], channel));
@@ -269,6 +274,16 @@ namespace SocketJack.Multiplayer.Transport
             if (delivery < DeliveryMode.Unreliable || delivery > DeliveryMode.ReliableUnordered) throw new ArgumentOutOfRangeException(nameof(delivery));
         }
         private static byte[] Copy(ArraySegment<byte> value) { var bytes = new byte[value.Count]; if (value.Count > 0) Buffer.BlockCopy(value.Array, value.Offset, bytes, 0, value.Count); return bytes; }
+        public TransportMetricsSnapshot GetTransportMetrics(int maxPeerDetails = 64)
+        {
+            TransportMetrics.ValidateDetailLimit(maxPeerDetails); var details = new List<PeerTransportMetrics>(); long queued = 0; int active = 0;
+            foreach (var entry in peers)
+            {
+                queued += entry.Value.QueuedBytes; if (!entry.Value.Ready) continue; active++;
+                if (details.Count < maxPeerDetails) details.Add(new PeerTransportMetrics(entry.Key, null, entry.Value.Out.Count, entry.Value.QueuedBytes));
+            }
+            return new TransportMetricsSnapshot(Type, bytesSent, bytesReceived, framesSent, framesReceived, 0, invalidPackets, sendRejected, active, queued, details);
+        }
         private static void Write32(byte[] bytes, int offset, uint value) { for (int i = 0; i < 4; i++) bytes[offset + i] = (byte)(value >> (8 * i)); }
         private static uint Read32(byte[] bytes, int offset) => (uint)(bytes[offset] | bytes[offset + 1] << 8 | bytes[offset + 2] << 16 | bytes[offset + 3] << 24);
     }

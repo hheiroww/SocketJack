@@ -220,7 +220,7 @@ namespace SocketJack.Multiplayer.Tests
         private static byte[] Packet(byte kind, ulong obj, int room, ulong view, ulong schema, ushort member, ushort count, uint revision, byte[] value)
         {
             using var stream = new MemoryStream(); using var writer = new BinaryWriter(stream);
-            writer.Write((byte)1); writer.Write(kind); writer.Write(obj); writer.Write(room); writer.Write(view); writer.Write(schema);
+            writer.Write((byte)2); writer.Write(kind); writer.Write(obj); writer.Write(room); writer.Write((uint)1); writer.Write(view); writer.Write(schema);
             writer.Write(member); writer.Write(count); writer.Write(revision); writer.Write((ushort)value.Length); writer.Write(value); return stream.ToArray();
         }
         private sealed class Peer : IDisposable

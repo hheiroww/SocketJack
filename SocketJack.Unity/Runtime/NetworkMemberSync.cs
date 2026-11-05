@@ -21,13 +21,14 @@ namespace SocketJack.Multiplayer
         internal int Room;
         internal ushort Member, Count;
         internal uint Sequence;
+        internal uint Epoch;
         internal byte[] Value = Array.Empty<byte>();
         internal byte[] Encode()
         {
-            using (var stream = new MemoryStream(40 + Value.Length))
+            using (var stream = new MemoryStream(44 + Value.Length))
             using (var writer = new BinaryWriter(stream))
             {
-                writer.Write((byte)1); writer.Write(Kind); writer.Write(ObjectId); writer.Write(Room);
+                writer.Write((byte)2); writer.Write(Kind); writer.Write(ObjectId); writer.Write(Room); writer.Write(Epoch);
                 writer.Write(View); writer.Write(Schema); writer.Write(Member); writer.Write(Count);
                 writer.Write(Sequence); writer.Write((ushort)Value.Length); writer.Write(Value); return stream.ToArray();
             }
@@ -35,17 +36,18 @@ namespace SocketJack.Multiplayer
         internal static MemberPacket Decode(NetworkMessage message)
         {
             if (message.Channel != 3 || message.Delivery != DeliveryMode.ReliableUnordered || message.Payload == null ||
-                message.Payload.Length < 40 || message.Payload.Length > 40 + NetworkMemberSyncOptions.AbsoluteMaxMemberBytes)
+                message.Payload.Length < 44 || message.Payload.Length > 44 + NetworkMemberSyncOptions.AbsoluteMaxMemberBytes)
                 throw new InvalidDataException("Invalid member sync envelope.");
             using (var stream = new MemoryStream(message.Payload, false))
             using (var reader = new BinaryReader(stream))
             {
-                if (reader.ReadByte() != 1) throw new InvalidDataException("Unsupported member sync protocol.");
+                if (reader.ReadByte() != 2) throw new InvalidDataException("Unsupported member sync protocol.");
                 var packet = new MemberPacket { Kind = reader.ReadByte(), ObjectId = reader.ReadUInt64(), Room = reader.ReadInt32(),
+                    Epoch = reader.ReadUInt32(),
                     View = reader.ReadUInt64(), Schema = reader.ReadUInt64(), Member = reader.ReadUInt16(),
                     Count = reader.ReadUInt16(), Sequence = reader.ReadUInt32() };
                 int size = reader.ReadUInt16();
-                if (packet.ObjectId == 0 || packet.View == 0 || size > NetworkMemberSyncOptions.AbsoluteMaxMemberBytes || size != stream.Length - stream.Position)
+                if (packet.ObjectId == 0 || packet.Epoch == 0 || packet.View == 0 || size > NetworkMemberSyncOptions.AbsoluteMaxMemberBytes || size != stream.Length - stream.Position)
                     throw new InvalidDataException("Invalid member sync bounds.");
                 packet.Value = reader.ReadBytes(size); return packet;
             }
@@ -76,6 +78,7 @@ namespace SocketJack.Multiplayer
             internal int Room, Cursor;
             internal uint[] Sent;
             internal int ScheduleIndex;
+            internal uint Epoch;
         }
         private readonly NetworkServer server;
         private readonly NetworkMemberSyncOptions options;
@@ -95,7 +98,7 @@ namespace SocketJack.Multiplayer
         public NetworkMemberServer(NetworkServer server, NetworkMemberSyncOptions options = null)
         {
             this.server = server ?? throw new ArgumentNullException(nameof(server)); this.options = (options ?? new NetworkMemberSyncOptions()).Snapshot();
-            server.MessageReceived += OnMessage; server.PeerDisconnected += OnDisconnected;
+            server.MessageReceived += OnMessage; server.PeerDisconnected += OnDisconnected; server.OwnershipChanged += OnOwnershipChanged;
         }
         public void RegisterObject(ulong objectId, NetworkMemberSchema schema)
         {
@@ -148,13 +151,13 @@ namespace SocketJack.Multiplayer
                 if (sendCursor >= sendSchedule.Count) sendCursor = 0;
                 var subscription = sendSchedule[sendCursor++];
                 if (!objects.TryGetValue(subscription.Object, out var state) || !server.Objects.TryGetValue(subscription.Object, out var obj) ||
-                    !server.Peers.Contains(subscription.Peer) || obj.RoomId != subscription.Room || server.GetPeerRoom(subscription.Peer) != subscription.Room)
+                    !server.CanObserve(subscription.Peer, subscription.Object) || obj.AuthorityEpoch != subscription.Epoch || obj.RoomId != subscription.Room || server.GetPeerRoom(subscription.Peer) != subscription.Room)
                 { RemoveSubscription(subscription); continue; }
                 int index = subscription.Cursor; subscription.Cursor = (index + 1) % state.Members.Length;
                 var member = state.Members[index];
                 if (subscription.Sent[index] == member.Revision) continue;
                 budget--;
-                var packet = new MemberPacket { Kind = 3, ObjectId = state.Id, Room = subscription.Room, View = subscription.View,
+                var packet = new MemberPacket { Kind = 3, ObjectId = state.Id, Room = subscription.Room, Epoch = obj.AuthorityEpoch, View = subscription.View,
                     Schema = state.Schema.Fingerprint, Member = state.Schema.Members[index].Id, Count = (ushort)state.Members.Length,
                     Sequence = member.Revision, Value = member.Value };
                 if (server.SendMessage(subscription.Peer, NetworkMemberProtocol.ServerMessageId, packet.Encode(), DeliveryMode.ReliableUnordered))
@@ -176,7 +179,7 @@ namespace SocketJack.Multiplayer
             try { packet = MemberPacket.Decode(message); }
             catch (Exception error) when (error is InvalidDataException || error is EndOfStreamException) { server.Disconnect(message.PeerId, "Invalid member sync packet"); return; }
             if (!server.Objects.TryGetValue(packet.ObjectId, out var obj) ||
-                obj.RoomId != packet.Room || server.GetPeerRoom(message.PeerId) != packet.Room)
+                !server.CanObserve(message.PeerId, packet.ObjectId) || obj.AuthorityEpoch != packet.Epoch || obj.RoomId != packet.Room || server.GetPeerRoom(message.PeerId) != packet.Room)
             { return; } // Despawn/room changes can revoke an otherwise valid in-flight request/proposal.
             if (!objects.TryGetValue(packet.ObjectId, out var state))
             { server.Disconnect(message.PeerId, "Member schema missing on visible server object"); return; }
@@ -196,7 +199,7 @@ namespace SocketJack.Multiplayer
                 }
                 if (obj.OwnerId == message.PeerId) foreach (var ownerMember in state.Members) ownerMember.HasOwnerSequence = false;
                 var added = new Subscription { Peer = message.PeerId, Object = packet.ObjectId, View = packet.View,
-                    Room = packet.Room, Sent = new uint[state.Members.Length], ScheduleIndex = sendSchedule.Count };
+                    Room = packet.Room, Epoch = packet.Epoch, Sent = new uint[state.Members.Length], ScheduleIndex = sendSchedule.Count };
                 byObject[packet.ObjectId] = added; sendSchedule.Add(added); subscriptionMembers += added.Sent.Length;
                 return;
             }
@@ -228,9 +231,9 @@ namespace SocketJack.Multiplayer
             catch (Exception error) { BindingError?.Invoke(state.Id, error); if (server.Peers.Contains(message.PeerId)) server.Disconnect(message.PeerId, "Member application failed"); }
         }
         private bool StillAuthorized(ulong peer, MemberPacket packet, ObjectState state, NetworkObject obj, Subscription subscription)
-            => !disposed && server.IsRunning && server.Peers.Contains(peer) && server.GetPeerRoom(peer) == packet.Room &&
+            => !disposed && server.IsRunning && server.CanObserve(peer, packet.ObjectId) && server.GetPeerRoom(peer) == packet.Room &&
                 objects.TryGetValue(packet.ObjectId, out var current) && ReferenceEquals(current, state) &&
-                server.Objects.TryGetValue(packet.ObjectId, out var currentObject) && ReferenceEquals(currentObject, obj) && currentObject.RoomId == packet.Room && currentObject.OwnerId == peer &&
+                server.Objects.TryGetValue(packet.ObjectId, out var currentObject) && ReferenceEquals(currentObject, obj) && currentObject.AuthorityEpoch == packet.Epoch && currentObject.RoomId == packet.Room && currentObject.OwnerId == peer &&
                 subscriptions.TryGetValue(peer, out var values) && values.TryGetValue(packet.ObjectId, out var active) && ReferenceEquals(active, subscription) && active.View == packet.View;
         private void RemoveSubscription(Subscription value)
         {
@@ -242,8 +245,12 @@ namespace SocketJack.Multiplayer
         }
         private void OnDisconnected(ulong peer, string reason)
         { if (subscriptions.TryGetValue(peer, out var values)) foreach (var value in values.Values.ToArray()) RemoveSubscription(value); }
+        private void OnOwnershipChanged(NetworkObject obj, ulong previousOwner)
+        {
+            if (objects.TryGetValue(obj.Id, out var state)) foreach (var member in state.Members) member.HasOwnerSequence = false;
+        }
         public void Dispose()
-        { if (disposed) return; disposed = true; server.MessageReceived -= OnMessage; server.PeerDisconnected -= OnDisconnected; objects.Clear(); subscriptions.Clear(); captureSchedule.Clear(); sendSchedule.Clear(); canonicalBytes = memberCount = subscriptionMembers = 0; }
+        { if (disposed) return; disposed = true; server.MessageReceived -= OnMessage; server.PeerDisconnected -= OnDisconnected; server.OwnershipChanged -= OnOwnershipChanged; objects.Clear(); subscriptions.Clear(); captureSchedule.Clear(); sendSchedule.Clear(); canonicalBytes = memberCount = subscriptionMembers = 0; }
     }
 
     /// <summary>Client view-bound member baselines and owner proposals. Register only after object spawn.
@@ -274,12 +281,14 @@ namespace SocketJack.Multiplayer
         private int cursor, memberCount, retainedBytes;
         private bool disposed;
         public event Action<ulong, Exception> BindingError;
+        public event Action<ulong> BaselineReady;
+        public event Action<ulong, ushort, object> MemberChanged;
         /// <summary>A host consumes protocol bookkeeping without applying old echoes to its shared server scene.</summary>
         public bool ApplyValues { get; set; } = true;
         public NetworkMemberClient(NetworkClient client, NetworkMemberSyncOptions options = null)
         {
             this.client = client ?? throw new ArgumentNullException(nameof(client)); this.options = (options ?? new NetworkMemberSyncOptions()).Snapshot();
-            tokens = this.options.ClientBurstMessages; client.MessageReceived += OnMessage; client.ObjectDespawned += RemoveObject; client.Disconnected += OnDisconnected;
+            tokens = this.options.ClientBurstMessages; client.MessageReceived += OnMessage; client.ObjectDespawned += RemoveObject; client.Disconnected += OnDisconnected; client.OwnershipChanged += OnOwnershipChanged;
         }
         public void RegisterObject(ulong objectId, NetworkMemberSchema schema)
         {
@@ -293,6 +302,7 @@ namespace SocketJack.Multiplayer
             objects.Add(objectId, state); schedule.Add(state); memberCount += state.Members.Length;
         }
         public bool IsReady(ulong objectId) => objects.TryGetValue(objectId, out var state) && state.Received == state.Members.Length;
+        public bool IsRegistered(ulong objectId) => objects.ContainsKey(objectId);
         public void RemoveObject(ulong objectId)
         {
             if (!objects.TryGetValue(objectId, out var state)) return;
@@ -315,7 +325,7 @@ namespace SocketJack.Multiplayer
                 if (!state.Requested)
                 {
                     budget--;
-                    var packet = new MemberPacket { Kind = 1, ObjectId = state.Id, Room = obj.RoomId, View = state.View, Schema = state.Schema.Fingerprint };
+                    var packet = new MemberPacket { Kind = 1, ObjectId = state.Id, Room = obj.RoomId, Epoch = obj.AuthorityEpoch, View = state.View, Schema = state.Schema.Fingerprint };
                     if (client.SendMessage(NetworkMemberProtocol.ClientMessageId, packet.Encode(), DeliveryMode.ReliableUnordered)) { state.Requested = true; tokens--; }
                     continue;
                 }
@@ -329,7 +339,7 @@ namespace SocketJack.Multiplayer
                 if (!IsCurrent(state, obj)) continue;
                 if (binding.OnlyWhenChanged && member.LastSent != null && member.LastSent.SequenceEqual(bytes)) { member.NextCapture = now + binding.SendInterval; continue; }
                 uint proposal = unchecked(member.Proposal + 1); if (proposal == 0) proposal = 1;
-                var update = new MemberPacket { Kind = 2, ObjectId = state.Id, Room = obj.RoomId, View = state.View,
+                var update = new MemberPacket { Kind = 2, ObjectId = state.Id, Room = obj.RoomId, Epoch = obj.AuthorityEpoch, View = state.View,
                     Schema = state.Schema.Fingerprint, Member = binding.Id, Sequence = proposal, Value = bytes };
                 if (!CanRetain(member, bytes)) { FailCapacity(state.Id); return; }
                 budget--;
@@ -345,7 +355,7 @@ namespace SocketJack.Multiplayer
             catch (Exception error) when (error is InvalidDataException || error is EndOfStreamException) { client.Stop(); return; }
             if (packet.Kind != 3 || packet.Sequence == 0) { client.Stop(); return; }
             // Application messages may precede lifecycle messages on another channel. A later registration requests a full baseline.
-            if (!objects.TryGetValue(packet.ObjectId, out var state) || packet.View != state.View || !client.Objects.TryGetValue(packet.ObjectId, out var obj) || packet.Room != obj.RoomId) return;
+            if (!objects.TryGetValue(packet.ObjectId, out var state) || packet.View != state.View || !client.Objects.TryGetValue(packet.ObjectId, out var obj) || packet.Epoch != obj.AuthorityEpoch || packet.Room != obj.RoomId) return;
             if (packet.Schema != state.Schema.Fingerprint || packet.Count != state.Members.Length || !state.Schema.TryIndex(packet.Member, out int index))
             { BindingError?.Invoke(state.Id, new InvalidDataException("Member schema or serializer mismatch.")); client.Stop(); return; }
             var member = state.Members[index]; if (member.Received && !SessionWire.Newer(packet.Sequence, member.Revision)) return;
@@ -353,6 +363,7 @@ namespace SocketJack.Multiplayer
             try { value = state.Schema.Decode(index, packet.Value); }
             catch (Exception error) { BindingError?.Invoke(state.Id, error); client.Stop(); return; }
             if (!IsCurrent(state, obj)) return;
+            bool readyBefore = state.Received == state.Members.Length;
             try
             {
                 bool ownerEcho = state.Received == state.Members.Length && obj.OwnerId == client.LocalPeerId && state.Schema.Members[index].Authority == NetworkMemberAuthority.Owner;
@@ -364,6 +375,11 @@ namespace SocketJack.Multiplayer
                 member.Revision = packet.Sequence;
             }
             catch (Exception error) { BindingError?.Invoke(state.Id, error); client.Stop(); }
+            if (IsCurrent(state, obj))
+            {
+                MemberChanged?.Invoke(state.Id, packet.Member, value);
+                if (!readyBefore && state.Received == state.Members.Length) BaselineReady?.Invoke(state.Id);
+            }
         }
         private bool CanRetain(MemberState member, byte[] bytes) => bytes.Length - (member.LastSent == null ? 0 : member.LastSent.Length) <= options.MaxCanonicalBytes - retainedBytes;
         private bool IsCurrent(ObjectState state, NetworkObject obj)
@@ -372,7 +388,12 @@ namespace SocketJack.Multiplayer
         private void Retain(MemberState member, byte[] bytes) { retainedBytes += bytes.Length - (member.LastSent == null ? 0 : member.LastSent.Length); member.LastSent = bytes; }
         private void FailCapacity(ulong objectId) { BindingError?.Invoke(objectId, new InvalidOperationException("Client member byte budget exceeded.")); client.Stop(); }
         private void OnDisconnected(string reason) { objects.Clear(); schedule.Clear(); memberCount = retainedBytes = 0; tokens = options.ClientBurstMessages; }
+        private void OnOwnershipChanged(NetworkObject obj, ulong previousOwner)
+        {
+            if (!objects.TryGetValue(obj.Id, out var state)) return;
+            var schema = state.Schema; RemoveObject(obj.Id); RegisterObject(obj.Id, schema);
+        }
         public void Dispose()
-        { if (disposed) return; disposed = true; client.MessageReceived -= OnMessage; client.ObjectDespawned -= RemoveObject; client.Disconnected -= OnDisconnected; objects.Clear(); schedule.Clear(); memberCount = retainedBytes = 0; }
+        { if (disposed) return; disposed = true; client.MessageReceived -= OnMessage; client.ObjectDespawned -= RemoveObject; client.Disconnected -= OnDisconnected; client.OwnershipChanged -= OnOwnershipChanged; objects.Clear(); schedule.Clear(); memberCount = retainedBytes = 0; }
     }
 }

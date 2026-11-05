@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using SocketJack.Multiplayer.Physics;
+using SocketJack.Multiplayer.Serialization;
 using UnityEngine;
 
 namespace SocketJack.Multiplayer.Components
@@ -8,7 +10,7 @@ namespace SocketJack.Multiplayer.Components
     /// The authority controls its transform directly; observing clients/server interpolate received state.</summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(NetworkIdentity))]
-    public sealed class NetworkTransform : MonoBehaviour
+    public sealed class NetworkTransform : MonoBehaviour, INetworkStateController
     {
         [SerializeField] private float interpolationSpeed = 15f;
         [SerializeField] private float teleportDistance = 20f;
@@ -16,34 +18,38 @@ namespace SocketJack.Multiplayer.Components
         private Quaternion targetRotation;
         private bool hasTarget;
         private NetworkIdentity identity;
+        [SerializeField] private NetworkPrecisionPreset precisionPreset = NetworkPrecisionPreset.FullPrecision;
+        [SerializeField] private NetworkPrecisionAsset precisionAsset = null;
+        private NetworkPrecisionProfile profile;
+        public NetworkPrecisionPreset PrecisionPreset { get => precisionPreset; set { if (value == NetworkPrecisionPreset.Custom) throw new ArgumentException("Assign PrecisionProfile or a profile asset."); precisionPreset = value; profile = null; } }
+        public NetworkPrecisionProfile PrecisionProfile { get => profile ?? (profile = precisionAsset != null ? precisionAsset.CreateProfile() : NetworkPrecisionProfile.ForPreset(precisionPreset)); set => profile = value ?? throw new ArgumentNullException(nameof(value)); }
+        public bool UsesInput => false;
+        public bool CaptureEligible(double now) => true;
+        public bool ResolveServerAuthority(bool managerAuthority) => managerAuthority;
+        public bool ReceiveOwnerInput(byte[] bytes) => false;
+        public void ReceiveRelayedInput(byte[] bytes) { }
+        public void ResetPrediction() { hasTarget = false; }
+        public bool ValidateState(byte[] state)
+        { try { QuantizedTransformSerializer.Deserialize(state, PrecisionProfile); return true; } catch (Exception error) when (error is IOException || error is ArgumentException) { return false; } }
 
         private void Awake() => identity = GetComponent<NetworkIdentity>();
         public byte[] CaptureState()
         {
-            using (var stream = new MemoryStream(40))
-            using (var writer = new BinaryWriter(stream))
-            {
-                var p = transform.position; var r = transform.rotation; var s = transform.localScale;
-                writer.Write(p.x); writer.Write(p.y); writer.Write(p.z);
-                writer.Write(r.x); writer.Write(r.y); writer.Write(r.z); writer.Write(r.w);
-                writer.Write(s.x); writer.Write(s.y); writer.Write(s.z);
-                return stream.ToArray();
-            }
+            var p = transform.position; var r = transform.rotation; var s = transform.localScale;
+            return QuantizedTransformSerializer.Serialize(new TransformSnapshot {
+                Position = new System.Numerics.Vector3(p.x, p.y, p.z), Rotation = new System.Numerics.Quaternion(r.x, r.y, r.z, r.w),
+                Scale = new System.Numerics.Vector3(s.x, s.y, s.z) }, PrecisionProfile);
         }
         public void ApplyState(byte[] state, bool immediate)
         {
-            if (state == null || state.Length != 40) return;
-            using (var stream = new MemoryStream(state, false))
-            using (var reader = new BinaryReader(stream))
+            try
             {
-                var p = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
-                var r = new Quaternion(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
-                var s = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
-                if (!Finite(p.x) || !Finite(p.y) || !Finite(p.z) || !Finite(r.x) || !Finite(r.y) || !Finite(r.z) || !Finite(r.w) ||
-                    !Finite(s.x) || !Finite(s.y) || !Finite(s.z) || r.x * r.x + r.y * r.y + r.z * r.z + r.w * r.w < 0.0001f) return;
-                targetPosition = p; targetRotation = r.normalized; targetScale = s; hasTarget = true;
-                if (immediate || Vector3.Distance(transform.position, p) > teleportDistance) Snap();
+                var snapshot = QuantizedTransformSerializer.Deserialize(state, PrecisionProfile);
+                var p = snapshot.Position; var r = snapshot.Rotation; var s = snapshot.Scale;
+                targetPosition = new Vector3(p.X, p.Y, p.Z); targetRotation = new Quaternion(r.X, r.Y, r.Z, r.W); targetScale = new Vector3(s.X, s.Y, s.Z); hasTarget = true;
+                if (immediate || Vector3.Distance(transform.position, targetPosition) > teleportDistance) Snap();
             }
+            catch (Exception error) when (error is IOException || error is ArgumentException) { }
         }
         internal static bool IsValidState(byte[] state)
         {

@@ -24,6 +24,15 @@ namespace SocketJack.Multiplayer
             internal int StateCursor;
             internal ulong[] Baseline = Array.Empty<ulong>();
             internal int BaselineCursor;
+            internal bool Ready;
+            internal double HandshakeAge;
+            internal byte[] ConnectionData = Array.Empty<byte>();
+            internal readonly HashSet<ulong> Visible = new HashSet<ulong>();
+            internal readonly List<ulong> VisibleList = new List<ulong>();
+            internal ulong[] InterestCandidates;
+            internal int InterestCursor;
+            internal readonly Dictionary<ulong, ulong> Views = new Dictionary<ulong, ulong>();
+            internal ulong NextView;
         }
         private readonly IGameTransport _transport;
         private readonly NetworkSessionOptions _options;
@@ -38,6 +47,8 @@ namespace SocketJack.Multiplayer
         private double _tickAccumulator, _snapshotAccumulator;
         private ulong _nextId;
         private bool _disposed, _updating, _drainingOverflow;
+        private int _interestPeerCursor;
+        public INetworkInterestProvider InterestProvider { get; set; }
 
         public bool IsRunning => _transport.IsRunning && _transport.IsServer;
         public uint Tick { get; private set; }
@@ -49,6 +60,7 @@ namespace SocketJack.Multiplayer
         public event Action<NetworkInput> InputReceived;
         public event Action<NetworkMessage> MessageReceived;
         public event Action<NetworkObject> ObjectChanged;
+        public event Action<NetworkObject, ulong> OwnershipChanged;
         /// <summary>Optional game-specific validation for owner-authoritative state. Ownership,
         /// room, size, sequence and the server-assigned authority flag are always enforced first.</summary>
         public Func<NetworkObject, byte[], bool> OwnerStateValidator { get; set; }
@@ -79,11 +91,16 @@ namespace SocketJack.Multiplayer
             _updating = true;
             try
             {
-                foreach (var peer in _peers.Values)
+                foreach (var peer in _peers.Values.ToArray())
+                {
                     peer.Tokens = Math.Min(_options.MaxInboundMessagesPerPeerPerSecond,
                         peer.Tokens + deltaSeconds * _options.MaxInboundMessagesPerPeerPerSecond);
+                    if (!peer.Ready && (peer.HandshakeAge += deltaSeconds) >= 10)
+                        Disconnect(peer.Id, "Session compatibility handshake timed out");
+                }
                 _transport.Poll(maxEvents);
                 if (!IsRunning) return;
+                RefreshInterest();
                 double step = 1d / _options.TickRate;
                 _tickAccumulator = Math.Min(_tickAccumulator + deltaSeconds, step * _options.MaxCatchUpTicks);
                 int count = 0;
@@ -114,7 +131,7 @@ namespace SocketJack.Multiplayer
             var payload = SessionWire.Copy(state, _options.MaxStateBytes, nameof(state));
             if (_objects.Count >= _options.MaxObjects || RoomObjects(roomId).Count >= _options.MaxObjectsPerRoom)
                 throw new InvalidOperationException("Object capacity reached.");
-            if (ownerId != 0 && (!_peers.TryGetValue(ownerId, out var owner) || owner.Room != roomId))
+            if (ownerId != 0 && (!_peers.TryGetValue(ownerId, out var owner) || !owner.Ready || owner.Room != roomId))
                 throw new ArgumentException("The owner must be a connected peer in this room.", nameof(ownerId));
             var obj = new NetworkObject { Id = checked(++_nextId), PrefabId = prefabId, OwnerId = ownerId,
                 RoomId = roomId, Revision = 1, Tick = Tick, StateData = payload,
@@ -125,7 +142,7 @@ namespace SocketJack.Multiplayer
                 if (!_ownedObjects.TryGetValue(ownerId, out var owned)) _ownedObjects.Add(ownerId, owned = new HashSet<ulong>());
                 owned.Add(obj.Id);
             }
-            BroadcastReliable(roomId, SessionWire.Spawn(obj));
+            BroadcastReliable(roomId, null, obj, spawn: true);
             return obj;
         }
 
@@ -145,8 +162,33 @@ namespace SocketJack.Multiplayer
             if (!_objects.TryGetValue(objectId, out var obj)) return false;
             _objects.Remove(objectId); RemoveRoomObject(obj.RoomId, objectId);
             RemoveOwnedObject(obj.OwnerId, objectId);
-            BroadcastReliable(obj.RoomId, SessionWire.Despawn(objectId));
+            BroadcastReliable(obj.RoomId, SessionWire.Despawn(objectId), obj, despawn: true);
             return true;
+        }
+
+        /// <summary>Server-only ownership change. Old input/state proposals are revoked, including after transfer back.</summary>
+        public void TransferOwnership(ulong objectId, ulong ownerId, bool? serverAuthority = null)
+        {
+            RequireRunning();
+            if (!_objects.TryGetValue(objectId, out var obj)) throw new KeyNotFoundException("Unknown network object.");
+            if (ownerId != 0 && (!_peers.TryGetValue(ownerId, out var owner) || !owner.Ready || owner.Room != obj.RoomId))
+                throw new ArgumentException("The new owner must be connected in the object's room.", nameof(ownerId));
+            bool authority = ownerId == 0 || (serverAuthority ?? obj.ServerAuthority);
+            if (obj.OwnerId == ownerId && obj.ServerAuthority == authority) return;
+            if (obj.AuthorityEpoch == uint.MaxValue) throw new InvalidOperationException("Authority epoch exhausted; respawn this object.");
+            ulong previous = obj.OwnerId;
+            RemoveOwnedObject(previous, objectId);
+            if (ownerId != 0)
+            {
+                if (!_ownedObjects.TryGetValue(ownerId, out var owned)) _ownedObjects.Add(ownerId, owned = new HashSet<ulong>());
+                owned.Add(objectId);
+            }
+            obj.OwnerId = ownerId; obj.ServerAuthority = authority; obj.AuthorityEpoch++;
+            obj.HasOwnerStateSequence = false; obj.LastOwnerStateSequence = 0;
+            obj.Revision = unchecked(obj.Revision + 1); obj.Tick = Tick;
+            BroadcastReliable(obj.RoomId, SessionWire.Ownership(obj), obj);
+            OwnershipChanged?.Invoke(obj, previous);
+            ObjectChanged?.Invoke(obj);
         }
 
         /// <summary>Moves this peer's interest to one room, despawning old views and sending a full new baseline.</summary>
@@ -156,6 +198,7 @@ namespace SocketJack.Multiplayer
             if (!_peers.TryGetValue(peerId, out var peer)) throw new KeyNotFoundException("Unknown peer.");
             if (peer.Room == roomId) return;
             if (!Enqueue(peer, SessionWire.Write(SessionWire.Kind.ClearView, _ => { }))) return;
+            peer.Visible.Clear(); peer.VisibleList.Clear(); peer.Views.Clear(); peer.InterestCandidates = null;
             RemoveRoomPeer(peer.Room, peerId); peer.Room = roomId; peer.StateCursor = 0; RoomPeers(roomId).Add(peerId);
             BeginBaseline(peer);
         }
@@ -164,6 +207,12 @@ namespace SocketJack.Multiplayer
         {
             if (!_peers.TryGetValue(peerId, out var peer)) throw new KeyNotFoundException("Unknown peer.");
             return peer.Room;
+        }
+        /// <summary>Copy of transport-validated admission data; available when PeerConnected is raised.</summary>
+        public byte[] GetConnectionData(ulong peerId)
+        {
+            if (!_peers.TryGetValue(peerId, out var peer) || !peer.Ready) throw new KeyNotFoundException("Unknown admitted peer.");
+            return (byte[])peer.ConnectionData.Clone();
         }
 
         /// <summary>Moves an object between visibility rooms. Move its owning peer first when applicable.</summary>
@@ -175,17 +224,24 @@ namespace SocketJack.Multiplayer
             if (RoomObjects(roomId).Count >= _options.MaxObjectsPerRoom) throw new InvalidOperationException("Room object capacity reached.");
             if (obj.OwnerId != 0 && (!_peers.TryGetValue(obj.OwnerId, out var owner) || owner.Room != roomId))
                 throw new InvalidOperationException("Move the owning peer to the destination room first.");
-            BroadcastReliable(obj.RoomId, SessionWire.Despawn(objectId)); RemoveRoomObject(obj.RoomId, objectId);
+            BroadcastReliable(obj.RoomId, SessionWire.Despawn(objectId), obj, despawn: true); RemoveRoomObject(obj.RoomId, objectId);
             obj.RoomId = roomId; obj.Revision = unchecked(obj.Revision + 1); obj.Tick = Tick;
-            RoomObjects(roomId).Add(objectId); BroadcastReliable(roomId, SessionWire.Spawn(obj));
+            RoomObjects(roomId).Add(objectId); BroadcastReliable(roomId, null, obj, spawn: true);
         }
+
+        /// <summary>Canonical observer permission used by state, members, relays and object events.</summary>
+        public bool CanObserve(ulong peerId, ulong objectId)
+            => _peers.TryGetValue(peerId, out var peer) && peer.Ready && _objects.TryGetValue(objectId, out var obj) &&
+               peer.Room == obj.RoomId && peer.Visible.Contains(objectId) && (InterestProvider == null || InterestProvider.IsVisible(peerId, obj, true));
+        public ulong GetViewId(ulong peerId, ulong objectId)
+            => CanObserve(peerId, objectId) && _peers[peerId].Views.TryGetValue(objectId, out ulong view) ? view : 0;
 
         public bool SendMessage(ulong peerId, ushort messageId, byte[] payload,
             DeliveryMode delivery = DeliveryMode.ReliableUnordered, byte channel = 3)
         {
             RequireRunning(); ValidateUserChannel(channel);
             var copy = SessionWire.Copy(payload, _options.MaxMessageBytes, nameof(payload));
-            if (!_peers.ContainsKey(peerId)) return false;
+            if (!_peers.TryGetValue(peerId, out var target) || !target.Ready) return false;
             var packet = SessionWire.Write(SessionWire.Kind.Message, w => { w.Write(messageId); SessionWire.Bytes(w, copy); });
             return _transport.Send(peerId, new ArraySegment<byte>(packet), delivery, channel);
         }
@@ -217,12 +273,10 @@ namespace SocketJack.Multiplayer
             {
                 if (_peers.ContainsKey(ev.PeerId)) return;
                 if (ev.PeerId == 0 || _peers.Count >= _options.MaxPeers) { _transport.Disconnect(ev.PeerId, "Session capacity reached"); return; }
-                var peer = new Peer { Id = ev.PeerId, Tokens = _options.MaxInboundMessagesPerPeerPerSecond };
-                _peers.Add(peer.Id, peer); RoomPeers(0).Add(peer.Id);
-                Enqueue(peer, SessionWire.Write(SessionWire.Kind.Welcome, w => { w.Write(peer.Id); w.Write(Tick); }));
-                PeerConnected?.Invoke(peer.Id);
-                if (!_peers.ContainsKey(peer.Id)) return;
-                BeginBaseline(peer);
+                if (ev.Payload.Length > 512) { _transport.Disconnect(ev.PeerId, "Admission data exceeds session limit"); return; }
+                var peer = new Peer { Id = ev.PeerId, Tokens = _options.MaxInboundMessagesPerPeerPerSecond, ConnectionData = (byte[])ev.Payload.Clone() };
+                _peers.Add(peer.Id, peer);
+                if (_options.CompatibilityId.Length == 0) AcceptPeer(peer);
                 return;
             }
             if (ev.Type == TransportEventType.Disconnected) { RemovePeer(ev.PeerId, ev.Reason); return; }
@@ -235,27 +289,39 @@ namespace SocketJack.Multiplayer
                 {
                     switch (kind)
                     {
+                        case SessionWire.Kind.Hello:
+                            if (ev.Channel != 0 || ev.Delivery != DeliveryMode.ReliableOrdered) throw new InvalidDataException();
+                            var compatibility = System.Text.Encoding.UTF8.GetString(SessionWire.Bytes(reader, 512)); SessionWire.End(reader);
+                            if (!string.Equals(compatibility, _options.CompatibilityId, StringComparison.Ordinal))
+                            { Disconnect(sender.Id, "Game, prefab, serializer or precision configuration mismatch"); return; }
+                            if (!sender.Ready) AcceptPeer(sender);
+                            break;
                         case SessionWire.Kind.Input:
-                            if (ev.Channel != 2) throw new InvalidDataException();
-                            ulong objectId = reader.ReadUInt64();
+                            if (!sender.Ready || ev.Channel != 2) throw new InvalidDataException();
+                            ulong objectId = reader.ReadUInt64(); uint inputEpoch = reader.ReadUInt32(); ulong inputView = reader.ReadUInt64();
                             var input = SessionWire.Bytes(reader, _options.MaxMessageBytes); SessionWire.End(reader);
+                            if (GetViewId(sender.Id, objectId) != inputView || inputView == 0) return;
+                            if (_objects.TryGetValue(objectId, out var revokedInput) && inputEpoch != revokedInput.AuthorityEpoch) return;
                             if (!_objects.TryGetValue(objectId, out var obj) || obj.OwnerId != sender.Id || obj.RoomId != sender.Room)
                             { Disconnect(sender.Id, "Input authority denied"); return; }
                             callback = () => InputReceived?.Invoke(new NetworkInput { PeerId = sender.Id, ObjectId = objectId, Payload = input, Delivery = ev.Delivery });
                             break;
                         case SessionWire.Kind.Message:
+                            if (!sender.Ready) throw new InvalidDataException();
                             ValidateWireChannel(ev.Channel);
                             ushort messageId = reader.ReadUInt16(); var message = SessionWire.Bytes(reader, _options.MaxMessageBytes); SessionWire.End(reader);
                             callback = () => MessageReceived?.Invoke(new NetworkMessage { PeerId = sender.Id, MessageId = messageId, Payload = message, Delivery = ev.Delivery, Channel = ev.Channel });
                             break;
                         case SessionWire.Kind.OwnerState:
-                            if (ev.Channel != 2) throw new InvalidDataException();
-                            ulong ownerObjectId = reader.ReadUInt64(); uint ownerSequence = reader.ReadUInt32();
+                            if (!sender.Ready || ev.Channel != 2) throw new InvalidDataException();
+                            ulong ownerObjectId = reader.ReadUInt64(); uint ownerEpoch = reader.ReadUInt32(); ulong ownerView = reader.ReadUInt64(); uint ownerSequence = reader.ReadUInt32();
                             var ownerState = SessionWire.Bytes(reader, _options.MaxStateBytes); SessionWire.End(reader);
+                            if (GetViewId(sender.Id, ownerObjectId) != ownerView || ownerView == 0) return;
+                            if (_objects.TryGetValue(ownerObjectId, out var revokedState) && ownerEpoch != revokedState.AuthorityEpoch) return;
                             if (!_objects.TryGetValue(ownerObjectId, out var ownerObject) || ownerObject.ServerAuthority ||
                                 ownerObject.OwnerId != sender.Id || ownerObject.RoomId != sender.Room)
                             { Disconnect(sender.Id, "Owner state authority denied"); return; }
-                            callback = () => ApplyOwnerState(sender.Id, ownerObject, ownerSequence, ownerState);
+                            callback = () => ApplyOwnerState(sender.Id, ownerObject, ownerEpoch, ownerSequence, ownerState);
                             break;
                         default: throw new InvalidDataException();
                     }
@@ -266,14 +332,23 @@ namespace SocketJack.Multiplayer
             callback?.Invoke();
         }
 
-        private void ApplyOwnerState(ulong peerId, NetworkObject obj, uint sequence, byte[] state)
+        private void AcceptPeer(Peer peer)
+        {
+            peer.Ready = true; RoomPeers(peer.Room).Add(peer.Id);
+            Enqueue(peer, SessionWire.Write(SessionWire.Kind.Welcome, w =>
+            { w.Write(peer.Id); w.Write(Tick); SessionWire.Bytes(w, System.Text.Encoding.UTF8.GetBytes(_options.CompatibilityId)); }));
+            PeerConnected?.Invoke(peer.Id);
+            if (_peers.ContainsKey(peer.Id)) BeginBaseline(peer);
+        }
+
+        private void ApplyOwnerState(ulong peerId, NetworkObject obj, uint epoch, uint sequence, byte[] state)
         {
             if (obj.HasOwnerStateSequence && !SessionWire.Newer(sequence, obj.LastOwnerStateSequence)) return;
             bool accepted;
             try { accepted = OwnerStateValidator == null || OwnerStateValidator(obj, state); }
             catch { accepted = false; }
             if (!IsRunning || !_peers.TryGetValue(peerId, out var currentPeer) || !_objects.TryGetValue(obj.Id, out var current) ||
-                !ReferenceEquals(current, obj) || obj.ServerAuthority || obj.OwnerId != peerId || obj.RoomId != currentPeer.Room) return;
+                !ReferenceEquals(current, obj) || obj.AuthorityEpoch != epoch || obj.ServerAuthority || obj.OwnerId != peerId || obj.RoomId != currentPeer.Room) return;
             if (!accepted) { Disconnect(peerId, "Owner state validation denied"); return; }
             obj.HasOwnerStateSequence = true; obj.LastOwnerStateSequence = sequence;
             SetState(obj.Id, state);
@@ -288,7 +363,7 @@ namespace SocketJack.Multiplayer
             foreach (ulong objectId in owned)
             {
                 var obj = _objects[objectId]; _objects.Remove(objectId); RemoveRoomObject(obj.RoomId, objectId);
-                BroadcastReliable(obj.RoomId, SessionWire.Despawn(objectId));
+                BroadcastReliable(obj.RoomId, SessionWire.Despawn(objectId), obj, despawn: true);
             }
             PeerDisconnected?.Invoke(id, reason);
         }
@@ -300,13 +375,25 @@ namespace SocketJack.Multiplayer
             { if (disconnectOnOverflow) { ScheduleOverflowDisconnect(peer.Id); DrainOverflowDisconnects(); } return false; }
             peer.Reliable.Enqueue(packet); peer.QueuedBytes += packet.Length; return true;
         }
-        private void BroadcastReliable(int room, byte[] packet)
+        private void BroadcastReliable(int room, byte[] packet, NetworkObject obj = null, bool spawn = false, bool despawn = false)
         {
             // Finish enqueueing this lifecycle event before disconnect cleanup can publish another event.
             // Otherwise an overflowing owner's cleanup could send Despawn before this Spawn to later observers.
             var overflow = new List<ulong>();
             foreach (ulong id in RoomPeers(room).ToArray())
-                if (_peers.TryGetValue(id, out var peer) && !Enqueue(peer, packet, false)) overflow.Add(id);
+                if (_peers.TryGetValue(id, out var peer))
+                {
+                    if (obj != null)
+                    {
+                        if (spawn && (peer.Visible.Contains(obj.Id) || peer.Visible.Count >= _options.MaxVisibleObjectsPerPeer ||
+                            (InterestProvider != null && !InterestProvider.IsVisible(id, obj, false)))) continue;
+                        if (!spawn && !peer.Visible.Contains(obj.Id)) continue;
+                    }
+                    ulong view = spawn ? checked(peer.NextView + 1) : 0;
+                    if (!Enqueue(peer, spawn ? SessionWire.Spawn(obj, view) : packet, false)) { overflow.Add(id); continue; }
+                    if (obj != null && spawn) { peer.NextView = view; peer.Views[obj.Id] = view; peer.Visible.Add(obj.Id); peer.VisibleList.Add(obj.Id); }
+                    if (obj != null && despawn) { peer.Views.Remove(obj.Id); peer.Visible.Remove(obj.Id); peer.VisibleList.Remove(obj.Id); }
+                }
             foreach (ulong id in overflow) ScheduleOverflowDisconnect(id);
             DrainOverflowDisconnects();
         }
@@ -330,7 +417,9 @@ namespace SocketJack.Multiplayer
 
         private void BeginBaseline(Peer peer)
         {
-            peer.Baseline = _roomObjects.TryGetValue(peer.Room, out var objects) ? objects.ToArray() : Array.Empty<ulong>();
+            peer.Baseline = InterestProvider == null
+                ? (_roomObjects.TryGetValue(peer.Room, out var objects) ? objects.ToArray() : Array.Empty<ulong>())
+                : InterestProvider.QueryCandidates(peer.Id, peer.Room).Take(_options.MaxObjectsPerRoom).Distinct().ToArray();
             peer.BaselineCursor = 0;
         }
 
@@ -339,8 +428,13 @@ namespace SocketJack.Multiplayer
             for (int i = 0; i < _options.MaxReliableSendsPerUpdate && peer.BaselineCursor < peer.Baseline.Length; i++)
             {
                 ulong id = peer.Baseline[peer.BaselineCursor];
-                if (!_objects.TryGetValue(id, out var obj) || obj.RoomId != peer.Room) { peer.BaselineCursor++; continue; }
-                if (!Enqueue(peer, SessionWire.Spawn(obj), false)) break;
+                if (!_objects.TryGetValue(id, out var obj) || obj.RoomId != peer.Room || peer.Visible.Contains(id) ||
+                    (InterestProvider != null && !InterestProvider.IsVisible(peer.Id, obj, false))) { peer.BaselineCursor++; continue; }
+                if (peer.Visible.Count >= _options.MaxVisibleObjectsPerPeer) { peer.BaselineCursor = peer.Baseline.Length; break; }
+                ulong view = checked(peer.NextView + 1);
+                if (!Enqueue(peer, SessionWire.Spawn(obj, view), false)) break;
+                peer.NextView = view; peer.Views[id] = view;
+                peer.Visible.Add(id); peer.VisibleList.Add(id);
                 peer.BaselineCursor++;
             }
             if (peer.BaselineCursor == peer.Baseline.Length) { peer.Baseline = Array.Empty<ulong>(); peer.BaselineCursor = 0; }
@@ -350,6 +444,7 @@ namespace SocketJack.Multiplayer
         {
             foreach (var peer in _peers.Values.ToArray())
             {
+                if (!peer.Ready) continue;
                 FillBaseline(peer);
                 for (int i = 0; i < _options.MaxReliableSendsPerUpdate && peer.Reliable.Count > 0; i++)
                 {
@@ -365,18 +460,54 @@ namespace SocketJack.Multiplayer
             var packets = new Dictionary<ulong, byte[]>();
             foreach (var peer in _peers.Values.ToArray())
             {
+                if (!peer.Ready) continue;
                 if (peer.Reliable.Count > 0 || peer.Baseline.Length > 0) continue; // send lifecycle baselines first
-                var objects = RoomObjects(peer.Room);
+                var objects = peer.VisibleList;
                 int count = Math.Min(objects.Count, _options.MaxStateUpdatesPerTick);
                 for (int i = 0; i < count && objects.Count > 0; i++)
                 {
                     if (peer.StateCursor >= objects.Count) peer.StateCursor = 0;
-                    if (_objects.TryGetValue(objects[peer.StateCursor++], out var obj))
+                    if (_objects.TryGetValue(objects[peer.StateCursor++], out var obj) && CanObserve(peer.Id, obj.Id))
                     {
                         if (!packets.TryGetValue(obj.Id, out var packet)) packets.Add(obj.Id, packet = SessionWire.State(obj));
                         if (!_transport.Send(peer.Id, new ArraySegment<byte>(packet), DeliveryMode.UnreliableSequenced, 1)) break;
                     }
                 }
+            }
+        }
+
+        private void RefreshInterest()
+        {
+            if (InterestProvider == null || _peers.Count == 0) return;
+            var peers = _peers.Values.ToArray(); int budget = _options.MaxInterestChecksPerUpdate;
+            for (int visited = 0; visited < Math.Min(peers.Length, _options.MaxInterestPeersPerUpdate) && budget > 0; visited++)
+            {
+                if (_interestPeerCursor >= peers.Length) _interestPeerCursor = 0;
+                var peer = peers[_interestPeerCursor++]; if (!peer.Ready) continue;
+                // Revocation precedes admission. The list is bounded by MaxVisibleObjectsPerPeer.
+                for (int i = peer.VisibleList.Count - 1; i >= 0 && budget > 0; i--)
+                {
+                    budget--; ulong id = peer.VisibleList[i];
+                    if (_objects.TryGetValue(id, out var obj) && peer.Room == obj.RoomId && InterestProvider.IsVisible(peer.Id, obj, true)) continue;
+                    if (!Enqueue(peer, SessionWire.Despawn(id))) break;
+                    peer.Views.Remove(id); peer.Visible.Remove(id); peer.VisibleList.RemoveAt(i);
+                }
+                if (peer.InterestCandidates == null)
+                {
+                    peer.InterestCandidates = InterestProvider.QueryCandidates(peer.Id, peer.Room).Take(_options.MaxObjectsPerRoom).Distinct().ToArray();
+                    peer.InterestCursor = 0;
+                }
+                while (budget-- > 0 && peer.InterestCursor < peer.InterestCandidates.Length)
+                {
+                    ulong id = peer.InterestCandidates[peer.InterestCursor++];
+                    if (peer.Visible.Contains(id) || peer.Visible.Count >= _options.MaxVisibleObjectsPerPeer || !_objects.TryGetValue(id, out var obj) ||
+                        obj.RoomId != peer.Room || !InterestProvider.IsVisible(peer.Id, obj, false)) continue;
+                    ulong view = checked(peer.NextView + 1);
+                    if (!Enqueue(peer, SessionWire.Spawn(obj, view))) { peer.InterestCursor--; break; }
+                    peer.NextView = view; peer.Views[id] = view;
+                    peer.Visible.Add(id); peer.VisibleList.Add(id);
+                }
+                if (peer.InterestCursor == peer.InterestCandidates.Length) peer.InterestCandidates = null;
             }
         }
 

@@ -4,7 +4,7 @@ using System.Net;
 namespace SocketJack.Multiplayer.Transport
 {
     /// <summary>Wire protocol selected explicitly; transports never silently downgrade.</summary>
-    public enum TransportType { Udp = 0, Tcp = 1, Custom = 255 }
+    public enum TransportType { Udp = 0, Tcp = 1, WebSocket = 2, Custom = 255 }
 
     /// <summary>Delivery contract. Reliability is unordered by default; ordering is explicitly requested.
     /// Channels and reliable delivery modes have independent sequence histories.</summary>
@@ -104,6 +104,7 @@ namespace SocketJack.Multiplayer.Transport
             {
                 case TransportType.Udp: return new UdpGameTransport(options);
                 case TransportType.Tcp: return new TcpGameTransport(options);
+                case TransportType.WebSocket: return new WebSocketGameTransport(options);
                 default: throw new NotSupportedException("Supply an IGameTransport implementation for a custom transport.");
             }
         }

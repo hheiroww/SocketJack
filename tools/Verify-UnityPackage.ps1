@@ -9,6 +9,13 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 [xml]$owningProject = Get-Content -LiteralPath $Project -Raw
 $releaseVersion = [Version]$owningProject.SelectSingleNode('/Project/PropertyGroup/Version').InnerText.Trim()
 $normalizedVersion = if ($releaseVersion.Revision -eq 0) { $releaseVersion.ToString(3) } else { $releaseVersion.ToString(4) }
+$componentManifest = Get-Content -LiteralPath (Join-Path (Split-Path -Parent $Project) 'Unity/package-files.json') -Raw | ConvertFrom-Json
+$componentEntries = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+if ($componentManifest.format -ne 1) { throw 'Unsupported public component manifest.' }
+foreach ($file in $componentManifest.files) {
+    if ($file -notmatch '^(?:[A-Za-z][A-Za-z0-9_]*\.cs|Editor/[A-Za-z][A-Za-z0-9_]*\.cs|Plugins/[A-Za-z][A-Za-z0-9_]*\.jslib|link\.xml)$' -or
+        !$componentEntries.Add("contentFiles/any/any/SocketJack.Unity/$file")) { throw 'Invalid or duplicate component allowlist path.' }
+}
 function Verify-UnityIdentity([IO.Compression.ZipArchive]$Zip) {
     $entry = $Zip.GetEntry('SocketJack.Unity.nuspec')
     if ($null -eq $entry -or $entry.Length -gt 1048576) { throw 'Missing or oversized Unity package metadata.' }
@@ -38,7 +45,7 @@ function Read-PackageEntries([string]$Path) {
         foreach ($entry in $zip.Entries) {
             $name = $entry.FullName
             if ($name -eq '.signature.p7s') { continue } # NuGet may repository-sign the published archive.
-            if ($name -notmatch '^(SocketJack\.Unity\.nuspec|\[Content_Types\]\.xml|_rels/\.rels|package/services/metadata/core-properties/[^/]+\.psmdcp|lib/netstandard2\.1/SocketJack\.Unity\.(dll|xml)|README\.md|QuickStart\.md|LICENSE|SocketJackUnityIcon\.png|contentFiles/any/any/SocketJack\.Unity/(NetworkManager\.cs|NetworkIdentity\.cs|NetworkTransform\.cs|SocketJackObject\.cs|SocketJackMemberSync\.cs|ExamplePlayerController\.cs|link\.xml))$') {
+            if (!$componentEntries.Contains($name) -and $name -notmatch '^(SocketJack\.Unity\.nuspec|\[Content_Types\]\.xml|_rels/\.rels|package/services/metadata/core-properties/[^/]+\.psmdcp|lib/netstandard2\.1/SocketJack\.Unity\.(dll|xml)|README\.md|QuickStart\.md|LICENSE|SocketJackUnityIcon\.png)$') {
                 throw "Unexpected Unity package entry: $name"
             }
             if ($entries.ContainsKey($name)) { throw "Duplicate Unity package entry: $name" }
@@ -52,6 +59,7 @@ function Read-PackageEntries([string]$Path) {
             } finally { $stream.Dispose() }
         }
         Verify-UnityIdentity $zip
+        foreach ($requiredComponent in $componentEntries) { if (!$entries.ContainsKey($requiredComponent)) { throw "Missing allowlisted component: $requiredComponent" } }
         foreach ($required in @('SocketJack.Unity.nuspec', 'lib/netstandard2.1/SocketJack.Unity.dll', 'lib/netstandard2.1/SocketJack.Unity.xml',
             'README.md', 'QuickStart.md', 'LICENSE', 'SocketJackUnityIcon.png', 'contentFiles/any/any/SocketJack.Unity/NetworkManager.cs',
             'contentFiles/any/any/SocketJack.Unity/NetworkIdentity.cs', 'contentFiles/any/any/SocketJack.Unity/NetworkTransform.cs',

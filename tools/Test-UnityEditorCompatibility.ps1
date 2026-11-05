@@ -58,6 +58,11 @@ $sources = [ordered]@{
     'Assets/Editor/PhysicsSampleBuild.cs' = (Join-Path $repository 'Examples/UnityPhysics/Assets/Editor/PhysicsSampleBuild.cs')
     'Packages/manifest.json' = (Join-Path $repository 'Examples/UnityPhysics/Packages/manifest.json')
 }
+$componentManifest = Get-Content -LiteralPath (Join-Path $repository 'SocketJack.Unity/Unity/package-files.json') -Raw | ConvertFrom-Json
+foreach ($file in $componentManifest.files) {
+    if ($file -notmatch '^(?:[A-Za-z][A-Za-z0-9_]*\.cs|Editor/[A-Za-z][A-Za-z0-9_]*\.cs|Plugins/[A-Za-z][A-Za-z0-9_]*\.jslib|link\.xml)$') { throw 'Invalid public component path.' }
+    $sources["Assets/SocketJack.Unity/$file"] = Join-Path $repository "SocketJack.Unity/Unity/$file"
+}
 foreach ($source in $sources.Values) { if (!(Test-Path -LiteralPath $source -PathType Leaf)) { throw "Missing allowlisted source: $source" } }
 $guidePath = Join-Path $repository 'docs/Unity-AssetStore-QuickStart.md'
 if ((Get-Item -LiteralPath $guidePath).Length -gt 256KB) { throw 'Setup guide exceeds its bounded extraction size.' }

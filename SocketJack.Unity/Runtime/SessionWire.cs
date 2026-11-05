@@ -7,9 +7,9 @@ namespace SocketJack.Multiplayer
     // A deliberately closed binary protocol: no CLR type names, reflection, or object activation.
     internal static class SessionWire
     {
-        internal const byte Version = 2;
-        internal const int SpawnHeaderSize = 37;
-        internal enum Kind : byte { Welcome = 1, Spawn = 2, Despawn = 3, State = 4, Input = 5, Message = 6, ClearView = 7, OwnerState = 8 }
+        internal const byte Version = 3;
+        internal const int SpawnHeaderSize = 49;
+        internal enum Kind : byte { Welcome = 1, Spawn = 2, Despawn = 3, State = 4, Input = 5, Message = 6, ClearView = 7, OwnerState = 8, Hello = 9, Ownership = 10 }
 
         internal static byte[] Write(Kind kind, Action<BinaryWriter> fields)
         {
@@ -43,10 +43,12 @@ namespace SocketJack.Multiplayer
         { if (reader.BaseStream.Position != reader.BaseStream.Length) throw new InvalidDataException("Trailing packet data."); }
         internal static bool Newer(uint value, uint previous) => unchecked((int)(value - previous)) > 0;
 
-        internal static byte[] Spawn(NetworkObject obj) => Write(Kind.Spawn, w =>
-        { w.Write(obj.Id); w.Write(obj.PrefabId); w.Write(obj.OwnerId); w.Write(obj.RoomId); w.Write(obj.Revision); w.Write(obj.Tick); w.Write(obj.ServerAuthority); Bytes(w, obj.StateData); });
+        internal static byte[] Spawn(NetworkObject obj, ulong viewId) => Write(Kind.Spawn, w =>
+        { w.Write(obj.Id); w.Write(obj.PrefabId); w.Write(obj.OwnerId); w.Write(obj.RoomId); w.Write(obj.Revision); w.Write(obj.Tick); w.Write(obj.ServerAuthority); w.Write(obj.AuthorityEpoch); w.Write(viewId); Bytes(w, obj.StateData); });
         internal static byte[] State(NetworkObject obj) => Write(Kind.State, w =>
-        { w.Write(obj.Id); w.Write(obj.Revision); w.Write(obj.Tick); Bytes(w, obj.StateData); });
+        { w.Write(obj.Id); w.Write(obj.Revision); w.Write(obj.Tick); w.Write(obj.AuthorityEpoch); Bytes(w, obj.StateData); });
+        internal static byte[] Ownership(NetworkObject obj) => Write(Kind.Ownership, w =>
+        { w.Write(obj.Id); w.Write(obj.OwnerId); w.Write(obj.ServerAuthority); w.Write(obj.AuthorityEpoch); w.Write(obj.Revision); });
         internal static byte[] Despawn(ulong id) => Write(Kind.Despawn, w => w.Write(id));
         internal static void ValidateDelta(double delta)
         { if (double.IsNaN(delta) || double.IsInfinity(delta) || delta < 0) throw new ArgumentOutOfRangeException(nameof(delta)); }

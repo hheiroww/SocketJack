@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using SocketJack.Multiplayer.Physics;
 using SocketJack.Multiplayer.Transport;
+using SocketJack.Multiplayer.Serialization;
 using UnityEngine;
 using UnityEngine.Serialization;
 using NumericsVector3 = System.Numerics.Vector3;
@@ -22,7 +23,7 @@ namespace SocketJack.Multiplayer.Components
     /// Do not combine this component with NetworkTransform on the same object.</summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(NetworkIdentity), typeof(Rigidbody))]
-    public sealed class SocketJackObject : MonoBehaviour
+    public sealed class SocketJackObject : MonoBehaviour, INetworkStateController
     {
         internal const ushort InputRelayMessageId = 60001;
         [Header("Object networking")]
@@ -32,6 +33,7 @@ namespace SocketJack.Multiplayer.Components
         [Header("Input and local physics")]
         [SerializeField] private bool readKeyboard = true;
         [SerializeField] private bool simulatePhysics = true;
+        [SerializeField, Tooltip("Optional INetworkInputMotor replaces the built-in force/jump motor.")] private MonoBehaviour inputMotor = null;
         [SerializeField, Min(1)] private float inputSendRate = 30;
         [SerializeField] private bool sendInputOnChange = true;
         [SerializeField, Range(2, 20)] private float inputKeepAliveRate = 5;
@@ -69,6 +71,12 @@ namespace SocketJack.Multiplayer.Components
         private Vector3 previousVisualPosition;
         private bool observedVisual;
         private bool movementModeDirty = true;
+        [Header("Network precision")]
+        [SerializeField] private NetworkPrecisionPreset precisionPreset = NetworkPrecisionPreset.FullPrecision;
+        [SerializeField] private NetworkPrecisionAsset precisionAsset = null;
+        private NetworkPrecisionProfile precisionProfile;
+        public NetworkPrecisionPreset PrecisionPreset { get => precisionPreset; set { if (value == NetworkPrecisionPreset.Custom) throw new ArgumentException("Assign PrecisionProfile for custom settings."); precisionPreset = value; precisionProfile = null; } }
+        public NetworkPrecisionProfile PrecisionProfile { get => precisionProfile ?? (precisionProfile = precisionAsset != null ? precisionAsset.CreateProfile() : NetworkPrecisionProfile.ForPreset(precisionPreset)); set => precisionProfile = value ?? throw new ArgumentNullException(nameof(value)); }
 #if !ENABLE_LEGACY_INPUT_MANAGER
         private bool keyboardWarningLogged;
 #endif
@@ -90,6 +98,8 @@ namespace SocketJack.Multiplayer.Components
         public ObjectAuthority Authority { get => authority; set => authority = value; }
         public float KeyframeRate { get => keyframeRate; set => keyframeRate = Mathf.Clamp(value, 1, 20); }
         public bool ReadKeyboard { get => readKeyboard; set => readKeyboard = value; }
+        public bool UsesInput => true;
+        public MonoBehaviour InputMotor { get => inputMotor; set { if (value != null && !(value is INetworkInputMotor)) throw new ArgumentException("Motor must implement INetworkInputMotor."); inputMotor = value; } }
         public Transform Visual
         {
             get => visual;
@@ -140,7 +150,7 @@ namespace SocketJack.Multiplayer.Components
                 if (identity.Manager.Client.SendOwnerState(identity.ObjectId, CaptureState())) OwnerStatesSent++;
             }
             if (identity == null || !identity.IsOwner) return;
-            if (body.isKinematic) return;
+            if (body.isKinematic && inputMotor == null) return;
             if (readKeyboard)
             {
 #if ENABLE_LEGACY_INPUT_MANAGER
@@ -177,7 +187,7 @@ namespace SocketJack.Multiplayer.Components
             }
         }
 
-        internal bool ReceiveOwnerInput(byte[] bytes)
+        public bool ReceiveOwnerInput(byte[] bytes)
         {
             PhysicsInput input;
             try { input = PhysicsBinarySerializer.DeserializeInput(bytes); }
@@ -186,7 +196,7 @@ namespace SocketJack.Multiplayer.Components
             acceptedAnySequence = true; lastAcceptedSequence = input.Sequence;
             ApplyIntent(input); InputsReceived++; return true;
         }
-        internal void ReceiveRelayedInput(byte[] bytes)
+        public void ReceiveRelayedInput(byte[] bytes)
         {
             if (identity == null || identity.IsServer || identity.IsOwner) return;
             PhysicsInput input;
@@ -205,20 +215,29 @@ namespace SocketJack.Multiplayer.Components
         {
             physicsTick = unchecked(physicsTick + 1);
             if (identity == null || identity.Manager == null) return;
-            if (simulatePhysics && !body.isKinematic && hasInput &&
-                Time.unscaledTimeAsDouble - lastInputAt <= Math.Max(inputTimeout, 2f / Math.Max(2, inputKeepAliveRate)))
+            bool liveInput = hasInput && Time.unscaledTimeAsDouble - lastInputAt <= Math.Max(inputTimeout, 2f / Math.Max(2, inputKeepAliveRate));
+            if (simulatePhysics && (!body.isKinematic || inputMotor != null))
             {
+                if (inputMotor is INetworkInputMotor motor)
+                {
+                    var motorInput = liveInput ? intent : default; motorInput.Jump = liveInput && jumpPending;
+                    motor.SimulateInput(motorInput, Time.fixedDeltaTime);
+                    body.position = transform.position; body.rotation = transform.rotation;
+                }
+                else if (liveInput)
+                {
                 var direction = Vector3.ClampMagnitude(new Vector3(intent.Horizontal, 0, intent.Vertical), 1);
                 body.AddForce(direction * Mathf.Max(0, movementForce), movementForceMode);
                 var velocity = BodyVelocity;
                 var planar = Vector3.ClampMagnitude(new Vector3(velocity.x, 0, velocity.z), Mathf.Max(0, maxSpeed));
                 BodyVelocity = new Vector3(planar.x, velocity.y, planar.z);
                 if (jumpPending && Grounded()) BodyVelocity = new Vector3(BodyVelocity.x, jumpVelocity, BodyVelocity.z);
+                }
             }
             jumpPending = false;
             if (!HasStateAuthority && hasSnapshot && reconcile) Reconcile();
         }
-        internal bool ResolveServerAuthority(bool managerAuthority) => authority == ObjectAuthority.InheritManager ? managerAuthority : authority == ObjectAuthority.Server;
+        public bool ResolveServerAuthority(bool managerAuthority) => authority == ObjectAuthority.InheritManager ? managerAuthority : authority == ObjectAuthority.Server;
         private void OnValidate() { movementModeDirty = true; }
         private void ApplyMovementMode()
         {
@@ -235,23 +254,23 @@ namespace SocketJack.Multiplayer.Components
             float distance = collider == null ? 0.6f : collider.bounds.extents.y + 0.12f;
             return UnityEngine.Physics.Raycast(body.position, Vector3.down, distance, ~0, QueryTriggerInteraction.Ignore);
         }
-        internal bool CaptureEligible(double now)
+        public bool CaptureEligible(double now)
         {
             if (now < nextKeyframe) return false;
             nextKeyframe = now + 1d / Math.Max(1, keyframeRate); return true;
         }
-        internal byte[] CaptureState()
+        public byte[] CaptureState()
         {
             if (body == null) body = GetComponent<Rigidbody>();
-            return PhysicsBinarySerializer.SerializeSnapshot(new PhysicsSnapshot { Tick = physicsTick,
+            return QuantizedPhysicsSerializer.SerializeSnapshot(new PhysicsSnapshot { Tick = physicsTick,
                 LastInputSequence = UsesServerAuthority ? lastAcceptedSequence : nextSequence, Time = Time.fixedTimeAsDouble,
                 Position = ToNumerics(body.position), Rotation = ToNumerics(body.rotation),
-                Velocity = ToNumerics(BodyVelocity), AngularVelocity = ToNumerics(body.angularVelocity) });
+                Velocity = ToNumerics(BodyVelocity), AngularVelocity = ToNumerics(body.angularVelocity) }, PrecisionProfile);
         }
-        internal void ApplyState(byte[] bytes, bool immediate)
+        public void ApplyState(byte[] bytes, bool immediate)
         {
             PhysicsSnapshot snapshot;
-            try { snapshot = PhysicsBinarySerializer.DeserializeSnapshot(bytes); }
+            try { snapshot = QuantizedPhysicsSerializer.DeserializeSnapshot(bytes, PrecisionProfile); }
             catch (Exception error) when (error is ArgumentException || error is IOException || error is InvalidDataException) { return; }
             if (hasSnapshot && !PhysicsReconciler.IsNewer(snapshot.Tick, authoritative.Tick)) return;
             authoritative = snapshot; hasSnapshot = true; snapshotReceivedAt = Time.unscaledTimeAsDouble; KeyframesReceived++;
@@ -299,6 +318,20 @@ namespace SocketJack.Multiplayer.Components
             BodyVelocity = correctedVelocity;
             body.angularVelocity = Vector3.Lerp(body.angularVelocity, ToUnity(target.AngularVelocity), blend);
             body.MoveRotation(Quaternion.Slerp(body.rotation, ToUnity(target.Rotation), blend));
+        }
+        public bool ValidateState(byte[] bytes)
+        {
+            try { QuantizedPhysicsSerializer.DeserializeSnapshot(bytes, PrecisionProfile); return true; }
+            catch (Exception error) when (error is ArgumentException || error is IOException) { return false; }
+        }
+        public void ResetPrediction()
+        {
+            intent = default; localAxes = lastSentAxes = Vector2.zero;
+            localJump = localJumpPredicted = jumpPending = hasInput = hasSnapshot = false;
+            acceptedAnySequence = relayedAnySequence = false;
+            nextSequence = lastAcceptedSequence = lastRelaySequence = 0;
+            nextSend = nextKeepAlive = nextKeyframe = 0;
+            (inputMotor as INetworkInputMotor)?.ResetInput();
         }
         private void LateUpdate()
         {

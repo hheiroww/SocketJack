@@ -21,12 +21,14 @@ namespace SocketJack.Multiplayer
         public double SendInterval { get; }
         public bool OnlyWhenChanged { get; }
         public int MaxBytes { get; }
+        /// <summary>Optional binding-specific value codec, for example a numeric precision profile.</summary>
+        public INetworkSerializer ValueSerializer { get; }
         internal Func<object> GetValue { get; }
         internal Action<object> SetValue { get; }
 
         public NetworkMemberBinding(ushort id, string key, Type valueType, Func<object> getValue,
             Action<object> setValue, NetworkMemberAuthority authority = NetworkMemberAuthority.Server,
-            double sendInterval = 0.1, bool onlyWhenChanged = true, int maxBytes = 256)
+            double sendInterval = 0.1, bool onlyWhenChanged = true, int maxBytes = 256, INetworkSerializer valueSerializer = null)
         {
             if (id == 0 || string.IsNullOrWhiteSpace(key) || key.Length > 512 || valueType == null ||
                 getValue == null || setValue == null || !Enum.IsDefined(typeof(NetworkMemberAuthority), authority) ||
@@ -34,7 +36,7 @@ namespace SocketJack.Multiplayer
                 maxBytes < 1 || maxBytes > NetworkMemberSyncOptions.AbsoluteMaxMemberBytes)
                 throw new ArgumentException("Invalid network member binding or bounds.");
             Id = id; Key = key; ValueType = valueType; GetValue = getValue; SetValue = setValue;
-            Authority = authority; SendInterval = sendInterval; OnlyWhenChanged = onlyWhenChanged; MaxBytes = maxBytes;
+            Authority = authority; SendInterval = sendInterval; OnlyWhenChanged = onlyWhenChanged; MaxBytes = maxBytes; ValueSerializer = valueSerializer;
         }
     }
 
@@ -52,13 +54,13 @@ namespace SocketJack.Multiplayer
         internal NetworkMemberDescriptor(PropertyInfo value)
         { property = value; Name = value.Name; ValueType = value.PropertyType; IsProperty = true; Key = NetworkMemberAccessors.GetTypeKey(value.DeclaringType) + "|P|" + Name; }
         public NetworkMemberBinding Bind(object target, ushort id, NetworkMemberAuthority authority = NetworkMemberAuthority.Server,
-            double sendInterval = 0.1, bool onlyWhenChanged = true, int maxBytes = 256, string schemaKey = null)
+            double sendInterval = 0.1, bool onlyWhenChanged = true, int maxBytes = 256, string schemaKey = null, INetworkSerializer valueSerializer = null)
         {
             if (target == null) throw new ArgumentNullException(nameof(target));
             return new NetworkMemberBinding(id, schemaKey ?? Key, ValueType,
                 () => field != null ? field.GetValue(target) : property.GetValue(target, null),
                 value => { if (field != null) field.SetValue(target, value); else property.SetValue(target, value, null); },
-                authority, sendInterval, onlyWhenChanged, maxBytes);
+                authority, sendInterval, onlyWhenChanged, maxBytes, valueSerializer);
         }
     }
 
@@ -68,6 +70,8 @@ namespace SocketJack.Multiplayer
         /// <summary>Lists writable instance fields and read/write, non-indexed properties, including nonpublic ones.
         /// Static, readonly, literal and generated backing fields are excluded. Selection remains opt-in.</summary>
         public static IReadOnlyList<NetworkMemberDescriptor> GetEligibleMembers(Type type)
+            => GetEligibleMembers(type, null);
+        private static IReadOnlyList<NetworkMemberDescriptor> GetEligibleMembers(Type type, string explicitlySelectedKey)
         {
             if (type == null) throw new ArgumentNullException(nameof(type));
             var result = new List<NetworkMemberDescriptor>();
@@ -83,17 +87,25 @@ namespace SocketJack.Multiplayer
                     var getter = property.GetGetMethod(true); var setter = property.GetSetMethod(true);
                     if (getter != null && setter != null && !getter.IsStatic && !setter.IsStatic && property.GetIndexParameters().Length == 0 &&
                         !property.PropertyType.IsPointer && !property.PropertyType.IsByRef &&
-                        !setter.ReturnParameter.GetRequiredCustomModifiers().Any(x => x.FullName == "System.Runtime.CompilerServices.IsExternalInit"))
+                        !IsInitOnly(setter, new NetworkMemberDescriptor(property).Key == explicitlySelectedKey))
                         result.Add(new NetworkMemberDescriptor(property));
                 }
             }
             return result.OrderBy(x => x.Name, StringComparer.Ordinal).ThenBy(x => x.Key, StringComparer.Ordinal).ToArray();
         }
+        private static bool IsInitOnly(MethodInfo setter, bool explicitLocalSelection)
+        {
+            try { return setter.ReturnParameter.GetRequiredCustomModifiers().Any(x => x.FullName == "System.Runtime.CompilerServices.IsExternalInit"); }
+            // IL2CPP cannot inspect custom modifiers. Discovery fails closed. A full local key
+            // selected/validated in the Editor remains usable; remote data never selects a key.
+            catch (NotSupportedException) { return !explicitLocalSelection; }
+            catch (NotImplementedException) { return !explicitLocalSelection; }
+        }
 
         /// <summary>Resolves a configured local key (or unambiguous member name); no network input is used here.</summary>
         public static NetworkMemberDescriptor Find(Type type, string key)
         {
-            var matches = GetEligibleMembers(type).Where(x => x.Key == key || x.Name == key).ToArray();
+            var matches = GetEligibleMembers(type, key).Where(x => x.Key == key || x.Name == key).ToArray();
             if (matches.Length != 1) throw new ArgumentException("Member is missing, ambiguous or not a writable instance field/property: " + key);
             return matches[0];
         }
@@ -120,11 +132,14 @@ namespace SocketJack.Multiplayer
             for (int i = 0; i < list.Length; i++)
             {
                 var member = list[i] ?? throw new ArgumentException("Null member.");
-                if (!serializer.CanSerialize(member.ValueType)) throw new NotSupportedException("Serializer does not support member type " + member.ValueType.FullName);
+                var codec = member.ValueSerializer ?? serializer;
+                if (!codec.CanSerialize(member.ValueType) || string.IsNullOrWhiteSpace(codec.ProtocolId) || codec.ProtocolId.Length > 4096)
+                    throw new NotSupportedException("Serializer does not support member type or has invalid protocol ID: " + member.ValueType.FullName);
                 if (indices.ContainsKey(member.Id)) throw new ArgumentException("Duplicate member ID.");
                 indices.Add(member.Id, i);
                 add(member.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)); add(member.Key); add(SocketJackBinaryFormatter.StableTypeName(member.ValueType));
                 add(((int)member.Authority).ToString()); add(member.MaxBytes.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                if (member.ValueSerializer != null) add(member.ValueSerializer.ProtocolId);
                 // Scheduling choices do not change accepted wire data and can differ between Unity float settings and .NET doubles.
             }
             Members = Array.AsReadOnly(list); Fingerprint = hash;
@@ -133,7 +148,7 @@ namespace SocketJack.Multiplayer
         internal byte[] Capture(int index)
         {
             var member = Members[index];
-            var bytes = Serializer.Serialize(member.GetValue(), member.ValueType, member.MaxBytes);
+            var bytes = (member.ValueSerializer ?? Serializer).Serialize(member.GetValue(), member.ValueType, member.MaxBytes);
             if (bytes == null || bytes.Length > member.MaxBytes) throw new InvalidOperationException("Serializer exceeded configured member bounds.");
             return (byte[])bytes.Clone();
         }
@@ -141,7 +156,7 @@ namespace SocketJack.Multiplayer
         {
             var member = Members[index];
             if (bytes == null || bytes.Length > member.MaxBytes) throw new ArgumentException("Member value exceeds configured bounds.");
-            var value = Serializer.Deserialize(bytes, member.ValueType, member.MaxBytes);
+            var value = (member.ValueSerializer ?? Serializer).Deserialize(bytes, member.ValueType, member.MaxBytes);
             if (value == null ? member.ValueType.IsValueType && Nullable.GetUnderlyingType(member.ValueType) == null : !member.ValueType.IsInstanceOfType(value))
                 throw new InvalidOperationException("Serializer returned a value incompatible with the configured local member type.");
             return value;

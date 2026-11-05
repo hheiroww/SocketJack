@@ -57,7 +57,7 @@ namespace SocketJack.Multiplayer.Tests
             var obj = server.Spawn(1); var transport = hub.NewClient(); using var client = new NetworkClient(transport);
             client.Connect(hub.Endpoint); Pump(server, client); ulong id = client.LocalPeerId;
             int inputs = 0; server.InputReceived += _ => inputs++;
-            var forged = Packet(5, w => { w.Write(obj.Id); w.Write((ushort)0); });
+            var forged = Packet(5, w => { w.Write(obj.Id); w.Write(obj.AuthorityEpoch); w.Write((ulong)1); w.Write((ushort)0); });
             transport.Send(0, new ArraySegment<byte>(Frame(forged, DeliveryMode.UnreliableSequenced, 2)), DeliveryMode.UnreliableSequenced, 2); server.Update(0);
             Assert.AreEqual(0, inputs); Assert.IsFalse(server.Peers.Contains(id));
             using var next = new NetworkClient(hub.NewClient()); next.Connect(hub.Endpoint); Pump(server, next); id = next.LocalPeerId;
@@ -89,7 +89,7 @@ namespace SocketJack.Multiplayer.Tests
             hub.Server.DropStates = true; server.SetState(obj.Id, new byte[] { 2 }); Pump(server, client, 8);
             CollectionAssert.AreEqual(new byte[] { 1 }, client.Objects[obj.Id].State);
             hub.Server.DropStates = false; Pump(server, client, 8); CollectionAssert.AreEqual(new byte[] { 2 }, client.Objects[obj.Id].State);
-            var stale = Packet(4, w => { w.Write(obj.Id); w.Write((uint)1); w.Write((uint)0); w.Write((ushort)1); w.Write((byte)99); });
+            var stale = Packet(4, w => { w.Write(obj.Id); w.Write((uint)1); w.Write((uint)0); w.Write(obj.AuthorityEpoch); w.Write((ushort)1); w.Write((byte)99); });
             transport.Incoming.Enqueue(new TransportEvent(TransportEventType.Data, 0, Frame(stale, DeliveryMode.UnreliableSequenced, 1), DeliveryMode.UnreliableSequenced, 1)); client.Update(0);
             CollectionAssert.AreEqual(new byte[] { 2 }, client.Objects[obj.Id].State);
             server.Despawn(obj.Id); Pump(server, client);
@@ -154,7 +154,7 @@ namespace SocketJack.Multiplayer.Tests
             var hub = new MemoryHub(); using var server = new NetworkServer(hub.Server); server.Start(hub.Endpoint);
             var transport = hub.NewClient(); using var client = new NetworkClient(transport); client.Connect(hub.Endpoint);
             int messages = 0; client.MessageReceived += _ => messages++;
-            var state = Packet(4, w => { w.Write((ulong)1); w.Write((uint)9); w.Write((uint)9); w.Write((ushort)0); });
+            var state = Packet(4, w => { w.Write((ulong)1); w.Write((uint)9); w.Write((uint)9); w.Write((uint)1); w.Write((ushort)0); });
             var custom = Packet(6, w => { w.Write((ushort)7); w.Write((ushort)0); });
             transport.Incoming.Enqueue(new TransportEvent(TransportEventType.Data, 0, Frame(state, DeliveryMode.UnreliableSequenced, 1), DeliveryMode.UnreliableSequenced, 1));
             transport.Incoming.Enqueue(new TransportEvent(TransportEventType.Data, 0, Frame(custom, DeliveryMode.ReliableOrdered, 3), DeliveryMode.ReliableOrdered, 3));
@@ -246,12 +246,12 @@ namespace SocketJack.Multiplayer.Tests
         }
 
         private static byte[] Packet(byte kind, Action<BinaryWriter> fields)
-        { using var stream = new MemoryStream(); using var writer = new BinaryWriter(stream); writer.Write((byte)2); writer.Write(kind); fields(writer); return stream.ToArray(); }
+        { using var stream = new MemoryStream(); using var writer = new BinaryWriter(stream); writer.Write((byte)3); writer.Write(kind); fields(writer); return stream.ToArray(); }
         private static byte[] Frame(byte[] payload, DeliveryMode mode, byte channel)
         {
             using var stream = new MemoryStream(); using var writer = new BinaryWriter(stream);
             writer.Write((uint)0x464f4a53); writer.Write((byte)1); writer.Write((byte)mode); writer.Write(channel); writer.Write((byte)0);
-            writer.Write((ulong)900000); writer.Write(mode == DeliveryMode.ReliableOrdered ? (uint)1 : (uint)900000);
+            writer.Write((ulong)900000); writer.Write(mode == DeliveryMode.ReliableOrdered ? (channel == 0 ? (uint)2 : (uint)1) : (uint)900000);
             writer.Write((ushort)0); writer.Write((ushort)1); writer.Write(payload.Length); writer.Write(payload); return stream.ToArray();
         }
         private static void Pump(NetworkServer server, NetworkClient client, int count = 4)

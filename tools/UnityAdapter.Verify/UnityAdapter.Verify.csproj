@@ -6,19 +6,25 @@
     <IsPackable>false</IsPackable>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <DefineConstants Condition="'$(IncludeEditorIntegration)' == 'true' or '$(IncludePhysicsSample)' == 'true'">$(DefineConstants);UNITY_EDITOR</DefineConstants>
+    <DefineConstants>$(DefineConstants);$(UnityVersionSymbols)</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../SocketJack.Unity/SocketJack.Unity.csproj" />
     <Compile Include="../../SocketJack.Unity/Unity/*.cs" />
-    <Reference Include="UnityEngine.CoreModule" Condition="'$(IncludePhysicsSample)' != 'true'">
+    <Compile Include="../../SocketJack.Unity/Unity/Editor/*.cs" Condition="'$(IncludeEditorIntegration)' == 'true' or '$(IncludePhysicsSample)' == 'true'" />
+    <Reference Include="UnityEngine.Physics2DModule" Condition="'$(IncludePhysicsSample)' != 'true' and '$(IncludeEditorIntegration)' != 'true'"><HintPath>$(UnityManagedPath)/UnityEngine/UnityEngine.Physics2DModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.AudioModule" Condition="'$(IncludePhysicsSample)' != 'true' and '$(IncludeEditorIntegration)' != 'true'"><HintPath>$(UnityManagedPath)/UnityEngine/UnityEngine.AudioModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.IMGUIModule" Condition="'$(IncludePhysicsSample)' != 'true' and '$(IncludeEditorIntegration)' != 'true'"><HintPath>$(UnityManagedPath)/UnityEngine/UnityEngine.IMGUIModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine" Condition="'$(IncludePhysicsSample)' != 'true' and '$(IncludeEditorIntegration)' == 'true'"><HintPath>$(UnityManagedPath)/UnityEngine.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.CoreModule" Condition="'$(IncludePhysicsSample)' != 'true' and '$(IncludeEditorIntegration)' != 'true'">
       <HintPath>$(UnityManagedPath)/UnityEngine/UnityEngine.CoreModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="UnityEngine.PhysicsModule" Condition="'$(IncludePhysicsSample)' != 'true'">
+    <Reference Include="UnityEngine.PhysicsModule" Condition="'$(IncludePhysicsSample)' != 'true' and '$(IncludeEditorIntegration)' != 'true'">
       <HintPath>$(UnityManagedPath)/UnityEngine/UnityEngine.PhysicsModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="UnityEngine.InputLegacyModule" Condition="'$(IncludePhysicsSample)' != 'true'">
+    <Reference Include="UnityEngine.InputLegacyModule" Condition="'$(IncludePhysicsSample)' != 'true' and '$(IncludeEditorIntegration)' != 'true'">
       <HintPath>$(UnityManagedPath)/UnityEngine/UnityEngine.InputLegacyModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
