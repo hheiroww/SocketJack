@@ -10,3 +10,7 @@ Before every release push, update `SocketJack/SocketJack.csproj`, `SocketJack.Wi
 Run `pwsh -File tools/Verify-ReleaseVersion.ps1` and `pwsh -File tools/Verify-ReleaseVersion.ps1 -Project SocketJack.Windows/SocketJack.WPF.csproj -PackageId SocketJack.WPF` before packaging. The publishing workflow runs both checks and fails when a version has the wrong date or is already published. Confirm both packages are downloadable from NuGet after the workflow finishes; a successful build alone does not establish publication.
 
 Both libraries use the same release version. After packing, run `pwsh -File tools/Get-ReleasePackages.ps1` to verify the two-package allowlist, package identities, repository links, and package contents. The workflow publishes these exact packages to NuGet and GitHub Packages, then creates the matching `v<version>` GitHub Release at the built commit with both `.nupkg` assets and `SHA256SUMS`. Confirm the release assets and both registry versions after publication.
+
+## Paid Unity asset
+
+Keep the paid SocketJack Unity product and all its modules in the private product repository. Distribute the product through the Unity Asset Store. Exclude its source and packages from public branches, tags, release archives, Actions artifacts, and package registries. `pwsh -File tools/Verify-PublicReleaseSource.ps1` checks the current commit for the known paid Unity paths before public packaging.

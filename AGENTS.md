@@ -11,6 +11,7 @@
 ## Public library boundary
 
 - This repository contains the public SocketJack networking library. Portal, SocketJack.com, browser sign-in, mail/webmail, deployment settings, site integrations, and other private application source belong in the separately verified private application repository.
+- SocketJack Unity is a paid Asset Store product. Keep its source, samples, store assets, and packages in the verified private product repository and approved Unity Asset Store distribution. Never push them to this public repository or publish them to GitHub Releases, Actions artifacts, GitHub Packages, NuGet.org, or another public feed. The legacy Unity helper already in this repository must remain non-packable.
 - Use an audited publication checkout or an explicit source allowlist when the working directory contains both library and private application files. Never copy private application files into this repository or its package artifacts.
 - Coordinate shared-file ownership and serialize Git mutations with the other active project chats. Preserve unrelated staged changes and unfinished work.
 - Source-only policy/documentation checkpoints do not require a binary release. Use `[skip ci]` for a policy-only commit when the branch workflow would otherwise publish a package. Actual releases must follow the date-code version rule in CONTRIBUTING.md.

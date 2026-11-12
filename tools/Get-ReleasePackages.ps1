@@ -45,7 +45,13 @@ $verified = foreach ($spec in $projects) {
         if ($env:GITHUB_SHA -and $metadata.repository.commit -cne $env:GITHUB_SHA) {
             throw "Unexpected source commit in $expectedName."
         }
+        if ($metadata.SelectNodes('.//*[local-name()="dependency"]') | Where-Object { $_.id -match '^SocketJack\.Unity(?:\.|$)' }) {
+            throw "Paid Unity package dependency in $expectedName."
+        }
         foreach ($entry in $archive.Entries) {
+            if ($entry.FullName -match 'SocketJack\.Unity(?:[./]|$)|\.unitypackage$') {
+                throw "Paid Unity content in $expectedName."
+            }
             if ($entry.FullName -match '(?i)heirowllm|workstation|\.vsix$|(^|/)(SocketJack\.Portal|SocketJack\.BrowserSignIn|Mail)(/|$)|\.(pfx|pem|key|jsonl)$') {
                 throw "Disallowed release content in $expectedName."
             }
