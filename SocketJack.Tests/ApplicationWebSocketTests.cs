@@ -71,7 +71,8 @@ public sealed class ApplicationWebSocketTests {
         var upload = Value(await Invoke(aliceClient, "media.begin",
             new { filename = "demo.html", contentType = "text/html", length = content.Length, sha256 }, cancellation));
         string mediaId = upload.GetProperty("id").GetString();
-        Assert.IsTrue(Ok(await Invoke(aliceClient, "media.append", new { id = mediaId, offset = 0, sha256, data = content }, cancellation)));
+        Assert.IsTrue(Ok(await Invoke(aliceClient, "media.appendBinary", new { id = mediaId, offset = 0, sha256, length = content.Length },
+            cancellation, content)));
         Assert.IsTrue(Ok(await Invoke(aliceClient, "media.complete", new { id = mediaId }, cancellation)));
         Assert.AreEqual("notFound", Code(await Invoke(bobClient, "media.read", new { id = mediaId, offset = 0 }, cancellation)));
         var media = Value(await Invoke(aliceClient, "media.read", new { id = mediaId, offset = 1, maximumBytes = 2 }, cancellation));
@@ -109,10 +110,12 @@ public sealed class ApplicationWebSocketTests {
         }
     }
 
-    private static async Task<JsonElement> Invoke(WebSocket socket, string operation, object input, CancellationToken cancellation) {
+    private static async Task<JsonElement> Invoke(WebSocket socket, string operation, object input, CancellationToken cancellation, byte[] binary = null) {
         string id = Guid.NewGuid().ToString("N");
         var bytes = JsonSerializer.SerializeToUtf8Bytes(new { id, operation, input }, new JsonSerializerOptions(JsonSerializerDefaults.Web));
         await socket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, cancellation);
+        if (binary != null)
+            await socket.SendAsync(new ArraySegment<byte>(binary), WebSocketMessageType.Binary, true, cancellation);
         var output = new byte[128 * 1024];
         var result = await socket.ReceiveAsync(new ArraySegment<byte>(output), cancellation);
         Assert.IsTrue(result.EndOfMessage);
