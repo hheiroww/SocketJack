@@ -1259,7 +1259,7 @@ namespace SocketJack.Net {
                 fullPath = Path.GetFullPath(fullPath);
 
                 // Security: ensure the resolved path is still within the mapped directory.
-                if (!IsPathInsideRoot(fullPath, localDir)) {
+                if (!IsPathInsideRoot(fullPath, localDir) || !IsUnlinkedPath(fullPath)) {
                     RecordEndpointSecurityFilesystemEvent(clientIp, path, "static-file", "path escaped mapped directory");
                     return false;
                 }
@@ -1284,9 +1284,9 @@ namespace SocketJack.Net {
 
                     var indexHtml = Path.Combine(fullPath, "index.html");
                     var indexHtm = Path.Combine(fullPath, "index.htm");
-                    if (File.Exists(indexHtml))
+                    if (File.Exists(indexHtml) && IsUnlinkedPath(indexHtml))
                         fullPath = indexHtml;
-                    else if (File.Exists(indexHtm))
+                    else if (File.Exists(indexHtm) && IsUnlinkedPath(indexHtm))
                         fullPath = indexHtm;
                     else {
                         // Check if directory listing is allowed.
@@ -1360,13 +1360,14 @@ namespace SocketJack.Net {
             using (var memory = new MemoryStream()) {
                 using (var archive = new ZipArchive(memory, ZipArchiveMode.Create, leaveOpen: true)) {
                     string root = Path.GetFullPath(localDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
-                    foreach (string filePath in Directory.EnumerateFiles(localDirectory, "*", SearchOption.AllDirectories)) {
+                    var enumeration = new EnumerationOptions { RecurseSubdirectories = true, AttributesToSkip = FileAttributes.ReparsePoint };
+                    foreach (string filePath in Directory.EnumerateFiles(localDirectory, "*", enumeration)) {
                         string name = Path.GetFileName(filePath);
                         if (name.Equals(".htaccess", StringComparison.OrdinalIgnoreCase))
                             continue;
 
                         string fullPath = Path.GetFullPath(filePath);
-                        if (!fullPath.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+                        if (!IsPathInsideRoot(fullPath, root) || !IsUnlinkedPath(fullPath))
                             continue;
 
                         string relative = fullPath.Substring(root.Length).Replace(Path.DirectorySeparatorChar, '/').Replace(Path.AltDirectorySeparatorChar, '/');
@@ -1434,6 +1435,7 @@ namespace SocketJack.Net {
             try {
                 // Directories first
                 foreach (var dir in Directory.GetDirectories(localDirectory)) {
+                    if (!IsUnlinkedPath(dir)) continue;
                     var name = Path.GetFileName(dir);
                     var info = new DirectoryInfo(dir);
                     var href = urlPath.TrimEnd('/') + "/" + Uri.EscapeDataString(name) + "/";
@@ -1444,7 +1446,7 @@ namespace SocketJack.Net {
                 // Files (skip .htaccess)
                 foreach (var file in Directory.GetFiles(localDirectory)) {
                     var name = Path.GetFileName(file);
-                    if (name.Equals(".htaccess", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (name.Equals(".htaccess", StringComparison.OrdinalIgnoreCase) || !IsUnlinkedPath(file)) continue;
                     var info = new FileInfo(file);
                     var href = urlPath.TrimEnd('/') + "/" + Uri.EscapeDataString(name);
                     sb.Append("<tr><td><a href=\"" + href + "\">" + System.Net.WebUtility.HtmlEncode(name) + "</a></td>");
@@ -1476,9 +1478,26 @@ namespace SocketJack.Net {
 
             string fullPath = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
             string fullRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            return fullPath.Equals(fullRoot, StringComparison.OrdinalIgnoreCase)
-                || fullPath.StartsWith(fullRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
-                || fullPath.StartsWith(fullRoot + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+            var comparison = Path.DirectorySeparatorChar == '\\' ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+            return fullPath.Equals(fullRoot, comparison)
+                || fullPath.StartsWith(fullRoot + Path.DirectorySeparatorChar, comparison)
+                || fullPath.StartsWith(fullRoot + Path.AltDirectorySeparatorChar, comparison);
+        }
+
+        private static bool IsUnlinkedPath(string path) {
+            for (string part = path; part != null; part = Path.GetDirectoryName(part)) {
+                try {
+                    if ((File.GetAttributes(part) & FileAttributes.ReparsePoint) != 0) return false;
+                } catch (FileNotFoundException) {
+                    // Continue checking existing ancestors of an unmapped path.
+                } catch (DirectoryNotFoundException) {
+                } catch (IOException) {
+                    return false;
+                } catch (UnauthorizedAccessException) {
+                    return false;
+                }
+            }
+            return true;
         }
 
         private bool TryResolveFileMapping(string method, string path, out byte[] fileBytes, out string sourceFilePath, out string contentType, out string fileName, out DateTime? lastModifiedUtc) {
@@ -2215,23 +2234,18 @@ namespace SocketJack.Net {
 
                 string fileName = SanitizeHttpAccessLogFileName(datePart) + ".log";
                 string filePath = Path.Combine(directory, fileName);
-                string pathAndQuery = request?.Path ?? "";
-                if (!string.IsNullOrEmpty(request?.QueryString))
-                    pathAndQuery += "?" + request.QueryString;
-
                 var entry = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) {
                     ["timestamp"] = DateTimeOffset.Now.ToString("O", CultureInfo.InvariantCulture),
                     ["remoteIp"] = GetRemoteIpForAccessLog(connection),
                     ["remoteEndpoint"] = GetRemoteEndpointForAccessLog(connection),
                     ["method"] = request?.Method ?? "",
-                    ["path"] = pathAndQuery,
+                    ["path"] = (request?.Path ?? "").Split('?')[0],
                     ["host"] = GetRequestHeaderForAccessLog(request, "Host"),
                     ["status"] = (context?.StatusCodeNumber ?? 0).ToString(CultureInfo.InvariantCulture),
                     ["reason"] = context?.ReasonPhrase ?? "",
                     ["responseBytes"] = Math.Max(0L, responseBytes).ToString(CultureInfo.InvariantCulture),
                     ["streamed"] = streamed ? "true" : "false",
                     ["userAgent"] = GetRequestHeaderForAccessLog(request, "User-Agent"),
-                    ["referer"] = GetRequestHeaderForAccessLog(request, "Referer"),
                     ["securityAllowed"] = securityDecision == null || securityDecision.Allowed ? "true" : "false",
                     ["securityDisabled"] = securityDecision != null && securityDecision.IsDisabled ? "true" : "false",
                     ["securityCategory"] = securityDecision?.Category ?? "",
@@ -2349,68 +2363,97 @@ namespace SocketJack.Net {
             return -1;
         }
 
-        private static long ExtractContentLength(List<byte> buffer, int hdrEnd) {
-            var headerText = Encoding.UTF8.GetString(buffer.GetRange(0, hdrEnd).ToArray());
-            foreach (var line in headerText.Split(new[] { "\r\n" }, StringSplitOptions.None)) {
-                if (line.StartsWith("Content-Length:", StringComparison.OrdinalIgnoreCase)) {
-                    if (long.TryParse(line.Substring(15).Trim(), out long cl))
-                        return cl;
+        private const int MaximumRequestHeaders = 32 * 1024;
+        private const long MaximumBufferedRequestBody = 64L * 1024 * 1024;
+
+        private static bool TryReadRequestFraming(string headerText, out long length, out bool chunked) {
+            length = -1;
+            chunked = false;
+            foreach (string line in headerText.Split(new[] { "\r\n" }, StringSplitOptions.None).Skip(1)) {
+                if (line.Length == 0) break;
+                int colon = line.IndexOf(':');
+                if (colon <= 0 || line.Substring(0, colon).Any(c => !IsHeaderToken(c)))
+                    return false;
+                string name = line.Substring(0, colon);
+                string value = line.Substring(colon + 1).Trim(' ', '\t');
+                if (value.Any(c => c < ' ' && c != '\t' || c == '\u007f')) return false;
+                if (name.Equals("Content-Length", StringComparison.OrdinalIgnoreCase)) {
+                    if (length >= 0 || chunked || !long.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out length))
+                        return false;
+                } else if (name.Equals("Transfer-Encoding", StringComparison.OrdinalIgnoreCase)) {
+                    if (chunked || length >= 0 || !value.Equals("chunked", StringComparison.OrdinalIgnoreCase))
+                        return false;
+                    chunked = true;
                 }
             }
-            return -1;
+            return true;
         }
 
-        private static bool IsChunkedTransfer(List<byte> buffer, int hdrEnd) {
-            var headerText = Encoding.UTF8.GetString(buffer.GetRange(0, hdrEnd).ToArray());
-            foreach (var line in headerText.Split(new[] { "\r\n" }, StringSplitOptions.None)) {
-                if (line.StartsWith("Transfer-Encoding:", StringComparison.OrdinalIgnoreCase)
-                    && line.IndexOf("chunked", StringComparison.OrdinalIgnoreCase) >= 0)
-                    return true;
-            }
-            return false;
-        }
+        private static bool IsHeaderToken(char c) =>
+            c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || "!#$%&'*+-.^`_|~".IndexOf(c) >= 0;
 
-        private static bool IsChunkedBodyComplete(List<byte> buffer, int bodyStart) {
+        private static int ChunkedBodyEnd(IList<byte> buffer, int bodyStart, long limit, Stream decoded = null) {
             int pos = bodyStart;
+            long total = 0;
             while (true) {
                 int lineEnd = FindCrlf(buffer, pos);
                 if (lineEnd < 0)
-                    return false;
+                    return buffer.Count - pos > 1024 ? -2 : -1;
+                if (lineEnd - pos > 1024) return -2;
 
-                string sizeLine = Encoding.ASCII.GetString(buffer.GetRange(pos, lineEnd - pos).ToArray());
+                var sizeBytes = new byte[lineEnd - pos];
+                for (int i = 0; i < sizeBytes.Length; i++) sizeBytes[i] = buffer[pos + i];
+                string sizeLine = Encoding.ASCII.GetString(sizeBytes);
                 int extensionIndex = sizeLine.IndexOf(';');
                 if (extensionIndex >= 0)
                     sizeLine = sizeLine.Substring(0, extensionIndex);
-                if (!int.TryParse(sizeLine.Trim(), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out int chunkSize))
-                    return false;
+                if (!int.TryParse(sizeLine, NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out int chunkSize) || chunkSize < 0)
+                    return -2;
+                total += chunkSize;
+                if (total > limit) return -3;
 
                 pos = lineEnd + 2;
                 if (chunkSize == 0) {
+                    int trailerStart = pos;
                     while (true) {
                         int trailerEnd = FindCrlf(buffer, pos);
                         if (trailerEnd < 0)
-                            return false;
+                            return buffer.Count - trailerStart > MaximumRequestHeaders ? -2 : -1;
+                        if (trailerEnd - trailerStart > MaximumRequestHeaders) return -2;
                         if (trailerEnd == pos)
-                            return true;
+                            return pos + 2;
                         pos = trailerEnd + 2;
                     }
                 }
 
-                if (buffer.Count < pos + chunkSize + 2)
-                    return false;
+                if ((long)buffer.Count < (long)pos + chunkSize + 2)
+                    return -1;
+                if (decoded != null && buffer is byte[] bytes) decoded.Write(bytes, pos, chunkSize);
                 pos += chunkSize;
                 if (buffer[pos] != (byte)'\r' || buffer[pos + 1] != (byte)'\n')
-                    return false;
+                    return -2;
                 pos += 2;
             }
         }
 
-        private static int FindCrlf(List<byte> buffer, int start) {
+        private static int FindCrlf(IList<byte> buffer, int start) {
             for (int i = Math.Max(0, start); i < buffer.Count - 1; i++) {
                 if (buffer[i] == (byte)'\r' && buffer[i + 1] == (byte)'\n')
                     return i;
             }
             return -1;
+        }
+
+        private void RejectRequest(NetworkConnection connection, List<byte> buffer, string status) {
+            buffer.Clear();
+            _requestBuffers.TryRemove(connection.ID, out _);
+            try {
+                var reply = Encoding.ASCII.GetBytes("HTTP/1.1 " + status + "\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+                connection.Stream.Write(reply, 0, reply.Length);
+                connection.Stream.Flush();
+            } finally {
+                CloseConnection(connection, DisconnectionReason.LocalSocketClosed);
+            }
         }
         private bool IsUploadStreamRoute(List<byte> buffer, int hdrEnd) {
             if (_uploadStreamRoutes.Count == 0) return false;
@@ -3071,9 +3114,8 @@ namespace SocketJack.Net {
                 // If this connection has an active upload-stream handler, forward raw data to it.
                 if (_activeUploadConnections.TryGetValue(e.Connection.ID, out var activeUpload)) {
                     var uploadBytes = TryGetRequestBytes(e.Obj);
-                    if (uploadBytes != null && uploadBytes.Length > 0) {
-                        activeUpload.Enqueue(uploadBytes);
-                    }
+                    if (uploadBytes != null && uploadBytes.Length > 0 && !activeUpload.Enqueue(uploadBytes))
+                        CloseConnection(e.Connection, DisconnectionReason.LocalSocketClosed);
                     return;
                 }
 
@@ -3140,27 +3182,37 @@ namespace SocketJack.Net {
 
                     // Wait until complete HTTP headers have arrived (\r\n\r\n).
                     int hdrEnd = FindHeaderEnd(buffer);
-                    if (hdrEnd == -1)
+                    if (hdrEnd == -1 && buffer.Count <= MaximumRequestHeaders) return;
+                    if (hdrEnd == -1 || hdrEnd > MaximumRequestHeaders) {
+                        RejectRequest(e.Connection, buffer, "431 Request Header Fields Too Large");
                         return;
+                    }
 
                     // If Content-Length is present, wait for the full body unless
                     // an upload-stream route matches (those start processing with
                     // partial body data and receive the rest incrementally).
-                    contentLength = ExtractContentLength(buffer, hdrEnd);
-                    string transferLine = Encoding.ASCII.GetString(buffer.Take(Math.Min(hdrEnd, 8192)).ToArray()).Split('\r')[0];
+                    string headerText = Encoding.UTF8.GetString(buffer.GetRange(0, hdrEnd).ToArray());
+                    if (!TryReadRequestFraming(headerText, out contentLength, out bool chunked)) {
+                        RejectRequest(e.Connection, buffer, "400 Bad Request");
+                        return;
+                    }
+                    string transferLine = headerText.Split('\r')[0];
                     string[] transferParts = transferLine.Split(' ');
                     long transferLimit = transferParts.Length >= 2 ? TransferBodyLimit(transferParts[0], transferParts[1]) : long.MaxValue;
-                    if (contentLength > transferLimit || transferLimit != long.MaxValue && buffer.Count - hdrEnd > transferLimit + 65536) {
-                        var rejected = Encoding.ASCII.GetBytes("HTTP/1.1 413 Content Too Large\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
-                        e.Connection.Stream.Write(rejected, 0, rejected.Length); e.Connection.Stream.Flush();
-                        buffer.Clear(); _requestBuffers.TryRemove(e.Connection.ID, out _); e.Connection.Dispose(); return;
-                    }
                     bool isUploadStreamRoute = IsUploadStreamRoute(buffer, hdrEnd);
-                    if (contentLength > 0 && buffer.Count < hdrEnd + contentLength) {
-                        if (!isUploadStreamRoute)
-                            return;
-                    } else if (contentLength <= 0 && IsChunkedTransfer(buffer, hdrEnd) && !isUploadStreamRoute && !IsChunkedBodyComplete(buffer, hdrEnd)) {
+                    long limit = isUploadStreamRoute && !chunked ? transferLimit : Math.Min(transferLimit, MaximumBufferedRequestBody);
+                    if (contentLength > limit || limit != long.MaxValue && buffer.Count - hdrEnd > limit + MaximumRequestHeaders) {
+                        RejectRequest(e.Connection, buffer, "413 Content Too Large");
                         return;
+                    }
+                    if (!isUploadStreamRoute || chunked) {
+                        if (contentLength > 0 && buffer.Count < hdrEnd + contentLength) return;
+                        int end = chunked ? ChunkedBodyEnd(buffer, hdrEnd, limit) : hdrEnd + (int)Math.Max(0, contentLength);
+                        if (end == -1) return;
+                        if (end < 0 || end != buffer.Count) {
+                            RejectRequest(e.Connection, buffer, end == -3 ? "413 Content Too Large" : "400 Bad Request");
+                            return;
+                        }
                     }
 
                     rawRequestBytes = buffer.ToArray();
@@ -3171,7 +3223,7 @@ namespace SocketJack.Net {
                 // Track HTTP received bytes at the server level
                 Interlocked.Add(ref _httpTotalBytesReceived, rawRequestBytes.Length);
 
-                var request = ParseHttpRequest(rawRequestBytes);
+                var request = ParseHttpRequest(rawRequestBytes, allowPartial: true);
                 var context = new HttpContext {
                     Request = request,
                     // Use the connection that produced the request (from event args)
@@ -3255,8 +3307,9 @@ namespace SocketJack.Net {
                         _activeUploadConnections.TryAdd(e.Connection.ID, upload);
 
                         // Queue initial body data if present in the first read
-                        if (request.BodyBytes != null && request.BodyBytes.Length > 0) {
-                            upload.Enqueue(request.BodyBytes);
+                        if (request.BodyBytes != null && request.BodyBytes.Length > 0 && !upload.Enqueue(request.BodyBytes)) {
+                            CloseConnection(e.Connection, DisconnectionReason.LocalSocketClosed);
+                            return;
                         }
 
                         // If the full body was already received in the initial request,
@@ -3835,7 +3888,9 @@ CloseHttpConnection:
         /// </summary>
         /// <param name="rawRequest">The raw HTTP request string.</param>
         /// <returns>HttpRequest object with parsed data.</returns>
-        public static HttpRequest ParseHttpRequest(byte[] rawRequestBytes) {
+        public static HttpRequest ParseHttpRequest(byte[] rawRequestBytes) => ParseHttpRequest(rawRequestBytes, allowPartial: false);
+
+        private static HttpRequest ParseHttpRequest(byte[] rawRequestBytes, bool allowPartial) {
             if (rawRequestBytes == null || rawRequestBytes.Length == 0)
                 throw new ArgumentException("Request is empty", nameof(rawRequestBytes));
 
@@ -3852,9 +3907,13 @@ CloseHttpConnection:
             if (hdrEnd == -1)
                 hdrEnd = rawRequestBytes.Length; // assume all headers if no body
 
+            if (hdrEnd > MaximumRequestHeaders)
+                throw new InvalidDataException("HTTP request headers exceed the limit.");
             var headerBytes = new byte[hdrEnd];
             Array.Copy(rawRequestBytes, 0, headerBytes, 0, hdrEnd);
             string headerText = Encoding.UTF8.GetString(headerBytes);
+            if (!TryReadRequestFraming(headerText, out long contentLength, out bool chunked))
+                throw new InvalidDataException("Invalid HTTP request framing.");
 
             using (var reader = new StringReader(headerText)) {
                 var request = new HttpRequest();
@@ -3900,47 +3959,29 @@ CloseHttpConnection:
                 int bodyStart = hdrEnd;
                 byte[] body = null;
 
-                if (request.Headers.TryGetValue("Content-Length", out var clVal) && long.TryParse(clVal, out var cl) && cl > 0) {
+                if (contentLength >= 0) {
                     var remaining = rawRequestBytes.Length - bodyStart;
-                    var toCopy = (int)Math.Min(cl, remaining);
+                    if ((!allowPartial && contentLength != remaining) || (allowPartial && remaining > contentLength))
+                        throw new InvalidDataException("HTTP body length does not match its framing.");
+                    var toCopy = (int)Math.Min(contentLength, remaining);
                     body = new byte[toCopy];
                     Array.Copy(rawRequestBytes, bodyStart, body, 0, toCopy);
-                } else if (request.Headers.TryGetValue("Transfer-Encoding", out var te) && te?.ToLowerInvariant().Contains("chunked") == true) {
-                    // parse chunked body
+                } else if (chunked) {
                     using (var ms = new MemoryStream()) {
-                        int pos = bodyStart;
-                        while (pos < rawRequestBytes.Length) {
-                            // read chunk size line
-                            int lineEnd = -1;
-                            for (int i = pos; i < rawRequestBytes.Length - 1; i++) {
-                                if (rawRequestBytes[i] == (byte)'\r' && rawRequestBytes[i + 1] == (byte)'\n') {
-                                    lineEnd = i;
-                                    break;
-                                }
-                            }
-                            if (lineEnd == -1) break;
-                            var sizeLine = Encoding.UTF8.GetString(rawRequestBytes, pos, lineEnd - pos);
-                            pos = lineEnd + 2;
-                            if (!int.TryParse(sizeLine.Split(';')[0].Trim(), System.Globalization.NumberStyles.HexNumber, null, out int chunkSize)) break;
-                            if (chunkSize == 0) {
-                                // consume trailing CRLF
-                                break;
-                            }
-                            if (pos + chunkSize > rawRequestBytes.Length) chunkSize = rawRequestBytes.Length - pos;
-                            ms.Write(rawRequestBytes, pos, chunkSize);
-                            pos += chunkSize;
-                            // consume CRLF
-                            if (pos + 1 < rawRequestBytes.Length && rawRequestBytes[pos] == (byte)'\r' && rawRequestBytes[pos + 1] == (byte)'\n') pos += 2;
-                        }
+                        int end = ChunkedBodyEnd(rawRequestBytes, bodyStart, MaximumBufferedRequestBody, ms);
+                        if (end != rawRequestBytes.Length && (!allowPartial || end != -1))
+                            throw new InvalidDataException("Invalid chunked HTTP request body.");
                         body = ms.ToArray();
                     }
-                } else if (bodyStart < rawRequestBytes.Length) {
+                } else if (allowPartial && bodyStart < rawRequestBytes.Length) {
                     // No Content-Length or Transfer-Encoding; capture any remaining bytes
                     // as the body. This covers streaming uploads (e.g., OBS MPEG-TS over POST)
                     // where only partial data is available in the initial network read.
                     var remaining = rawRequestBytes.Length - bodyStart;
                     body = new byte[remaining];
                     Array.Copy(rawRequestBytes, bodyStart, body, 0, remaining);
+                } else if (bodyStart < rawRequestBytes.Length) {
+                    throw new InvalidDataException("Unexpected bytes after the HTTP headers.");
                 }
 
                 request.SetBody(body);
@@ -4600,6 +4641,7 @@ CloseHttpConnection:
         private readonly object _stateLock = new object();
         private readonly long _expectedLength;
         private long _receivedLength;
+        private long _queuedLength;
         private volatile bool _completed;
 
         internal UploadStream(NetworkConnection connection, long expectedLength = 0) {
@@ -4610,32 +4652,30 @@ CloseHttpConnection:
         /// <summary>
         /// Enqueues a chunk of raw data received from the network.
         /// </summary>
-        internal void Enqueue(byte[] data) {
-            if (data == null || data.Length == 0) return;
-
-            byte[] queuedData = data;
+        internal bool Enqueue(byte[] data) {
+            if (data == null || data.Length == 0) return true;
             lock (_stateLock) {
-                if (_completed) return;
-
-                if (_expectedLength > 0) {
-                    long remaining = _expectedLength - _receivedLength;
-                    if (remaining <= 0) {
-                        _completed = true;
-                        return;
-                    }
-                    if (queuedData.LongLength > remaining) {
-                        var trimmed = new byte[(int)remaining];
-                        Buffer.BlockCopy(queuedData, 0, trimmed, 0, trimmed.Length);
-                        queuedData = trimmed;
-                    }
+                if (_completed || _queuedLength + data.LongLength > 8L * 1024 * 1024 ||
+                    _expectedLength > 0 && data.LongLength > _expectedLength - _receivedLength) {
+                    Complete();
+                    return false;
                 }
-
-                _queue.Enqueue(queuedData);
-                _receivedLength += queuedData.LongLength;
+                _queue.Enqueue(data);
+                _receivedLength += data.LongLength;
+                _queuedLength += data.LongLength;
                 if (_expectedLength > 0 && _receivedLength >= _expectedLength)
                     _completed = true;
             }
             try { _signal.Release(); } catch (ObjectDisposedException) { }
+            return true;
+        }
+
+        private bool TryTake(out byte[] data) {
+            lock (_stateLock) {
+                if (!_queue.TryDequeue(out data)) return false;
+                _queuedLength -= data.LongLength;
+                return true;
+            }
         }
 
         /// <summary>
@@ -4672,7 +4712,7 @@ CloseHttpConnection:
         /// </summary>
         public async Task<byte[]> ReadAsync(CancellationToken ct = default) {
             while (true) {
-                if (_queue.TryDequeue(out var data)) return data;
+                if (TryTake(out var data)) return data;
                 if (_completed || _connection.Closed) return null;
                 try {
                     // Use timeout to periodically check connection state
@@ -4690,10 +4730,10 @@ CloseHttpConnection:
         /// </summary>
         public bool TryRead(out byte[] data, int timeoutMs = 100) {
             data = null;
-            if (_queue.TryDequeue(out data)) return true;
+            if (TryTake(out data)) return true;
             if (_completed || _connection.Closed) return false;
             if (_signal.Wait(timeoutMs)) {
-                return _queue.TryDequeue(out data);
+                return TryTake(out data);
             }
             return false;
         }

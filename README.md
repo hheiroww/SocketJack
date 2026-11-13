@@ -204,6 +204,12 @@ The convenience async methods wrap synchronous work with `Task.Run`; they are no
 
 `HttpServer.GenerateTypeScriptClient()` emits a dependency-free TypeScript client from the server's currently mapped routes. Typed request bodies become TypeScript aliases, path variables become required inputs, and resolvable whitelisted message classes can be emitted as interfaces for WebSocket use.
 
+For a browser application that needs user records and binary media on the same WebSocket, mount an opt-in `ApplicationWebSocket`. The host supplies the account validator or its existing verified session, the exact browser origin, and a private storage directory for each application. Register typed operations and collections, then serve the generated module, declarations, and manifest alongside the frontend. The [browser demo](WebSocketTestApplication/Program.cs) shows the host integration and is intended for loopback testing.
+
+The application client resumes a live session in memory after reconnect and leaves ambiguous mutations for the caller to reconcile. Media can resume at its acknowledged offset. Configure REST and WebSocket connectors on the server with fixed endpoints and explicit per-user authorization. Site route revisions may bind a registered operation, or call a separately provisioned script worker through `IApplicationScriptWorker`.
+
+Use `LanServiceDiscovery.Advertise` and `BrowseAsync` to discover local endpoints, then establish a regular SocketJack connection. Enable `UdpReliable.EnableChannels` at both endpoints to send typed ordered, unordered, or latest-value messages through `SendChannelAsync` and `SendToChannelAsync`. Ordered messages share the session's ordered lane. Latest-value delivery drops older arrivals for that channel. Existing sends use the original lane.
+
 ```csharp
 using System.IO;
 using SocketJack.Net;

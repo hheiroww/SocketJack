@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Threading.Tasks;
+using System.Threading;
 using Mono.Nat;
 
 namespace SocketJack.Net {
@@ -147,9 +148,17 @@ namespace SocketJack.Net {
         /// </summary>
         /// <returns></returns>
         public static IPAddress LocalIP() {
-            var u = new System.Net.Sockets.UdpClient("209.159.154.138", 1);
-            var localAddr = ((IPEndPoint)u.Client.LocalEndPoint).Address;
-            return localAddr;
+            foreach (var adapter in NetworkInterface.GetAllNetworkInterfaces()) {
+                if (adapter.OperationalStatus != OperationalStatus.Up || adapter.NetworkInterfaceType == NetworkInterfaceType.Loopback)
+                    continue;
+                var properties = adapter.GetIPProperties();
+                if (properties.GatewayAddresses.Count == 0) continue;
+                foreach (var address in properties.UnicastAddresses) {
+                    if (address.Address.AddressFamily == AddressFamily.InterNetwork && !IPAddress.IsLoopback(address.Address))
+                        return address.Address;
+                }
+            }
+            return IPAddress.Loopback;
         }
 
         /// <summary>
@@ -176,24 +185,7 @@ namespace SocketJack.Net {
             }
 
             if (isAvailable && ForwardPortIfAvailable && InterfaceDiscovered && _NAT != null) {
-                bool PortForwarded = false;
-                try {
-                    var portMapTask = NAT.CreatePortMapAsync(new Mapping(Protocol.Tcp, port, port));
-                    var timeoutTask = Task.Delay(TimeSpan.FromSeconds(5));
-                    var completedTask = await Task.WhenAny(portMapTask, timeoutTask);
-                    if (completedTask == portMapTask) {
-                        await portMapTask; 
-                        PortForwarded = true;
-                    } else {
-                        PortForwarded = false;
-                    }
-                    await NAT.CreatePortMapAsync(new Mapping(Protocol.Tcp, port, port));
-                    //NAT.CreatePortMap();
-                    PortForwarded = true;
-                } catch (Exception ex) {
-                    OnError?.Invoke(ex);
-                }
-                return isAvailable && PortForwarded;
+                return await ForwardPort(port).ConfigureAwait(false);
             } else {
                 return isAvailable;
             }
@@ -207,27 +199,32 @@ namespace SocketJack.Net {
         /// <param name="ForwardPortIfAvailable"></param>
         /// <returns></returns>
         public static async Task<bool> ForwardPort(int port) {
-            if (InterfaceDiscovered && _NAT != null) {
-                bool PortForwarded = false;
-                try {
-                    var portMapTask = NAT.CreatePortMapAsync(new Mapping(Protocol.Tcp, port, port));
-                    var timeoutTask = Task.Delay(TimeSpan.FromSeconds(5));
-                    var completedTask = await Task.WhenAny(portMapTask, timeoutTask);
-                    if (completedTask == portMapTask) {
-                        await portMapTask;
-                        PortForwarded = true;
-                    } else {
-                        PortForwarded = false;
-                    }
-                    await NAT.CreatePortMapAsync(new Mapping(Protocol.Tcp, port, port));
-                    //NAT.CreatePortMap();
-                    PortForwarded = true;
-                } catch (Exception ex) {
-                    OnError?.Invoke(ex);
-                }
-                return PortForwarded;
-            } else {
+            var device = NAT;
+            if (!InterfaceDiscovered || device == null || port < 1 || port > 65535)
                 return false;
+            var mapping = new Mapping(Protocol.Tcp, port, port, 1800, "SocketJack");
+            try {
+                var create = device.CreatePortMapAsync(mapping);
+                using var stopDelay = new CancellationTokenSource();
+                if (await Task.WhenAny(create, Task.Delay(TimeSpan.FromSeconds(5), stopDelay.Token)).ConfigureAwait(false) != create) {
+                    _ = RevokeLateMappingAsync(device, mapping, create);
+                    return false;
+                }
+                stopDelay.Cancel();
+                await create.ConfigureAwait(false);
+                return true;
+            } catch (Exception ex) {
+                OnError?.Invoke(ex);
+                return false;
+            }
+        }
+
+        private static async Task RevokeLateMappingAsync(INatDevice device, Mapping mapping, Task create) {
+            try {
+                await create.ConfigureAwait(false);
+                await device.DeletePortMapAsync(mapping).ConfigureAwait(false);
+            } catch (Exception ex) {
+                OnError?.Invoke(ex);
             }
         }
 
@@ -262,10 +259,15 @@ namespace SocketJack.Net {
         /// <param name="ForwardPortIfAvailable"></param>
         /// <returns></returns>
         public static async Task<long> FindOpenPort(int PortLowerBound, int PortUpperBound, bool ForwardPortIfAvailable = false) {
-            int Port = RandomNumber(PortLowerBound, PortUpperBound);
-            while (!await PortAvailable(Port, ForwardPortIfAvailable))
-                Port = RandomNumber(PortLowerBound, PortUpperBound);
-            return Port;
+            if (PortLowerBound < 1 || PortUpperBound > 65536 || PortUpperBound <= PortLowerBound)
+                throw new ArgumentOutOfRangeException(nameof(PortLowerBound));
+            int count = PortUpperBound - PortLowerBound;
+            int start = RandomNumber(0, count);
+            for (int offset = 0; offset < count; offset++) {
+                int port = PortLowerBound + (start + offset) % count;
+                if (await PortAvailable(port, ForwardPortIfAvailable).ConfigureAwait(false)) return port;
+            }
+            throw new InvalidOperationException("No port in the requested range is available.");
         }
 
         protected internal static async void Initialize() {

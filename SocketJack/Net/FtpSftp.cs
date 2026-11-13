@@ -996,6 +996,8 @@ namespace SocketJack.Net {
         public string Password { get; set; }
         public string PrivateKeyPath { get; set; }
         public string PrivateKeyPassphrase { get; set; }
+        /// <summary>Expected OpenSSH SHA256 host key fingerprint, obtained from a trusted source.</summary>
+        public string HostKeySha256 { get; set; }
         public TimeSpan Timeout { get; set; } = TimeSpan.FromSeconds(30);
     }
 
@@ -1006,6 +1008,12 @@ namespace SocketJack.Net {
 
         public void Connect(SftpClientOptions options) {
             if (options == null) throw new ArgumentNullException(nameof(options));
+            string pin = options.HostKeySha256;
+            if (pin == null || !pin.StartsWith("SHA256:", StringComparison.Ordinal) || pin.Length != 50)
+                throw new ArgumentException("An OpenSSH SHA256 host key fingerprint is required.", nameof(options));
+            byte[] expected;
+            try { expected = Convert.FromBase64String(pin.Substring(7) + "="); }
+            catch (FormatException) { throw new ArgumentException("Invalid host key fingerprint.", nameof(options)); }
             var methods = new List<AuthenticationMethod>();
             if (!string.IsNullOrEmpty(options.Password))
                 methods.Add(new PasswordAuthenticationMethod(options.UserName, options.Password));
@@ -1016,8 +1024,15 @@ namespace SocketJack.Net {
                 methods.Add(new PrivateKeyAuthenticationMethod(options.UserName, key));
             }
             var info = new ConnectionInfo(options.Host, options.Port, options.UserName, methods.ToArray()) { Timeout = options.Timeout };
-            _client = new Renci.SshNet.SftpClient(info);
-            _client.Connect();
+            var candidate = new Renci.SshNet.SftpClient(info);
+            candidate.HostKeyReceived += (_, e) => {
+                using var hash = System.Security.Cryptography.SHA256.Create();
+                e.CanTrust = System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(expected, hash.ComputeHash(e.HostKey));
+            };
+            try { candidate.Connect(); }
+            catch { candidate.Dispose(); throw; }
+            _client?.Dispose();
+            _client = candidate;
         }
 
         public Task ConnectAsync(SftpClientOptions options, CancellationToken cancellationToken = default) {

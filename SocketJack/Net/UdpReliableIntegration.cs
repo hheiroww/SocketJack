@@ -25,10 +25,11 @@ namespace SocketJack.Net {
                 }
             }
         }
-        internal static Task Send(UdpReliablePeer peer, UdpConnection connection, ISocket parent, object value, bool wait, CancellationToken token) {
+        internal static Task Send(UdpReliablePeer peer, UdpConnection connection, ISocket parent, object value, bool wait, CancellationToken token,
+            byte kind = 0, bool? deliveryIndependent = null) {
             if (peer == null || peer.IsClosed) return Task.FromException(new IOException("UDP_Reliable is not connected."));
             byte[] serialized = null;
-            bool independent = !parent.Options.UdpReliable.Ordering;
+            bool independent = deliveryIndependent ?? !parent.Options.UdpReliable.Ordering;
             // Identity, metadata and routing updates always use the ordered lane.
             if (value != null && value.GetType().Namespace == "SocketJack.Net.P2P") independent = false;
             // Dictionary synchronization must not overtake the ordered handshake reply.
@@ -37,17 +38,36 @@ namespace SocketJack.Net {
                 NetworkConnection networkConnection = parent is UdpServer server
                     ? server.CompressionConnection(connection.EndPoint) : parent.Connection;
                 byte[] bytes = BinaryNetworkCompression.Encode(parent, networkConnection, serialized);
-                if (parent.Options.UdpReliable.Ordering && !(parent.Options.Serializer is BinarySerializer))
+                if (kind == 0 && parent.Options.UdpReliable.Ordering && !(parent.Options.Serializer is BinarySerializer))
                     bytes = connection.PatternCache.PrepareSend(bytes, parent.Options, candidate => {
                         if (candidate.Length > parent.Options.MaximumBufferSize || candidate.Length > serialized.Length + 64) return false;
                         int encodedLength = parent.Options.UseCompression ? parent.Options.CompressionAlgorithm.Compress(candidate).Length : candidate.Length;
                         return encodedLength <= encodedLimit;
                     });
                 return parent.Options.UseCompression ? parent.Options.CompressionAlgorithm.Compress(bytes) : bytes;
-            }, 0, 0, independent, wait, token, () => {
+            }, 0, kind, independent, wait, token, () => {
                 serialized = parent.Options.Serializer.Serialize(new Wrapper(value, parent));
                 return serialized.Length;
             });
+        }
+
+        internal static async Task SendChannel(UdpReliablePeer peer, UdpConnection connection, ISocket parent,
+            object value, int channel, UdpChannelDelivery delivery, CancellationToken cancellation) {
+            if (channel < 0 || channel >= 8 || !Enum.IsDefined(typeof(UdpChannelDelivery), delivery))
+                throw new ArgumentOutOfRangeException(nameof(channel));
+            if (value is BinaryCompressionControl || value?.GetType().Namespace == "SocketJack.Net.P2P")
+                throw new NotSupportedException("Protocol messages use the default lane.");
+            if (peer == null || peer.IsClosed || !parent.Options.UdpReliable.EnableChannels)
+                throw new NotSupportedException("Channels require a connected, channel-enabled reliable UDP session.");
+            using var wait = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
+            var timeout = Task.Delay(TimeSpan.FromSeconds(3), wait.Token);
+            if (await Task.WhenAny(peer.ChannelsReady.Task, timeout).ConfigureAwait(false) != peer.ChannelsReady.Task) {
+                cancellation.ThrowIfCancellationRequested();
+                throw new NotSupportedException("The peer did not negotiate reliable UDP channels.");
+            }
+            wait.Cancel();
+            await Send(peer, connection, parent, value, true, cancellation, (byte)(2 + channel * 3 + (int)delivery),
+                delivery != UdpChannelDelivery.Ordered).ConfigureAwait(false);
         }
     }
     public partial class UdpClient {
@@ -58,6 +78,12 @@ namespace SocketJack.Net {
         public Task SendAsync(object value, CancellationToken cancellationToken = default) {
             if (Options.UdpMode != UdpMode.UDP_Reliable) throw new InvalidOperationException("SendAsync acknowledgments require UDP_Reliable.");
             return SendReliable(value, true, cancellationToken);
+        }
+        /// <summary>Sends a typed message on a negotiated channel.</summary>
+        public Task SendChannelAsync(object value, int channel, UdpChannelDelivery delivery, CancellationToken cancellationToken = default) {
+            if (Connection != null && !Connection.CanSend(value))
+                return Task.FromException(new NotSupportedException("The peer does not support this message."));
+            return UdpReliableObjects.SendChannel(ReliablePeer, UdpConn, this, value, channel, delivery, cancellationToken);
         }
         Task SendReliable(object value, bool wait, CancellationToken token) {
             if (Connection != null && !Connection.CanSend(value)) return Task.FromException(new NotSupportedException("The peer does not support this message."));
@@ -86,6 +112,12 @@ namespace SocketJack.Net {
         public Task SendToAsync(UdpConnection client, object value, CancellationToken cancellationToken = default) {
             if (Options.UdpMode != UdpMode.UDP_Reliable) throw new InvalidOperationException("SendToAsync acknowledgments require UDP_Reliable.");
             return SendReliable(client, value, true, cancellationToken);
+        }
+        /// <summary>Sends a typed message on a negotiated channel.</summary>
+        public Task SendToChannelAsync(UdpConnection client, object value, int channel, UdpChannelDelivery delivery, CancellationToken cancellationToken = default) {
+            if (client?.EndPoint != null && _clientNetworkConnections.TryGetValue(client.EndPoint.ToString(), out var target) && !target.CanSend(value))
+                return Task.FromException(new NotSupportedException("The peer does not support this message."));
+            return UdpReliableObjects.SendChannel(client?.ReliablePeer, client, this, value, channel, delivery, cancellationToken);
         }
         Task SendReliable(UdpConnection client, object value, bool wait, CancellationToken token) {
             if (client?.EndPoint != null && _clientNetworkConnections.TryGetValue(client.EndPoint.ToString(), out var target) && !target.CanSend(value))

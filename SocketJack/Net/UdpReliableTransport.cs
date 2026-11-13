@@ -211,9 +211,14 @@ namespace SocketJack.Net {
         readonly ConcurrentQueue<Incoming> deliveries = new ConcurrentQueue<Incoming>();
         readonly ConcurrentQueue<Incoming> independentDeliveries = new ConcurrentQueue<Incoming>();
         readonly ConcurrentQueue<Incoming> streamDeliveries = new ConcurrentQueue<Incoming>();
+        readonly ConcurrentQueue<Incoming> latestDeliveries = new ConcurrentQueue<Incoming>();
         readonly SemaphoreSlim independentSignal = new SemaphoreSlim(0);
         readonly SemaphoreSlim streamSignal = new SemaphoreSlim(0);
         readonly SemaphoreSlim deliverySignal = new SemaphoreSlim(0);
+        readonly SemaphoreSlim latestSignal = new SemaphoreSlim(0);
+        private const int ChannelCapability = 0x534a01;
+        private readonly ulong[] latestDelivered = new ulong[8];
+        internal readonly TaskCompletionSource<bool> ChannelsReady = NewSignal();
         readonly SemaphoreSlim admission = new SemaphoreSlim(1, 1);
         readonly CancellationTokenSource lifetime = new CancellationTokenSource();
         TaskCompletionSource<bool> capacity = NewSignal();
@@ -245,6 +250,7 @@ namespace SocketJack.Net {
             if (host.Options.Profile == UdpReliableProfile.FastLan) window = FlightLimit;
             _ = DeliverLoop(deliveries, deliverySignal);
             _ = DeliverLoop(streamDeliveries, streamSignal);
+            if (host.Options.EnableChannels) _ = DeliverLoop(latestDeliveries, latestSignal);
             for (int i = 0; i < host.Options.ReceiveWorkers; i++) _ = DeliverLoop(independentDeliveries, independentSignal);
         }
         internal void MarkReady() { window = host.Options.Profile == UdpReliableProfile.FastLan ? FlightLimit : Math.Min(window, FlightLimit); IsReady = true; Ready.TrySetResult(true); }
@@ -319,10 +325,17 @@ namespace SocketJack.Net {
                 }
                 lastReceive = now;
                 if (op == UdpReliableTransport.Op.Close && count == 0) { Fail(new IOException("Remote UDP_Reliable session closed."), false); return; }
-                if (op == UdpReliableTransport.Op.Ping && count == 0) { host.Control(this, UdpReliableTransport.Op.Pong); return; }
-                if (op == UdpReliableTransport.Op.Pong) return;
+                if (op == UdpReliableTransport.Op.Ping && count == 0) {
+                    host.Control(this, UdpReliableTransport.Op.Pong, a: a == ChannelCapability && host.Options.EnableChannels ? ChannelCapability : 0);
+                    if (a == ChannelCapability && host.Options.EnableChannels) ChannelsReady.TrySetResult(true);
+                    return;
+                }
+                if (op == UdpReliableTransport.Op.Pong) {
+                    if (count == 0 && a == ChannelCapability && host.Options.EnableChannels) ChannelsReady.TrySetResult(true);
+                    return;
+                }
                 if (op == UdpReliableTransport.Op.Inline) {
-                    if (id == 0 || (id & ~Independent) == 0 || a != count || count > Mtu - UdpReliableTransport.Header || count > MaxMessage || b < 0 || b > 1) return;
+                    if (id == 0 || (id & ~Independent) == 0 || a != count || count > Mtu - UdpReliableTransport.Header || count > MaxMessage || !ValidKind(b, id)) return;
                     if (AlreadyCompleted(id)) { host.Control(this, UdpReliableTransport.Op.Complete, id); return; }
                     ulong sequence = id & ~Independent, floor = (id & Independent) != 0 ? doneIndependent : doneOrdered;
                     if (sequence > floor + 128 || incoming.ContainsKey(id) || ((id & Independent) == 0 && id != reserveNext)) return;
@@ -333,7 +346,7 @@ namespace SocketJack.Net {
                     CompleteIncoming(small); return;
                 }
                 if (op == UdpReliableTransport.Op.Open && count == 0) {
-                    if (id == 0 || (id & ~Independent) == 0 || a < 0 || a > MaxMessage || b < 0 || b > 1) return;
+                    if (id == 0 || (id & ~Independent) == 0 || a < 0 || a > MaxMessage || !ValidKind(b, id)) return;
                     if (AlreadyCompleted(id)) { host.Control(this, UdpReliableTransport.Op.Complete, id); return; }
                     ulong sequence = id & ~Independent, floor = (id & Independent) != 0 ? doneIndependent : doneOrdered;
                     if (sequence > floor + 128) return;
@@ -406,16 +419,28 @@ namespace SocketJack.Net {
         }
         void QueueDelivery(Incoming message) {
             delivering++;
-            var queue = message.Kind == 1 ? streamDeliveries : (message.Id & Independent) != 0 ? independentDeliveries : deliveries;
-            var ready = message.Kind == 1 ? streamSignal : (message.Id & Independent) != 0 ? independentSignal : deliverySignal;
+            bool latest = IsLatest(message.Kind);
+            var queue = latest ? latestDeliveries : message.Kind == 1 ? streamDeliveries : (message.Id & Independent) != 0 ? independentDeliveries : deliveries;
+            var ready = latest ? latestSignal : message.Kind == 1 ? streamSignal : (message.Id & Independent) != 0 ? independentSignal : deliverySignal;
             queue.Enqueue(message); ready.Release();
+        }
+        bool ValidKind(int kind, ulong id) => kind == 0 || kind == 1 ||
+            kind >= 2 && kind < 26 && ChannelsReady.Task.IsCompleted &&
+            ((kind - 2) % 3 != (int)UdpChannelDelivery.Ordered) == ((id & Independent) != 0);
+        static bool IsLatest(int kind) => kind >= 2 && (kind - 2) % 3 == (int)UdpChannelDelivery.LatestValue;
+        bool ShouldDeliver(Incoming message) {
+            if (!IsLatest(message.Kind)) return true;
+            int channel = (message.Kind - 2) / 3;
+            if (latestDelivered[channel] >= message.Id) return false;
+            latestDelivered[channel] = message.Id;
+            return true;
         }
         async Task DeliverLoop(ConcurrentQueue<Incoming> queue, SemaphoreSlim ready) {
             try {
                 while (!lifetime.IsCancellationRequested) {
                     await ready.WaitAsync(lifetime.Token).ConfigureAwait(false);
                     if (queue.TryDequeue(out var message)) {
-                        try { host.Dispatch(this, message.Data, message.Kind); }
+                        try { if (ShouldDeliver(message)) host.Dispatch(this, message.Data, message.Kind); }
                         catch (Exception ex) { Fail(ex); }
                         finally { lock (gate) { delivering--; receiveBytes -= message.Data.Length; host.Release(message.Data.Length); } }
                     }
@@ -455,7 +480,9 @@ namespace SocketJack.Net {
                 }
                 double deadline = host.Options.DeliveryTimeout.TotalMilliseconds;
                 if (now - lastReceive > deadline) { Fail(new TimeoutException("UDP_Reliable peer stopped responding.")); return; }
-                if (now - lastPing >= Math.Min(1000, deadline / 3)) { host.Control(this, UdpReliableTransport.Op.Ping); lastPing = now; }
+                if (now - lastPing >= Math.Min(1000, deadline / 3)) {
+                    host.Control(this, UdpReliableTransport.Op.Ping, a: host.Options.EnableChannels ? ChannelCapability : 0); lastPing = now;
+                }
                 foreach (var input in incoming.Values) {
                     if (now - input.Progress > deadline) { Fail(new TimeoutException("UDP_Reliable reassembly stalled.")); return; }
                     if (input.AckPending && now >= input.AckDue) Ack(input);
@@ -526,7 +553,7 @@ namespace SocketJack.Net {
                 outgoing.Clear(); sendOrder.Clear(); Array.Clear(active, 0, active.Length); sendBytes = 0; Interlocked.Exchange(ref Statistics.queued, 0);
                 foreach (var input in incoming.Values.Concat(ordered.Values)) { receiveBytes -= input.Data.Length; host.Release(input.Data.Length); }
                 incoming.Clear(); ordered.Clear();
-                foreach (var queue in new[] { deliveries, independentDeliveries, streamDeliveries })
+                foreach (var queue in new[] { deliveries, independentDeliveries, streamDeliveries, latestDeliveries })
                     while (queue.TryDequeue(out var input)) { delivering--; receiveBytes -= input.Data.Length; host.Release(input.Data.Length); }
                 capacity.TrySetResult(true); lifetime.Cancel();
             }

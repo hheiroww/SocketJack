@@ -425,7 +425,7 @@ namespace SocketJack.Net.Database {
         }
 
         private object ApiCrudClient(HttpRequest req) {
-            if (!RequireSession(req, out _, out var error))
+            if (!RequireAdmin(req, out _, out var error))
                 return error;
             string id = FirstPathPart(req);
             if (id.EndsWith(".js", StringComparison.OrdinalIgnoreCase))
@@ -438,7 +438,7 @@ namespace SocketJack.Net.Database {
         }
 
         private object ApiCrudRun(HttpRequest req) {
-            if (!RequireSession(req, out var session, out var error))
+            if (!RequireAdmin(req, out var session, out var error))
                 return error;
             string variable = FirstPathPart(req);
             string[] parts = variable.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);

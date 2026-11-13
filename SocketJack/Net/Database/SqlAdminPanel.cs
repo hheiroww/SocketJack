@@ -477,12 +477,12 @@ namespace SocketJack.Net.Database {
         }
 
         private bool IsLocalhostRequest(HttpRequest req) {
-            var address = req?.Context?.Connection?.EndPoint?.Address;
-            if (address == null)
+            var connection = req?.Context?.Connection;
+            // A loopback reverse proxy is a remote administration surface.
+            if (EndpointSecurityMonitor.IsTrustedProxy(connection, connection?.Parent?.Options?.EndpointSecurity))
                 return false;
-            return IPAddress.IsLoopback(address)
-                || address.Equals(IPAddress.Parse("127.0.0.1"))
-                || address.Equals(IPAddress.IPv6Loopback);
+            var address = connection?.EndPoint?.Address;
+            return address != null && IPAddress.IsLoopback(address.IsIPv4MappedToIPv6 ? address.MapToIPv4() : address);
         }
 
         private static string GetHeader(HttpRequest req, string name) {
@@ -501,7 +501,8 @@ namespace SocketJack.Net.Database {
             if (req?.Context?.Connection?.Parent?.Options?.UseSsl == true)
                 return true;
 
-            bool trustForwardedScheme = req?.Context?.Connection?.Parent?.Options?.EndpointSecurity?.TrustForwardedForHeaders == true;
+            var connection = req?.Context?.Connection;
+            bool trustForwardedScheme = EndpointSecurityMonitor.IsTrustedProxy(connection, connection?.Parent?.Options?.EndpointSecurity);
             if (!trustForwardedScheme)
                 return false;
 
@@ -540,8 +541,6 @@ namespace SocketJack.Net.Database {
 
             string supplied = GetHeader(req, "X-SqlAdmin-Csrf")
                 ?? GetHeader(req, "X-CSRF-Token");
-            if (string.IsNullOrWhiteSpace(supplied) && req?.QueryParameters != null && req.QueryParameters.TryGetValue("csrf", out var qsToken))
-                supplied = qsToken;
             if (string.IsNullOrWhiteSpace(supplied))
                 supplied = ExtractJsonString(req?.Body ?? "", "csrfToken") ?? ExtractJsonString(req?.Body ?? "", "csrf");
 
@@ -2568,17 +2567,9 @@ namespace SocketJack.Net.Database {
         }
 
         private static string ExtractSqlAdminClientIp(HttpRequest req) {
-            foreach (string headerName in new[] { "CF-Connecting-IP", "X-Real-IP", "X-Forwarded-For" }) {
-                string forwarded = DataServer.NormalizeSqlLoginIpAddress(GetHeader(req, headerName));
-                if (!string.IsNullOrWhiteSpace(forwarded))
-                    return forwarded;
-            }
-
-            try {
-                var address = req?.Context?.Connection?.EndPoint?.Address;
-                if (address != null) return DataServer.NormalizeSqlLoginIpAddress(address.ToString());
-            } catch { }
-            return "";
+            var connection = req?.Context?.Connection;
+            return DataServer.NormalizeSqlLoginIpAddress(
+                EndpointSecurityMonitor.ResolveClientIp(connection, req, connection?.Parent?.Options?.EndpointSecurity));
         }
 
         private static string ComputeSqlAuditHash(string sql) {
@@ -4081,8 +4072,6 @@ namespace SocketJack.Net.Database {
                 ?? GetHeader(req, "Authorization");
             if (!string.IsNullOrWhiteSpace(supplied) && supplied.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
                 supplied = supplied.Substring("Bearer ".Length).Trim();
-            if (string.IsNullOrWhiteSpace(supplied) && req?.QueryParameters != null)
-                req.QueryParameters.TryGetValue("apiKey", out supplied);
             return string.Equals(supplied, endpoint.EndpointSecret, StringComparison.Ordinal);
         }
 

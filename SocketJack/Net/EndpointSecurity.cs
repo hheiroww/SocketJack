@@ -26,7 +26,11 @@ namespace SocketJack.Net {
         private TuningProfile _tuningProfile = TuningProfile.Firm;
         private BotTuningProfile _botTuningProfile = BotTuningProfile.Firm;
 
-        internal EndpointSecurityOptions Copy() => (EndpointSecurityOptions)MemberwiseClone();
+        internal EndpointSecurityOptions Copy() {
+            var copy = (EndpointSecurityOptions)MemberwiseClone();
+            copy.TrustedProxyAddresses = new List<IPAddress>(TrustedProxyAddresses);
+            return copy;
+        }
 
         public EndpointSecurityOptions() {
             ApplyTuningProfile(_tuningProfile);
@@ -52,6 +56,8 @@ namespace SocketJack.Net {
         public bool Enabled { get; set; } = true;
         public bool ExemptLoopback { get; set; } = true;
         public bool TrustForwardedForHeaders { get; set; } = false;
+        /// <summary>Exact socket peers permitted to supply forwarding headers.</summary>
+        public ICollection<IPAddress> TrustedProxyAddresses { get; private set; } = new List<IPAddress>();
         public int MaxTrackedClients { get; set; } = 4096;
         public int GeneralRequestsPerMinute { get; set; }
         public int AdministrativeRequestsPerMinute { get; set; }
@@ -690,20 +696,36 @@ namespace SocketJack.Net {
             return request.Headers.TryGetValue(name, out string value) ? value ?? "" : "";
         }
 
-        private static string ResolveClientIp(NetworkConnection connection, HttpRequest request, EndpointSecurityOptions options) {
-            if (options != null && options.TrustForwardedForHeaders && request?.Headers != null) {
+        internal static bool IsTrustedProxy(NetworkConnection connection, EndpointSecurityOptions options) {
+            if (options?.TrustForwardedForHeaders != true || !IPAddress.TryParse(ResolveClientIp(connection), out var address))
+                return false;
+            return options.TrustedProxyAddresses.Any(proxy => proxy != null && NormalizeAddress(proxy).Equals(NormalizeAddress(address)));
+        }
+
+        private static IPAddress NormalizeAddress(IPAddress address) => address.IsIPv4MappedToIPv6 ? address.MapToIPv4() : address;
+
+        internal static string ResolveClientIp(NetworkConnection connection, HttpRequest request, EndpointSecurityOptions options) {
+            if (IsTrustedProxy(connection, options) && request?.Headers != null) {
                 if (request.Headers.TryGetValue("X-Forwarded-For", out string xff)) {
-                    string first = (xff ?? "").Split(',').Select(item => item.Trim()).FirstOrDefault(item => item.Length > 0);
-                    string normalized = NormalizeClientIp(first);
-                    if (!string.IsNullOrWhiteSpace(normalized))
-                        return normalized;
+                    // Walk from the actual peer toward the client. Values beyond the first
+                    // untrusted hop are outside the trusted proxy chain.
+                    foreach (string hop in Enumerable.Reverse((xff ?? "").Split(','))) {
+                        if (!IPAddress.TryParse(hop.Trim(), out var address))
+                            break;
+                        address = NormalizeAddress(address);
+                        if (!options.TrustedProxyAddresses.Any(proxy => proxy != null && NormalizeAddress(proxy).Equals(address)))
+                            return address.ToString();
+                    }
                 }
 
-                if (request.Headers.TryGetValue("X-Real-IP", out string realIp)) {
-                    string normalized = NormalizeClientIp(realIp);
-                    if (!string.IsNullOrWhiteSpace(normalized))
-                        return normalized;
-                }
+                if (!request.Headers.ContainsKey("X-Forwarded-For") &&
+                    request.Headers.TryGetValue("X-Real-IP", out string realIp) &&
+                    IPAddress.TryParse(realIp, out var realAddress))
+                    return NormalizeAddress(realAddress).ToString();
+
+                // The proxy has no verified client address. Its own loopback
+                // address must not grant a local-client exemption.
+                return "";
             }
 
             return ResolveClientIp(connection);

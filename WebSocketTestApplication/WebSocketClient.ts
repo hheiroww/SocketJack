@@ -155,42 +155,14 @@ class WebSocketClient {
     constructor(name: string) { this.name = name; this.Init(); }
 
     async Init() {
-        await this.loadScript('https://cdn.jsdelivr.net/npm/pako@latest/dist/pako.min.js', () => {
-            console.log("Loaded Pako.")
-            this.registerCallback('JSConstructors', (jsContructors: any) => {
-                if (jsContructors && jsContructors.Script) {
-                    this.loadScriptFromText(jsContructors.Script);
-                    if (this.options.logging) console.log(`[${this.name}] Loaded JSConstructors.`);
-                }
-            });
-            this.registerCallback('MetadataKeyValue', (MetaDataCallback: any) => {
+        this.registerCallback('MetadataKeyValue', (MetaDataCallback: any) => {
                 if (MetaDataCallback && MetaDataCallback.Key && MetaDataCallback.Value) {
                     if (this.remoteIdentity) {
                         this.remoteIdentity.Metadata[MetaDataCallback.Key] = MetaDataCallback.Value;
                     }
                     if (this.options.logging) console.log(`[${this.name}] Metadata updated: ${MetaDataCallback.Key} = ${MetaDataCallback.Value}`);
                 }
-            });
-            console.log("Wired up callbacks.")
         });
-    }
-    
-    async loadScript(url: string, callback: any) {
-        const script = document.createElement('script');
-        script.src = url;
-        script.async = true;
-        script.onload = () => callback();
-        script.onerror = () => {
-            console.error(`Failed to load script: ${url}`);
-        };
-        document.head.appendChild(script);
-    }
-
-    loadScriptFromText(scriptText: string): void {
-        const script = document.createElement('script');
-        script.type = 'text/javascript';
-        script.text = scriptText;
-        document.head.appendChild(script);
     }
 
     on(event: string, handler: EventHandler): void {

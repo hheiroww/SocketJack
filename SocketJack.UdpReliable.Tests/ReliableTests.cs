@@ -28,6 +28,52 @@ public sealed class ReliableTests {
     }
 
     [DataTestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task ChannelsCarryTypedObjectsAndLeaveLegacyLaneAvailable(bool binary) {
+        var serverOptions = Options();
+        var clientOptions = Options();
+        serverOptions.UdpReliable.EnableChannels = true;
+        clientOptions.UdpReliable.EnableChannels = true;
+        if (binary) {
+            serverOptions.Serializer = new SocketJack.Serialization.BinarySerializer();
+            clientOptions.Serializer = new SocketJack.Serialization.BinarySerializer();
+        }
+        int port = Port();
+        using var server = UDP_Reliable.CreateServer(port, serverOptions);
+        using var proxy = new ImpairmentProxy(port, .05);
+        using var client = UDP_Reliable.CreateClient(clientOptions);
+        var received = new ConcurrentQueue<int>();
+        server.RegisterCallback<Payload>(e => received.Enqueue(e.Object.Index));
+        client.RegisterCallback<Payload>(_ => { });
+        Assert.IsTrue(server.Listen());
+        Assert.IsTrue(await client.Connect("127.0.0.1", proxy.Port));
+        foreach (var delivery in Enum.GetValues<UdpChannelDelivery>())
+            await client.SendChannelAsync(new Payload { Index = (int)delivery, Bytes = new byte[] { 1 } }, 3, delivery)
+                .WaitAsync(TimeSpan.FromSeconds(8));
+        await Until(() => received.Count == 3);
+        CollectionAssert.AreEquivalent(new[] { 0, 1, 2 }, received.ToArray());
+        await client.SendAsync(new Payload { Index = 4, Bytes = new byte[] { 1 } });
+        await Until(() => received.Contains(4));
+    }
+
+    [TestMethod]
+    public async Task LegacyPeersRejectChannelsWithoutDisconnecting() {
+        int port = Port();
+        using var server = UDP_Reliable.CreateServer(port, Options());
+        var options = Options();
+        options.UdpReliable.EnableChannels = true;
+        using var client = UDP_Reliable.CreateClient(options);
+        var received = Signal<string>();
+        server.RegisterCallback<string>(e => received.TrySetResult(e.Object));
+        Assert.IsTrue(server.Listen());
+        Assert.IsTrue(await client.Connect("127.0.0.1", port));
+        await Assert.ThrowsExceptionAsync<NotSupportedException>(() => client.SendChannelAsync("new", 0, UdpChannelDelivery.Ordered));
+        await client.SendAsync("legacy");
+        Assert.AreEqual("legacy", await received.Task.WaitAsync(TimeSpan.FromSeconds(5)));
+    }
+
+    [DataTestMethod]
     [DataRow(0.0)] [DataRow(0.01)] [DataRow(0.05)]
     public async Task OrderedLargeObjectsSurviveLossDuplicationReordering(double loss) {
         int port = Port(); using var server = UDP_Reliable.CreateServer(port, Options());

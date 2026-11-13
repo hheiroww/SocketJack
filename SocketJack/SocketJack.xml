@@ -183,6 +183,66 @@
             Attempts to read an embedded binary page asset by file name.
             </summary>
         </member>
+        <member name="T:SocketJack.Net.ApplicationWebSocket">
+            <summary>Typed browser RPC over an accepted, origin-checked WebSocket.</summary>
+        </member>
+        <member name="M:SocketJack.Net.ApplicationWebSocket.GetBrowserClientModule">
+            <summary>Returns the browser client as a dependency-free ECMAScript module.</summary>
+        </member>
+        <member name="M:SocketJack.Net.ApplicationWebSocket.GenerateClientDeclarations">
+            <summary>Generates TypeScript declarations from the browser JSON contract.</summary>
+        </member>
+        <member name="M:SocketJack.Net.ApplicationWebSocket.RegisterRestOperation``2(System.String,System.Uri,System.Net.Http.HttpMethod,System.Func{SocketJack.Net.ApplicationCaller,``0,System.Threading.CancellationToken,System.Threading.Tasks.ValueTask{System.Boolean}},System.Func{SocketJack.Net.ApplicationCaller,``0,System.Threading.CancellationToken,System.Threading.Tasks.ValueTask{System.String}})">
+            <summary>Registers a fixed HTTPS JSON operation. The host supplies the per-user policy and credentials.</summary>
+        </member>
+        <member name="M:SocketJack.Net.ApplicationWebSocket.RegisterWebSocketOperation``2(System.String,System.Uri,System.Func{SocketJack.Net.ApplicationCaller,``0,System.Threading.CancellationToken,System.Threading.Tasks.ValueTask{System.Boolean}})">
+            <summary>Registers a named WSS JSON request/reply operation at a fixed upstream address.</summary>
+        </member>
+        <member name="M:SocketJack.Net.ApplicationWebSocket.CanUpgrade(System.String,System.Boolean)">
+            <summary>Check before accepting an upgrade. Set secureTransport only from trusted host state.</summary>
+        </member>
+        <member name="M:SocketJack.Net.ApplicationWebSocket.Register``2(System.String,System.Func{SocketJack.Net.ApplicationCaller,``0,System.Threading.CancellationToken,System.Threading.Tasks.ValueTask{``1}})">
+            <summary>Registers a browser operation with explicit request and response types.</summary>
+        </member>
+        <member name="M:SocketJack.Net.ApplicationWebSocket.GenerateManifest">
+            <summary>Exports registered contracts using the JSON serializer metadata used by the socket.</summary>
+        </member>
+        <member name="M:SocketJack.Net.ApplicationWebSocket.RevokeSessions(System.String)">
+            <summary>Revokes all current socket sessions for a canonical subject.</summary>
+        </member>
+        <member name="M:SocketJack.Net.ApplicationWebSocket.RunAsync(System.Net.WebSockets.WebSocket,System.String,System.Boolean,System.Threading.CancellationToken,System.Func{System.Threading.CancellationToken,System.Threading.Tasks.ValueTask{System.String}})">
+            <summary>Runs an accepted socket. A host may supply a validated principal resolver for existing sessions.</summary>
+        </member>
+        <member name="M:SocketJack.Net.ApplicationWebSocket.SetScriptWorker(SocketJack.Net.IApplicationScriptWorker)">
+            <summary>Sets the host-provisioned script worker. The host owns the process and its isolation.</summary>
+        </member>
+        <member name="M:SocketJack.Net.ApplicationWebSocket.SaveDraftAsync(SocketJack.Net.ApplicationRevision,System.Threading.CancellationToken)">
+            <summary>Preflights and durably saves a private draft. Call only from an authorized management surface.</summary>
+        </member>
+        <member name="M:SocketJack.Net.ApplicationWebSocket.ActivateDraft(System.String,System.String,System.String)">
+            <summary>Activates a reviewed draft when the published revision and prepared frontend still match.</summary>
+        </member>
+        <member name="M:SocketJack.Net.ApplicationWebSocket.Rollback(System.String)">
+            <summary>Restores the previous application revision under an optimistic version check.</summary>
+        </member>
+        <member name="M:SocketJack.Net.ApplicationWebSocket.RegisterCollection``1(System.String)">
+            <summary>Registers a collection whose entries are validated with the browser JSON contract.</summary>
+        </member>
+        <member name="T:SocketJack.Net.ApplicationWebSocketOptions">
+            <summary>Host options for an explicitly mounted browser application socket.</summary>
+        </member>
+        <member name="T:SocketJack.Net.ApplicationCaller">
+            <summary>A verified application account and its current socket session.</summary>
+        </member>
+        <member name="T:SocketJack.Net.ApplicationRouteDefinition">
+            <summary>A route that calls an existing typed operation, or a host-isolated JavaScript worker.</summary>
+        </member>
+        <member name="T:SocketJack.Net.ApplicationRevision">
+            <summary>A published application revision and the identity of its prepared frontend.</summary>
+        </member>
+        <member name="T:SocketJack.Net.IApplicationScriptWorker">
+            <summary>Host contract for a separately configured, operating-system-isolated script worker.</summary>
+        </member>
         <member name="T:SocketJack.Net.BroadcastServer">
             <summary>
             Manages live broadcast relay for an <see cref="T:SocketJack.Net.HttpServer"/>. Handles OBS upload
@@ -1507,6 +1567,9 @@
             WebSocket, and filesystem-backed request surfaces.
             </summary>
         </member>
+        <member name="P:SocketJack.Net.EndpointSecurityOptions.TrustedProxyAddresses">
+            <summary>Exact socket peers permitted to supply forwarding headers.</summary>
+        </member>
         <member name="T:SocketJack.Net.EndpointSecurityMonitor">
             <summary>
             Per-IP abuse monitor with decaying throttle and automatic temporary disables.
@@ -1577,6 +1640,9 @@
         </member>
         <member name="F:SocketJack.Net.TcpProtocol.Rtmp">
             <summary>RTMP live media publishing protocol.</summary>
+        </member>
+        <member name="P:SocketJack.Net.SftpClientOptions.HostKeySha256">
+            <summary>Expected OpenSSH SHA256 host key fingerprint, obtained from a trusted source.</summary>
         </member>
         <member name="T:SocketJack.Net.HtAccessResult">
             <summary>
@@ -2356,6 +2422,18 @@
         </member>
         <member name="T:SocketJack.Net.InboundSegmentBuffer">
             <summary>Per-connection, bounded legacy reassembly. A segment ID from another client never joins this buffer.</summary>
+        </member>
+        <member name="T:SocketJack.Net.LanServiceEndpoint">
+            <summary>A DNS-SD advertisement. Treat discovery results as unauthenticated connection hints.</summary>
+        </member>
+        <member name="T:SocketJack.Net.LanServiceDiscovery">
+            <summary>Opt-in link-local discovery. Established SocketJack connections retain their regular authentication and serializer.</summary>
+        </member>
+        <member name="M:SocketJack.Net.LanServiceDiscovery.Advertise(System.String,System.Int32,System.Boolean,System.Collections.Generic.IEnumerable{System.Net.IPAddress})">
+            <summary>Advertise a listening endpoint until the returned registration is disposed.</summary>
+        </member>
+        <member name="M:SocketJack.Net.LanServiceDiscovery.BrowseAsync(System.TimeSpan,System.Boolean,System.Threading.CancellationToken)">
+            <summary>Browse the local link for a bounded interval and return resolved service endpoints.</summary>
         </member>
         <member name="T:SocketJack.Net.MutableTcpProtocols">
             <summary>
@@ -4847,6 +4925,9 @@
             Send an object to all Remote Clients on the server via peer broadcast.
             </summary>
         </member>
+        <member name="M:SocketJack.Net.UdpClient.SendChannelAsync(System.Object,System.Int32,SocketJack.Net.UdpChannelDelivery,System.Threading.CancellationToken)">
+            <summary>Sends a typed message on a negotiated channel.</summary>
+        </member>
         <member name="T:SocketJack.Net.UdpConnection">
             <summary>
             Represents a UDP connection endpoint with send/receive capabilities.
@@ -4959,6 +5040,9 @@
             Modeled after TcpServer but uses connectionless UDP datagrams.
             </summary>
         </member>
+        <member name="M:SocketJack.Net.UdpServer.SendToChannelAsync(SocketJack.Net.UdpConnection,System.Object,System.Int32,SocketJack.Net.UdpChannelDelivery,System.Threading.CancellationToken)">
+            <summary>Sends a typed message on a negotiated channel.</summary>
+        </member>
         <member name="P:SocketJack.Net.UdpServer.Name">
             <summary>
             (Optional) Name used for logging purposes.
@@ -5051,6 +5135,9 @@
         </member>
         <member name="P:SocketJack.Net.UdpReliableOptions.Ordering">
             <summary>Wait for earlier objects and run callbacks sequentially. Default: false.</summary>
+        </member>
+        <member name="P:SocketJack.Net.UdpReliableOptions.EnableChannels">
+            <summary>Negotiate opt-in typed channels. Ordinary messages continue to work with legacy peers.</summary>
         </member>
         <member name="P:SocketJack.Net.UdpReliableOptions.ReceiveWorkers">
             <summary>Maximum concurrent independent object decoders/callbacks per peer.</summary>

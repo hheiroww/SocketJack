@@ -5,12 +5,15 @@ namespace SocketJack.Net {
     public enum UdpMode { UDP, UDP_Reliable }
     public enum UdpReliableProfile { Adaptive, FastLan }
     public enum UdpDeliveryMode { Ordered, Independent }
+    public enum UdpChannelDelivery { Ordered, Unordered, LatestValue }
 
     /// <summary>Configure before connecting/listening. Limits are local resource budgets, not bandwidth caps.</summary>
     public sealed class UdpReliableOptions {
         public UdpReliableProfile Profile { get; set; } = UdpReliableProfile.Adaptive;
         /// <summary>Wait for earlier objects and run callbacks sequentially. Default: false.</summary>
         public bool Ordering { get; set; }
+        /// <summary>Negotiate opt-in typed channels. Ordinary messages continue to work with legacy peers.</summary>
+        public bool EnableChannels { get; set; }
         public UdpDeliveryMode Delivery {
             get => Ordering ? UdpDeliveryMode.Ordered : UdpDeliveryMode.Independent;
             set => Ordering = value == UdpDeliveryMode.Ordered;

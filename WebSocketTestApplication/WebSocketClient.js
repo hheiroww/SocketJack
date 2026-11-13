@@ -145,42 +145,15 @@ class WebSocketClient {
         this.Init();
     }
     async Init() {
-        await this.loadScript('https://cdn.jsdelivr.net/npm/pako@latest/dist/pako.min.js', () => {
-            console.log("Loaded Pako.");
-            this.registerCallback('JSConstructors', (jsContructors) => {
-                if (jsContructors && jsContructors.Script) {
-                    this.loadScriptFromText(jsContructors.Script);
-                    if (this.options.logging)
-                        console.log(`[${this.name}] Loaded JSConstructors.`);
+        this.registerCallback('MetadataKeyValue', (MetaDataCallback) => {
+            if (MetaDataCallback && MetaDataCallback.Key && MetaDataCallback.Value) {
+                if (this.remoteIdentity) {
+                    this.remoteIdentity.Metadata[MetaDataCallback.Key] = MetaDataCallback.Value;
                 }
-            });
-            this.registerCallback('MetadataKeyValue', (MetaDataCallback) => {
-                if (MetaDataCallback && MetaDataCallback.Key && MetaDataCallback.Value) {
-                    if (this.remoteIdentity) {
-                        this.remoteIdentity.Metadata[MetaDataCallback.Key] = MetaDataCallback.Value;
-                    }
-                    if (this.options.logging)
-                        console.log(`[${this.name}] Metadata updated: ${MetaDataCallback.Key} = ${MetaDataCallback.Value}`);
-                }
-            });
-            console.log("Wired up callbacks.");
+                if (this.options.logging)
+                    console.log(`[${this.name}] Metadata updated: ${MetaDataCallback.Key} = ${MetaDataCallback.Value}`);
+            }
         });
-    }
-    async loadScript(url, callback) {
-        const script = document.createElement('script');
-        script.src = url;
-        script.async = true;
-        script.onload = () => callback();
-        script.onerror = () => {
-            console.error(`Failed to load script: ${url}`);
-        };
-        document.head.appendChild(script);
-    }
-    loadScriptFromText(scriptText) {
-        const script = document.createElement('script');
-        script.type = 'text/javascript';
-        script.text = scriptText;
-        document.head.appendChild(script);
     }
     on(event, handler) {
         if (!this.events[event])

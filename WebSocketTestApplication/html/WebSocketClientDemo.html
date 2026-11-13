@@ -1,89 +1,37 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>WebSocketClient Chat Demo</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        #log { width: 100%; height: 300px; margin-bottom: 10px; }
-        #inputBox { width: 80%; }
-        #sendBtn { width: 18%; }
-    </style>
-</head>
-<body>
-    <h2>WebSocketClient Chat Demo</h2>
-    <textarea id="log" readonly></textarea><br>
-    <input type="text" id="inputBox" placeholder="Type your message...">
-    <button id="sendBtn">Send</button>
-    <br><br>
-    <label>WebSocket URL: <input type="text" id="wsUrl" value="ws://localhost:8096/"></label>
-    <button id="connectBtn">Connect</button>
-
-    <script src="WebSocketClient.js"></script>
-    <script>
-        class TextObject {
-            constructor(text) {
-                this.Text = text;
-                this.Sender = "HtmlWebSocketClient";
-            }
-        }
-
-        // UI logic
-        const logBox = document.getElementById('log');
-        const inputBox = document.getElementById('inputBox');
-        const sendBtn = document.getElementById('sendBtn');
-        const connectBtn = document.getElementById('connectBtn');
-        const wsUrl = document.getElementById('wsUrl');
-        let client = null;
-
-        function log(text) {
-            logBox.value += text + "\n";
-            logBox.scrollTop = logBox.scrollHeight;
-        }
-
-        connectBtn.onclick = async function () {
-            if (client && client.connected) {
-                log("Already connected.");
-                return;
-            }
-            client = new WebSocketClient("DemoClient");
-            client.on('connected', () => { client.send(new TextObject("Test")); log("[Connected]"); });
-            client.on('disconnected', () => log("[Disconnected]"));
-            client.on('error', err => log("[Error] " + err));
-            client.on('sent', obj => log("[Sent] " + (obj.text || JSON.stringify(obj))));
-            client.on('receive', obj => {
-                if (obj.type === "TextObject") {
-                    log("[Received] " + obj.Sender + ": " + obj.Text);
-                } else {
-                    //log("[Received] " + JSON.stringify(obj));
-                }
-            });
-            log("Connecting to " + wsUrl.value + " ...");
-            try {
-                await client.connect(wsUrl.value);
-            } catch (e) {
-                log("Connection failed: " + e);
-            }
-        };
-
-        function sendChat() {
-            if (!client || !client.connected) {
-                log("Not connected.");
-                return;
-            }
-            var text = inputBox.value.trim();
-            if (!text) return;
-            client.send(new TextObject(text));
-            inputBox.value = "";
-        }
-
-        sendBtn.onclick = sendChat;
-        inputBox.onkeydown = function (e) {
-            if (e.key === "Enter") {
-                sendChat();
-                e.preventDefault();
-            }
-        };
-    </script>
-</body>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>SocketJack application WebSocket demo</title>
+<h1>SocketJack application WebSocket</h1>
+<p>For local testing, use alice or bob with password demo.</p>
+<form id="sign-in">
+  <label>User <input name="username" value="alice" required></label>
+  <label>Password <input name="password" type="password" required></label>
+  <button>Sign in</button>
+</form>
+<form id="echo">
+  <label>Message <input name="text" required></label>
+  <button>Send</button>
+</form>
+<output id="result" role="status"></output>
+<script type="module">
+  import { SocketJackApplicationClient } from "/application.mjs";
+  const client = new SocketJackApplicationClient("/app/socket");
+  const result = document.querySelector("#result");
+  function bind(selector, operation, fields) {
+    document.querySelector(selector).addEventListener("submit", async event => {
+      event.preventDefault();
+      const data = new FormData(event.currentTarget);
+      try {
+        const reply = await client.invoke(operation, Object.fromEntries(fields.map(name => [name, data.get(name)])));
+        result.textContent = reply.text ?? "Signed in as " + reply.subject;
+      } catch (error) {
+        result.textContent = error.message;
+      }
+    });
+  }
+  bind("#sign-in", "session.signIn", ["username", "password"]);
+  bind("#echo", "demo.echo", ["text"]);
+</script>
 </html>
