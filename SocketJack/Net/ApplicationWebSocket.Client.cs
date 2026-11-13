@@ -17,16 +17,11 @@ namespace SocketJack.Net {
         /// <summary>Generates TypeScript declarations from the browser JSON contract.</summary>
         public string GenerateClientDeclarations() {
             var text = new StringBuilder("export interface Operations {\n");
-            lock (gate) {
-                foreach (var pair in operations.OrderBy(pair => pair.Key, StringComparer.Ordinal)) {
-                    string input = Json.GetJsonSchemaAsNode(pair.Value.Input).ToJsonString();
-                    string output = Json.GetJsonSchemaAsNode(pair.Value.Output).ToJsonString();
-                    using var inputSchema = JsonDocument.Parse(input);
-                    using var outputSchema = JsonDocument.Parse(output);
-                    text.Append("  ").Append(JsonSerializer.Serialize(pair.Key)).Append(": { input: ")
-                        .Append(ToTypeScript(inputSchema.RootElement)).Append("; output: ")
-                        .Append(ToTypeScript(outputSchema.RootElement)).AppendLine(" };");
-                }
+            using var manifest = JsonDocument.Parse(GenerateManifest());
+            foreach (var operation in manifest.RootElement.GetProperty("operations").EnumerateArray()) {
+                text.Append("  ").Append(operation.GetProperty("name").GetRawText()).Append(": { input: ")
+                    .Append(ToTypeScript(operation.GetProperty("input"))).Append("; output: ")
+                    .Append(ToTypeScript(operation.GetProperty("output"))).AppendLine(" };");
             }
             text.AppendLine("  'session.describe': { input: null; output: { authenticated: boolean; subject?: string | null } };");
             text.AppendLine("  'session.signIn': { input: { username: string; password: string }; output: { authenticated: true; subject: string; token: string } };");

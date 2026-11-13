@@ -8,6 +8,20 @@ using System.Threading;
 using System.Threading.Tasks;
 
 namespace SocketJack.Net {
+    /// <summary>Metadata for an administrator's explicit cross-account record access.</summary>
+    public sealed class ApplicationRecordAccess {
+        internal ApplicationRecordAccess(string administrator, string subject, string collection, string recordId) {
+            Administrator = administrator;
+            Subject = subject;
+            Collection = collection;
+            RecordId = recordId;
+        }
+        public string Administrator { get; }
+        public string Subject { get; }
+        public string Collection { get; }
+        public string RecordId { get; }
+    }
+
     public sealed partial class ApplicationWebSocket : IDisposable {
         private static ValueTask<T> Completed<T>(T result) => new ValueTask<T>(result);
 
@@ -94,6 +108,20 @@ namespace SocketJack.Net {
         public void RegisterCollection<T>(string name) {
             if (!IsName(name)) throw new ArgumentException("Invalid collection name.", nameof(name));
             lock (gate) collections.Add(name, typeof(T));
+        }
+
+        /// <summary>Reads one account record for an audited management workspace. Pass a subject verified by the host.</summary>
+        /// <remarks>This operation is intentionally absent from the browser application protocol.</remarks>
+        public JsonElement ReadRecordForAdministration(string administrator, string subject, string collection, string recordId) {
+            if (string.IsNullOrWhiteSpace(administrator) || string.IsNullOrWhiteSpace(subject) ||
+                auditRecordAccess == null || !active(administrator) || !isAdministrator(administrator))
+                throw new UnauthorizedAccessException("A current administrator and an audit sink are required.");
+            var input = new RecordQuery { Collection = collection, Id = recordId };
+            return WithRecords(new ApplicationCaller(subject, null), input, false, (_, records, _) => {
+                var record = FindRecord(records, recordId);
+                auditRecordAccess(new ApplicationRecordAccess(administrator, subject, collection, recordId));
+                return JsonSerializer.SerializeToElement(record, Json);
+            });
         }
 
         private void RegisterBuiltIns() {

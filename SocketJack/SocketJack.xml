@@ -228,6 +228,10 @@
         <member name="M:SocketJack.Net.ApplicationWebSocket.RegisterCollection``1(System.String)">
             <summary>Registers a collection whose entries are validated with the browser JSON contract.</summary>
         </member>
+        <member name="M:SocketJack.Net.ApplicationWebSocket.ReadRecordForAdministration(System.String,System.String,System.String,System.String)">
+            <summary>Reads one account record for an audited management workspace. Pass a subject verified by the host.</summary>
+            <remarks>This operation is intentionally absent from the browser application protocol.</remarks>
+        </member>
         <member name="T:SocketJack.Net.ApplicationWebSocketOptions">
             <summary>Host options for an explicitly mounted browser application socket.</summary>
         </member>
@@ -242,6 +246,9 @@
         </member>
         <member name="T:SocketJack.Net.IApplicationScriptWorker">
             <summary>Host contract for a separately configured, operating-system-isolated script worker.</summary>
+        </member>
+        <member name="T:SocketJack.Net.ApplicationRecordAccess">
+            <summary>Metadata for an administrator's explicit cross-account record access.</summary>
         </member>
         <member name="T:SocketJack.Net.BroadcastServer">
             <summary>

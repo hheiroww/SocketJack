@@ -16,10 +16,13 @@ public sealed class ApplicationWebSocketTests {
         string root = Path.Combine(Path.GetTempPath(), "SocketJack-AppSocket-" + Guid.NewGuid().ToString("N"));
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         CancellationToken cancellation = timeout.Token;
+        var audit = new List<ApplicationRecordAccess>();
         using var backend = new ApplicationWebSocket(new ApplicationWebSocketOptions {
             StorageDirectory = root,
             AllowedOrigins = new[] { "http://localhost:5091" },
-            Authenticate = (username, password, _) => ValueTask.FromResult(password == "test-password" ? username : null)
+            Authenticate = (username, password, _) => ValueTask.FromResult(password == "test-password" ? username : null),
+            IsAdministrator = username => username == "admin",
+            AuditRecordAccess = audit.Add
         });
         backend.RegisterCollection<Note>("notes");
         backend.Register<Note, Note>("test.echo", (_, input, _) => ValueTask.FromResult(input));
@@ -54,6 +57,9 @@ public sealed class ApplicationWebSocketTests {
         Assert.AreEqual("restored", Value(await Invoke(aliceClient, "app.echo", new Note("restored"), cancellation)).GetProperty("text").GetString());
         var note = Value(await Invoke(aliceClient, "records.create", new { collection = "notes", data = new Note("Alice only") }, cancellation));
         string id = note.GetProperty("id").GetString();
+        Assert.ThrowsException<UnauthorizedAccessException>(() => backend.ReadRecordForAdministration("bob", "alice", "notes", id));
+        Assert.AreEqual(id, backend.ReadRecordForAdministration("admin", "alice", "notes", id).GetProperty("id").GetString());
+        Assert.AreEqual("alice", audit.Single().Subject);
         Assert.AreEqual("notFound", Code(await Invoke(bobClient, "records.get", new { collection = "notes", id }, cancellation)));
         Assert.AreEqual(0, Value(await Invoke(bobClient, "records.list", new { collection = "notes" }, cancellation))
             .GetProperty("records").GetArrayLength());

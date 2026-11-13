@@ -18,7 +18,9 @@ app.UseWebSockets();
 
 app.Map("/app/socket", async context => {
     string requestOrigin = context.Request.Headers.Origin.ToString();
-    if (!context.WebSockets.IsWebSocketRequest || !backend.CanUpgrade(requestOrigin, context.Request.IsHttps) ||
+    if (context.Connection.RemoteIpAddress is not { } address ||
+        !System.Net.IPAddress.IsLoopback(address.IsIPv4MappedToIPv6 ? address.MapToIPv4() : address) ||
+        !context.WebSockets.IsWebSocketRequest || !backend.CanUpgrade(requestOrigin, context.Request.IsHttps) ||
         !context.WebSockets.WebSocketRequestedProtocols.Contains(ApplicationWebSocket.Subprotocol)) {
         context.Response.StatusCode = StatusCodes.Status403Forbidden;
         return;

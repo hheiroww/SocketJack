@@ -17,6 +17,8 @@ namespace SocketJack.Net {
         public IReadOnlyCollection<string> AllowedOrigins { get; set; } = Array.Empty<string>();
         public Func<string, string, CancellationToken, ValueTask<string>> Authenticate { get; set; }
         public Func<string, bool> IsAccountActive { get; set; } = _ => true;
+        public Func<string, bool> IsAdministrator { get; set; } = _ => false;
+        public Action<ApplicationRecordAccess> AuditRecordAccess { get; set; }
         public TimeSpan SessionLifetime { get; set; } = TimeSpan.FromHours(1);
     }
 
@@ -36,6 +38,8 @@ namespace SocketJack.Net {
         private static readonly JsonSerializerOptions Json = new JsonSerializerOptions(JsonSerializerDefaults.Web) { MaxDepth = 32 };
         private readonly Func<string, string, CancellationToken, ValueTask<string>> authenticate;
         private readonly Func<string, bool> active;
+        private readonly Func<string, bool> isAdministrator;
+        private readonly Action<ApplicationRecordAccess> auditRecordAccess;
         private readonly TimeSpan lifetime;
         private readonly HashSet<string> origins;
         private readonly string root;
@@ -91,6 +95,8 @@ namespace SocketJack.Net {
             }
             authenticate = options.Authenticate;
             active = options.IsAccountActive ?? throw new ArgumentException("Account status callback is required.", nameof(options));
+            isAdministrator = options.IsAdministrator ?? throw new ArgumentException("Administrator status callback is required.", nameof(options));
+            auditRecordAccess = options.AuditRecordAccess;
             lifetime = options.SessionLifetime;
             origins = new HashSet<string>(options.AllowedOrigins.Select(NormalizeOrigin), StringComparer.Ordinal);
             storageLease = new FileStream(Path.Combine(root, ".application.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
@@ -132,7 +138,11 @@ namespace SocketJack.Net {
                 Output = typeof(TOutput),
                 Invoke = async (caller, input, cancellation) => await handler(caller, Read<TInput>(input), cancellation).ConfigureAwait(false)
             };
-            lock (gate) operations.Add(name, operation);
+            lock (gate) {
+                if (publishedRoutes.ContainsKey(name))
+                    throw new ArgumentException("An active revision already uses this operation name.", nameof(name));
+                operations.Add(name, operation);
+            }
         }
 
         /// <summary>Exports registered contracts using the JSON serializer metadata used by the socket.</summary>
