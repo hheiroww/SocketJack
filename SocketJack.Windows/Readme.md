@@ -10,27 +10,27 @@ SocketJack.WPF 2026 adds live WPF control sharing, remote input, and browser-fri
 
 Share any `FrameworkElement` as a live image stream, view it from another peer, and route remote mouse, wheel, text, and keyboard input back into WPF without moving the real Windows cursor.
 
-Download the verified packages and SHA-256 checksums from [GitHub Releases](https://github.com/hheiroww/SocketJack/releases/tag/v2026.10.24.1), or browse [GitHub Packages](https://github.com/hheiroww/SocketJack/packages).
+Download the verified packages and SHA-256 checksums from [GitHub Releases](https://github.com/hheiroww/SocketJack/releases/tag/v2026.11.12.0), or browse [GitHub Packages](https://github.com/hheiroww/SocketJack/packages).
 
 <a id="versions"></a>
 ## #Versions
 
 | Package / surface | Version | Target |
 |---|---:|---|
-| [`SocketJack.WPF`](https://www.nuget.org/packages/SocketJack.WPF) | `2026.10.24.1` | `net8.0-windows7.0`, `net10.0-windows7.0` |
-| [`SocketJack`](https://www.nuget.org/packages/SocketJack) | `2026.10.24.1` | `.NET Standard 2.1` |
+| [`SocketJack.WPF`](https://www.nuget.org/packages/SocketJack.WPF) | `2026.11.12.0` | `net8.0-windows7.0`, `net10.0-windows7.0` |
+| [`SocketJack`](https://www.nuget.org/packages/SocketJack) | `2026.11.12.0` | `.NET Standard 2.1` |
 
 <details open>
 <summary><strong>#Install</strong> - add WPF remote control to a SocketJack app</summary>
 
 ```powershell
-dotnet add package SocketJack.WPF --version 2026.10.24.1
+dotnet add package SocketJack.WPF --version 2026.11.12.0
 ```
 
 Or with Package Manager:
 
 ```powershell
-Install-Package SocketJack.WPF -Version 2026.10.24.1
+Install-Package SocketJack.WPF -Version 2026.11.12.0
 ```
 
 Use this package when the network should see, share, or control a WPF UI. Use the core `SocketJack` package by itself when you only need TCP, UDP, HTTP, WebSockets, SQL/data, streaming, and peer routing.
