@@ -45,6 +45,19 @@ $verified = foreach ($spec in $projects) {
         if ($env:GITHUB_SHA -and $metadata.repository.commit -cne $env:GITHUB_SHA) {
             throw "Unexpected source commit in $expectedName."
         }
+        $iconName = $project.SelectSingleNode('/Project/PropertyGroup/PackageIcon').InnerText.Trim()
+        $icons = @($archive.Entries | Where-Object { $_.FullName -ceq $iconName })
+        if ($metadata.icon -cne $iconName -or $icons.Count -ne 1) {
+            throw "Missing package icon in $expectedName."
+        }
+        $iconPath = Join-Path $PSScriptRoot (Join-Path (Split-Path -Parent $spec.Path) $iconName)
+        $sourceHash = (Get-FileHash -LiteralPath $iconPath -Algorithm SHA256).Hash
+        $iconStream = $icons[0].Open()
+        try { $packagedHash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($iconStream)) }
+        finally { $iconStream.Dispose() }
+        if ($sourceHash -cne $packagedHash) {
+            throw "The package icon does not match the source asset in $expectedName."
+        }
         if ($metadata.SelectNodes('.//*[local-name()="dependency"]') | Where-Object { $_.id -match '^SocketJack\.Unity(?:\.|$)' }) {
             throw "Paid Unity package dependency in $expectedName."
         }
