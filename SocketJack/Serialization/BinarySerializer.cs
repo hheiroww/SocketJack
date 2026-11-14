@@ -155,6 +155,11 @@ namespace SocketJack.Serialization {
         public JsonElement DeserializeJson(byte[] data) => System.Text.Json.JsonSerializer.SerializeToElement(Decode(data), fallback.JsonOptions);
         /// <summary>Create an independent, memory-bounded compression repository for one externally hosted binary connection.</summary>
         public BinaryCompressionSession CreateCompressionSession(int maximumMessageBytes = 2097152) => new BinaryCompressionSession(EnableCompression, maximumMessageBytes);
+        internal byte[] DeserializeByteArray(byte[] data) {
+            if (data == null || data.Length < 5 || data[3] != (byte)Tag.Bytes)
+                throw new InvalidDataException("Expected an SB1 byte array.");
+            return (byte[])Decode(data);
+        }
         static void WriteJson(ref Encoder writer, JsonElement value, int depth) {
             if (depth > MaxDepth) throw new InvalidDataException("Binary value nesting exceeds its limit.");
             switch (value.ValueKind) {

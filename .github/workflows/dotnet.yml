@@ -28,6 +28,8 @@ jobs:
         run: dotnet build SocketJack/SocketJack.csproj -c Release --no-restore -p:BuildPackage=false
       - name: Verify security and package boundaries
         run: dotnet test SocketJack.Tests/SocketJack.Tests.csproj -c Release -p:BuildPackage=false
+      - name: Verify browser surface interop
+        run: node --test SocketJack.Tests/SurfaceCodec.browser.test.mjs
       - name: Verify reliable transport and codec
         run: dotnet test SocketJack.UdpReliable.Tests/SocketJack.UdpReliable.Tests.csproj -c Release -p:BuildPackage=false --filter "TestCategory!=LargeFile"
       - name: Verify SecurityLoader facade boundaries

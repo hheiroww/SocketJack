@@ -35,12 +35,12 @@
     <Title>SocketJack</Title>
     <IsPackable>True</IsPackable>
     <Company>JackOfFates</Company>
-    <Version>2026.11.12.0</Version>
+    <Version>2026.11.14.0</Version>
     <BuildPackage>true</BuildPackage>
     <NeutralLanguage>en-001</NeutralLanguage>
     <IncludeSymbols>False</IncludeSymbols>
     <ImportedNamespaces>System.Text.Json=False,System.Text.Json.Serialization=False,Microsoft.VisualBasic=True,System=True,System.Collections=True,System.Collections.Generic=True,System.Diagnostics=True,System.Linq=True,System.Xml.Linq=True,System.Threading.Tasks=True,SocketJack=True</ImportedNamespaces>
-    <PackageReleaseNotes>2026.11.12.0 adds opt-in typed application WebSockets, per-user records and resumable media, DNS-SD discovery, and negotiated UDP delivery modes. It also hardens HTTP framing, trusted proxies, static-file containment, SQL administration, and SFTP host-key validation.</PackageReleaseNotes>
+    <PackageReleaseNotes>Adds independent compressed surface tiles and a browser decoder for low-latency screen and viewport streaming.</PackageReleaseNotes>
     <PackageProjectUrl>https://www.nuget.org/packages/SocketJack.WPF/</PackageProjectUrl>
     <PackageIcon>SocketJackWpfIcon.png</PackageIcon>
     <PackageReadmeFile>Readme.md</PackageReadmeFile>
@@ -383,6 +383,8 @@
     <Compile Include="..\SocketJack\Serialization\BinarySerializer.cs" Link="Serialization\BinarySerializer.cs" />
     <Compile Include="..\SocketJack\Serialization\BinaryCompressionCodec.cs" Link="Serialization\BinaryCompressionCodec.cs" />
     <Compile Include="..\SocketJack\Serialization\BinaryCompressionSession.cs" Link="Serialization\BinaryCompressionSession.cs" />
+    <Compile Include="..\SocketJack\Media\SurfaceCodec.cs" Link="Media\SurfaceCodec.cs" />
+    <EmbeddedResource Include="..\SocketJack\html\SurfaceCodec.mjs" LogicalName="SocketJack.SurfaceCodec.mjs" />
     <Compile Include="..\SocketJack\Net\BinaryNetworkCompression.cs" Link="Net\BinaryNetworkCompression.cs" />
     <Compile Include="..\SocketJack\Serialization\ISerializer.cs" Link="Serialization\ISerializer.cs" />
     <Compile Include="..\SocketJack\Serialization\Json\Converters\BitmapConverter.cs" Link="Serialization\Json\Converters\BitmapConverter.cs" />

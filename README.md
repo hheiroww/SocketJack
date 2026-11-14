@@ -28,13 +28,13 @@ SocketJack is a .NET networking library for sending typed objects, hosting HTTP 
 ## 📦 Install
 
 ```powershell
-dotnet add package SocketJack --version 2026.11.12.0
+dotnet add package SocketJack --version 2026.11.14.0
 ```
 
 | Package | Target | Purpose |
 |---|---|---|
-| **[SocketJack](https://www.nuget.org/packages/SocketJack/2026.11.12.0)** | .NET Standard 2.1 | Core networking library; this release is **2026.11.12.0**. |
-| **[SocketJack.WPF](https://www.nuget.org/packages/SocketJack.WPF/2026.11.12.0)** | Windows / WPF | Companion package for live control capture and remote input; this release is **2026.11.12.0**. |
+| **[SocketJack](https://www.nuget.org/packages/SocketJack/2026.11.14.0)** | .NET Standard 2.1 | Core networking library; this release is **2026.11.14.0**. |
+| **[SocketJack.WPF](https://www.nuget.org/packages/SocketJack.WPF/2026.11.14.0)** | Windows / WPF | Companion package for live control capture and remote input; this release is **2026.11.14.0**. |
 
 <details>
 <summary><strong>🚀 First connection — typed TCP messages</strong></summary>
@@ -67,9 +67,9 @@ Keep the host application running while connections are in use. Use matching ser
 
 </details>
 
-## 🆕 What's new in 2026.11.12.0
+## 🆕 What's new in 2026.11.14.0
 
-SocketJack 2026.11.12.0 adds opt-in typed application WebSockets, per-user records and resumable media, DNS-SD discovery, and negotiated UDP delivery modes. It also hardens HTTP framing, trusted proxies, static-file containment, SQL administration, and SFTP host-key validation.
+SocketJack 2026.11.14.0 adds a lossless surface tile encoder and browser decoder. Applications can send changed viewport regions first using SB1 byte arrays and independently compressed SBC1 packets. See [Live surface tiles](docs/Binary-network-compression.md#live-surface-tiles).
 
 Hosts can register typed request handlers and fixed HTTPS or WSS connectors. Authored route execution requires a separately configured, operating-system-isolated worker.
 
@@ -79,7 +79,7 @@ Hosts can register typed request handlers and fixed HTTPS or WSS connectors. Aut
 
 This release uses the date code **year.month.day.revision**. It includes the library features below; the install command above selects this exact version.
 
-Download the verified packages and SHA-256 checksums from [GitHub Releases](https://github.com/hheiroww/SocketJack/releases/tag/v2026.11.12.0), or browse both libraries in [GitHub Packages](https://github.com/hheiroww/SocketJack/packages).
+Download the verified packages and SHA-256 checksums from [GitHub Releases](https://github.com/hheiroww/SocketJack/releases/tag/v2026.11.14.0), or browse both libraries in [GitHub Packages](https://github.com/hheiroww/SocketJack/packages).
 
 `GetOnceAsync` and `SendOnceAsync` return a single response, including redirects, so applications can validate each destination before following it. Existing redirect-following methods keep their behavior.
 
