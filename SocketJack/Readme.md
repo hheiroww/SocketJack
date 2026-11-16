@@ -10,7 +10,7 @@
 [![Build & publish](https://github.com/hheiroww/SocketJack/actions/workflows/dotnet.yml/badge.svg)](https://github.com/hheiroww/SocketJack/actions/workflows/dotnet.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/hheiroww/SocketJack/blob/master/LICENSE)
 
-**📦 [Install](#-install) · ✨ [What's new](#-whats-new-in-202610241) · 🧭 [Features](#-feature-explorer) · 📚 [Documentation](#-documentation)**
+**📦 [Install](#-install) · ✨ [What's new](#-whats-new-in-202611160) · 🧭 [Features](#-feature-explorer) · 📚 [Documentation](#-documentation)**
 
 
 ---
@@ -24,13 +24,13 @@ SocketJack is a .NET networking library for sending typed objects, hosting HTTP 
 ## 📦 Install
 
 ```powershell
-dotnet add package SocketJack --version 2026.11.12.0
+dotnet add package SocketJack --version 2026.11.16.0
 ```
 
 | Package | Target | Purpose |
 |---|---|---|
-| **[SocketJack](https://www.nuget.org/packages/SocketJack/2026.11.12.0)** | .NET Standard 2.1 | Core networking library; this release is **2026.11.12.0**. |
-| **[SocketJack.WPF](https://www.nuget.org/packages/SocketJack.WPF/2026.11.12.0)** | Windows / WPF | Companion package for live control capture and remote input; this release is **2026.11.12.0**. |
+| **[SocketJack](https://www.nuget.org/packages/SocketJack/2026.11.16.0)** | .NET Standard 2.1 | Core networking library · **2026.11.16.0** |
+| **[SocketJack.WPF](https://www.nuget.org/packages/SocketJack.WPF/2026.11.16.0)** | Windows / WPF | Companion package for live control capture and remote input · **2026.11.16.0** |
 
 ### 🚀 First connection — typed TCP messages
 
@@ -61,7 +61,9 @@ Console.ReadLine();
 Keep the host application running while connections are in use. Use matching serialization and compression settings on both endpoints.
 
 
-## 🆕 What's new in 2026.11.12.0
+## 🆕 What's new in 2026.11.16.0
+
+`SocketJack.Media.FfmpegSegmentEncoder` produces independently decodable H.264 video and AAC audio segments from frames and samples supplied by your application. Set the bitrate on each call to adapt to the connection. See the [media segment guide](https://github.com/hheiroww/SocketJack/blob/master/docs/media-segments.md).
 
 SocketJack 2026.11.12.0 adds opt-in typed application WebSockets, per-user records and resumable media, DNS-SD discovery, and negotiated UDP delivery modes. It also hardens HTTP framing, trusted proxies, static-file containment, SQL administration, and SFTP host-key validation.
 
@@ -73,7 +75,7 @@ Hosts can register typed request handlers and fixed HTTPS or WSS connectors. Aut
 
 This release uses the date code **year.month.day.revision**. It includes the library features below; the install command above selects this exact version.
 
-Download the verified packages and SHA-256 checksums from [GitHub Releases](https://github.com/hheiroww/SocketJack/releases/tag/v2026.11.12.0), or browse both libraries in [GitHub Packages](https://github.com/hheiroww/SocketJack/packages).
+Download the verified packages and SHA-256 checksums from [GitHub Releases](https://github.com/hheiroww/SocketJack/releases/tag/v2026.11.16.0), or browse both libraries in [GitHub Packages](https://github.com/hheiroww/SocketJack/packages).
 
 `GetOnceAsync` and `SendOnceAsync` return a single response, including redirects, so applications can validate each destination before following it. Existing redirect-following methods keep their behavior.
 

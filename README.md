@@ -11,7 +11,7 @@
 [![Build & publish](https://github.com/hheiroww/SocketJack/actions/workflows/dotnet.yml/badge.svg)](https://github.com/hheiroww/SocketJack/actions/workflows/dotnet.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/hheiroww/SocketJack/blob/master/LICENSE)
 
-**📦 [Install](#-install) · ✨ [What's new](#-whats-new-in-202610241) · 🧭 [Features](#-feature-explorer) · 📚 [Documentation](#-documentation)**
+**📦 [Install](#-install) · ✨ [What's new](#-whats-new-in-202611160) · 🧭 [Features](#-feature-explorer) · 📚 [Documentation](#-documentation)**
 
 </div>
 
@@ -28,13 +28,13 @@ SocketJack is a .NET networking library for sending typed objects, hosting HTTP 
 ## 📦 Install
 
 ```powershell
-dotnet add package SocketJack --version 2026.11.14.1
+dotnet add package SocketJack --version 2026.11.16.0
 ```
 
 | Package | Target | Purpose |
 |---|---|---|
-| **[SocketJack](https://www.nuget.org/packages/SocketJack/2026.11.14.1)** | .NET Standard 2.1 | Core networking library · **2026.11.14.1** |
-| **[SocketJack.WPF](https://www.nuget.org/packages/SocketJack.WPF/2026.11.14.1)** | Windows / WPF | Live control capture and remote input · **2026.11.14.1** |
+| **[SocketJack](https://www.nuget.org/packages/SocketJack/2026.11.16.0)** | .NET Standard 2.1 | Core networking library · **2026.11.16.0** |
+| **[SocketJack.WPF](https://www.nuget.org/packages/SocketJack.WPF/2026.11.16.0)** | Windows / WPF | Live control capture and remote input · **2026.11.16.0** |
 
 <details>
 <summary><strong>🚀 First connection — typed TCP messages</strong></summary>
@@ -67,7 +67,9 @@ Keep the host application running while connections are in use. Use matching ser
 
 </details>
 
-## 🆕 What's new in 2026.11.14.0
+## 🆕 What's new in 2026.11.16.0
+
+`SocketJack.Media.FfmpegSegmentEncoder` encodes supplied BGRA frames as inter-frame H.264 video and supplied PCM as AAC-LC audio. Each independently decodable segment has its own bitrate setting. See the [media segment guide](docs/media-segments.md).
 
 SocketJack 2026.11.14.0 adds a lossless surface tile encoder and browser decoder. Applications can send changed viewport regions first using SB1 byte arrays and independently compressed SBC1 packets. See [Live surface tiles](docs/Binary-network-compression.md#live-surface-tiles).
 
@@ -79,7 +81,7 @@ Hosts can register typed request handlers and fixed HTTPS or WSS connectors. Aut
 
 This release uses the date code **year.month.day.revision**. It includes the library features below; the install command above selects this exact version.
 
-Download the verified packages and SHA-256 checksums from [GitHub Releases](https://github.com/hheiroww/SocketJack/releases/tag/v2026.11.14.1), or browse both libraries in [GitHub Packages](https://github.com/hheiroww/SocketJack/packages).
+Download the verified packages and SHA-256 checksums from [GitHub Releases](https://github.com/hheiroww/SocketJack/releases/tag/v2026.11.16.0), or browse both libraries in [GitHub Packages](https://github.com/hheiroww/SocketJack/packages).
 
 `GetOnceAsync` and `SendOnceAsync` return a single response, including redirects, so applications can validate each destination before following it. Existing redirect-following methods keep their behavior.
 
