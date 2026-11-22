@@ -2,6 +2,10 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SocketJack.Net;
 using System.Net;
 using System.Net.Http.Headers;
+using System.IO.Compression;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 
 namespace SocketJack.Tests;
 
@@ -10,8 +14,13 @@ public sealed class HttpStaticCachingTests {
     static int Port() { using var listener = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0); listener.Start(); return ((IPEndPoint)listener.LocalEndpoint).Port; }
     static string DirectoryPath() { string path = Path.Combine(Path.GetTempPath(), "SocketJackStaticCache-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(path); return path; }
     static HttpServer Server(int port = 0) => new(new NetworkOptions { Logging = false, UsePeerToPeer = false, EnablePatternCache = true, PatternCachePromotionThreshold = 1 }, port);
-    static async Task<HttpDispatchResult> Dispatch(HttpServer server, string path, Dictionary<string, string> headers = null) =>
-        await server.DispatchMappedHttpRequestAsync(null, new HttpRequest { Method = "GET", Path = path, Headers = headers ?? new(StringComparer.OrdinalIgnoreCase) });
+    static async Task<HttpDispatchResult> Dispatch(HttpServer server, string path, Dictionary<string, string> headers = null) {
+        var target = path.Split('?', 2);
+        return await server.DispatchMappedHttpRequestAsync(null, new HttpRequest {
+            Method = "GET", Path = target[0], QueryString = target.Length == 2 ? target[1] : null,
+            Headers = headers ?? new(StringComparer.OrdinalIgnoreCase)
+        });
+    }
 
     [DataTestMethod]
     [DataRow("app.js")][DataRow("app.css")][DataRow("picture.svg")]
@@ -89,4 +98,116 @@ public sealed class HttpStaticCachingTests {
             Assert.AreEqual(404, missing.StatusCode); Assert.AreEqual("no-store", missing.Response.Headers["Cache-Control"]);
         } finally { Directory.Delete(root, true); }
     }
+
+    [TestMethod]
+    public async Task VersionedAssetsNegotiateVerifiedBytesAndOnlyPublicFingerprintGetsExpires() {
+        string root = DirectoryPath();
+        try {
+            byte[] content = Encoding.UTF8.GetBytes(string.Concat(Enumerable.Repeat(".button { color: teal; }\n", 200)));
+            byte[] brotli = Encode(content, stream => new BrotliStream(stream, CompressionLevel.Optimal, leaveOpen: true));
+            byte[] gzip = Encode(content, stream => new GZipStream(stream, CompressionLevel.Optimal, leaveOpen: true));
+            File.WriteAllBytes(Path.Combine(root, "app.css"), content);
+            File.WriteAllBytes(Path.Combine(root, "app.css.br"), brotli);
+            File.WriteAllBytes(Path.Combine(root, "app.css.gz"), gzip);
+            string manifestPath = Path.Combine(root, "manifest.json");
+            WriteManifest(gzip);
+
+            int port = Port();
+            using var server = Server(port);
+            server.Options.UseHttpCompression = true;
+            server.StaticAssets = HttpStaticAssets.Load(root, manifestPath);
+            server.MapDirectory("/assets", root);
+            Assert.IsTrue(server.Listen());
+            using var client = new System.Net.Http.HttpClient(new HttpClientHandler { AutomaticDecompression = DecompressionMethods.None });
+            string query = server.StaticAssets.GetVersionQuery("app.css");
+            string path = $"/assets/app.css?{query}";
+            string url = $"http://127.0.0.1:{port}{path}";
+
+            async Task<HttpResponseMessage> Send(HttpMethod method, string address, string coding, string etag = null) {
+                using var request = new HttpRequestMessage(method, address);
+                request.Headers.TryAddWithoutValidation("Accept-Encoding", coding);
+                if (etag != null) request.Headers.TryAddWithoutValidation("If-None-Match", etag);
+                return await client.SendAsync(request);
+            }
+
+            using var first = await Send(HttpMethod.Get, url, "br, gzip");
+            Assert.AreEqual(HttpStatusCode.OK, first.StatusCode);
+            Assert.AreEqual("br", first.Content.Headers.ContentEncoding.Single());
+            Assert.AreEqual(TimeSpan.FromDays(365), first.Headers.CacheControl.MaxAge);
+            Assert.IsTrue(first.Headers.CacheControl.Extensions.Any(option => option.Name == "immutable"));
+            Assert.IsTrue(first.Content.Headers.Expires > DateTimeOffset.UtcNow.AddDays(364));
+            CollectionAssert.Contains(first.Headers.Vary.ToArray(), "Accept-Encoding");
+            CollectionAssert.AreEqual(brotli, await first.Content.ReadAsByteArrayAsync());
+            string brTag = first.Headers.ETag.ToString();
+
+            using var negotiatedGzip = await Send(HttpMethod.Get, url, "br;q=0, gzip;q=1", brTag);
+            Assert.AreEqual(HttpStatusCode.OK, negotiatedGzip.StatusCode);
+            Assert.AreEqual("gzip", negotiatedGzip.Content.Headers.ContentEncoding.Single());
+            CollectionAssert.AreEqual(gzip, await negotiatedGzip.Content.ReadAsByteArrayAsync());
+            Assert.AreNotEqual(brTag, negotiatedGzip.Headers.ETag.ToString());
+
+            using var head = await Send(HttpMethod.Head, url, "br");
+            Assert.AreEqual((long)brotli.Length, head.Content.Headers.ContentLength);
+            Assert.AreEqual(0, (await head.Content.ReadAsByteArrayAsync()).Length);
+            using var unchanged = await Send(HttpMethod.Get, url, "br", brTag);
+            Assert.AreEqual(HttpStatusCode.NotModified, unchanged.StatusCode);
+            Assert.AreEqual(0, (await unchanged.Content.ReadAsByteArrayAsync()).Length);
+            Assert.IsNotNull(unchanged.Content.Headers.Expires);
+
+            using var identity = await Send(HttpMethod.Get, url, "identity, br;q=0.5");
+            Assert.AreEqual(0, identity.Content.Headers.ContentEncoding.Count);
+            CollectionAssert.AreEqual(content, await identity.Content.ReadAsByteArrayAsync());
+            using var rejected = await Send(HttpMethod.Get, url, "br;q=0,gzip;q=0,identity;q=0");
+            Assert.AreEqual(HttpStatusCode.NotAcceptable, rejected.StatusCode);
+            Assert.IsTrue(rejected.Headers.CacheControl.NoStore);
+
+            var privateResult = await Dispatch(server, path, new(StringComparer.OrdinalIgnoreCase) { ["Cookie"] = "session=fixture" });
+            StringAssert.StartsWith(privateResult.Response.Headers["Cache-Control"], "private,");
+            Assert.IsFalse(privateResult.Response.Headers.ContainsKey("Expires"));
+            var stale = await Dispatch(server, "/assets/app.css?v=stale");
+            Assert.AreEqual(200, stale.StatusCode);
+            Assert.IsFalse(stale.Response.Headers.ContainsKey("Expires"));
+
+            using var rangeRequest = new HttpRequestMessage(HttpMethod.Get, url);
+            rangeRequest.Headers.Range = new RangeHeaderValue(0, 3);
+            using var range = await client.SendAsync(rangeRequest);
+            Assert.AreEqual(HttpStatusCode.PartialContent, range.StatusCode);
+            Assert.IsNull(range.Content.Headers.Expires);
+            CollectionAssert.AreEqual(content[..4], await range.Content.ReadAsByteArrayAsync());
+
+            using var streamed = new MemoryStream();
+            var result = await server.DispatchMappedHttpRequestAsync(null,
+                new HttpRequest { Method = "GET", Path = "/assets/app.css", QueryString = query, Headers = new(StringComparer.OrdinalIgnoreCase) { ["Accept-Encoding"] = "br" } },
+                new HttpStreamDispatchCallbacks { OnChunk = (bytes, offset, length) => streamed.Write(bytes, offset, length) });
+            Assert.IsTrue(result.Streamed);
+            CollectionAssert.AreEqual(brotli, streamed.ToArray());
+
+            byte[] wrongGzip = Encode(Encoding.UTF8.GetBytes("wrong representation"),
+                stream => new GZipStream(stream, CompressionLevel.Optimal, leaveOpen: true));
+            File.WriteAllBytes(Path.Combine(root, "app.css.gz"), wrongGzip);
+            WriteManifest(wrongGzip);
+            Assert.ThrowsException<InvalidDataException>(() => HttpStaticAssets.Load(root, manifestPath));
+
+            void WriteManifest(byte[] gzipBytes) {
+                File.WriteAllText(manifestPath, JsonSerializer.Serialize(new {
+                    version = 1,
+                    assets = new[] { new {
+                        path = "app.css", length = content.Length, sha256 = Hash(content),
+                        encodings = new {
+                            br = new { path = "app.css.br", length = brotli.Length, sha256 = Hash(brotli) },
+                            gzip = new { path = "app.css.gz", length = gzipBytes.Length, sha256 = Hash(gzipBytes) }
+                        }
+                    } }
+                }));
+            }
+        } finally { Directory.Delete(root, true); }
+    }
+
+    private static byte[] Encode(byte[] content, Func<Stream, Stream> compressor) {
+        using var output = new MemoryStream();
+        using (var stream = compressor(output)) stream.Write(content);
+        return output.ToArray();
+    }
+
+    private static string Hash(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
 }

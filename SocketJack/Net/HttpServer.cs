@@ -412,11 +412,14 @@ namespace SocketJack.Net {
         /// </summary>
         public EndpointSecurityMonitor EndpointSecurity { get; } = new EndpointSecurityMonitor();
         /// <summary>
-        /// Optional restriction for mapped static resources. Static files always revalidate
+        /// Optional restriction for mapped static resources. By default, static files revalidate
         /// against content ETags so edits invalidate browser copies immediately. A no-store
         /// setting disables reuse. Rendered routes, APIs and generated responses use no-store.
         /// </summary>
         public string CacheControl { get; set; } = null;
+
+        /// <summary>Optional snapshot of public assets eligible for compression and long-lived caching at their versioned URLs.</summary>
+        public HttpStaticAssets StaticAssets { get; set; }
 
         /// <summary>
         /// Gets or sets whether a non-SSL server bound to port 80 should redirect requests to HTTPS.
@@ -1977,6 +1980,23 @@ namespace SocketJack.Net {
 
             EnsureErrorResponseBody(context);
             ApplyHttpCaching(context);
+            if (context.Response.StaticEncodingNegotiated && context.StatusCodeNumber == 200 && streamCallbacks != null) {
+                ApplyDefaultDispatchedResponseHeaders(context.Response);
+                byte[] bytes = context.Response.BodyBytes;
+                context.Response.BodyBytes = Array.Empty<byte>();
+                streamCallbacks.OnStart?.Invoke(context.Response);
+                try {
+                    for (int offset = 0; offset < bytes.Length;) {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        int length = Math.Min(StreamedFileBufferSize, bytes.Length - offset);
+                        streamCallbacks.OnChunk?.Invoke(bytes, offset, length);
+                        offset += length;
+                    }
+                } finally {
+                    streamCallbacks.OnEnd?.Invoke();
+                }
+                return FinalizeDispatchedHttpResponse(context, streamed: true);
+            }
             if (context.Response.StreamFile != null && !string.IsNullOrWhiteSpace(context.Response.StreamFile.FilePath) && streamCallbacks != null) {
                 ApplyDefaultDispatchedResponseHeaders(context.Response);
                 bool isHead = string.Equals(context.Request?.Method, "HEAD", StringComparison.OrdinalIgnoreCase);
@@ -2661,7 +2681,7 @@ namespace SocketJack.Net {
             return method + "|" + host + "|" + path + "?" + query;
         }
         private void ApplyHttpResponseCompression(HttpRequest request, HttpResponse response) {
-            if (request == null || response == null || !Options.UseHttpCompression)
+            if (request == null || response == null || response.StaticEncodingNegotiated || !Options.UseHttpCompression)
                 return;
 
             response.EnsureBodyBytes();
@@ -3517,7 +3537,7 @@ WriteHttpResponse:
                     ApplyHttpRoutePatternCache(request, context);
                     ApplyHttpResponseCompression(request, context.Response);
                     int bodyLen = context.Response.BodyBytes != null ? context.Response.BodyBytes.Length : 0;
-                    if (context.Response.DisableChunkedTransfer && context.Response.Headers != null)
+                    if (context.Response.DisableChunkedTransfer && !context.Response.StaticEncodingNegotiated && context.Response.Headers != null)
                         context.Response.Headers["Content-Length"] = bodyLen.ToString();
 
                     WriteHttpAccessLog(e.Connection, request, context, endpointSecurityDecision, bodyLen, false);
@@ -3756,13 +3776,15 @@ CloseHttpConnection:
                 response.Headers.Remove("ETag");
                 return;
             }
-            string etag = BuildStaticFileEtag(response.StaticFilePath);
-            if (etag == null) { response.Headers["Cache-Control"] = "no-store"; return; }
             response.Headers.TryGetValue("Cache-Control", out string existingPolicy);
             bool personal = context.Connection?.IsAuthenticated == true ||
                 (!string.IsNullOrWhiteSpace(CacheControl) && CacheControl.IndexOf("private", StringComparison.OrdinalIgnoreCase) >= 0) ||
                 (!string.IsNullOrWhiteSpace(existingPolicy) && existingPolicy.IndexOf("private", StringComparison.OrdinalIgnoreCase) >= 0) ||
                 (request.Headers != null && (request.Headers.ContainsKey("Authorization") || request.Headers.ContainsKey("Cookie")));
+            if (!personal && ApplyVersionedStaticAsset(context)) return;
+
+            string etag = BuildStaticFileEtag(response.StaticFilePath);
+            if (etag == null) { response.Headers["Cache-Control"] = "no-store"; return; }
             response.Headers["Cache-Control"] = (personal ? "private" : "public") + ", max-age=0, must-revalidate";
             response.Headers["ETag"] = etag;
             DateTime? modified = null;
@@ -3780,6 +3802,53 @@ CloseHttpConnection:
             context.StatusCodeNumber = 304; context.ReasonPhrase = "Not Modified";
             response.StreamFile = null; response.BodyBytes = Array.Empty<byte>();
             response.Headers.Remove("Content-Length"); response.Headers.Remove("Content-Encoding");
+        }
+
+        private bool ApplyVersionedStaticAsset(HttpContext context) {
+            var request = context.Request;
+            var response = context.Response;
+            var headers = request.Headers;
+            var assets = StaticAssets;
+            response.Headers.TryGetValue("Vary", out var vary);
+            if (assets == null || headers?.ContainsKey("Range") == true ||
+                response.Headers.ContainsKey("Content-Encoding") ||
+                vary?.Trim() == "*" ||
+                !assets.TryGet(response.StaticFilePath, request.QueryString, out var asset)) return false;
+
+            string acceptEncoding = null;
+            headers?.TryGetValue("Accept-Encoding", out acceptEncoding);
+            var representation = asset.Negotiate(acceptEncoding, out var encoding);
+            response.StaticEncodingNegotiated = true;
+            response.StreamFile = null;
+            response.BodyBytes = Array.Empty<byte>();
+            response.Headers.Remove("Last-Modified");
+            response.Headers.Remove("Content-MD5");
+            response.Headers["Vary"] = AppendHeaderToken(vary, "Accept-Encoding");
+            if (representation == null) {
+                context.StatusCodeNumber = 406;
+                context.ReasonPhrase = "Not Acceptable";
+                response.Headers["Cache-Control"] = "no-store";
+                response.Headers["Content-Length"] = "0";
+                response.Headers.Remove("Expires");
+                response.Headers.Remove("ETag");
+                return true;
+            }
+
+            string etag = "\"sj-" + representation.Sha256 + "\"";
+            response.Headers["Cache-Control"] = "public, max-age=31536000, immutable";
+            response.Headers["Expires"] = DateTime.UtcNow.AddDays(365).ToString("R", CultureInfo.InvariantCulture);
+            response.Headers["ETag"] = etag;
+            response.Headers["Content-Length"] = representation.Bytes.Length.ToString(CultureInfo.InvariantCulture);
+            if (headers != null && headers.TryGetValue("If-None-Match", out var match) && HttpEtagMatches(match, etag)) {
+                context.StatusCodeNumber = 304;
+                context.ReasonPhrase = "Not Modified";
+                return true;
+            }
+
+            if (encoding != null) response.Headers["Content-Encoding"] = encoding;
+            if (!string.Equals(request.Method, "HEAD", StringComparison.OrdinalIgnoreCase))
+                response.BodyBytes = (byte[])representation.Bytes.Clone();
+            return true;
         }
 
         private static string BuildStaticFileEtag(string filePath) {
@@ -4133,6 +4202,7 @@ CloseHttpConnection:
         // Only explicit disk mappings establish static provenance; MIME/extension alone does not.
         internal string StaticFilePath { get; set; }
         internal bool CachePolicyApplied { get; set; }
+        internal bool StaticEncodingNegotiated { get; set; }
         public HttpContext Context { get; set; }
         public string Path { get; set; }
         public string Version { get; set; }
