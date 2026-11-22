@@ -331,7 +331,9 @@
     <Compile Include="..\SocketJack\Net\HtAccessBuilder.cs" Link="Net\HtAccessBuilder.cs" />
     <Compile Include="..\SocketJack\Net\HtmlBuilder.cs" Link="Net\HtmlBuilder.cs" />
     <Compile Include="..\SocketJack\Net\HttpClient.cs" Link="Net\HttpClient.cs" />
+    <Compile Include="..\SocketJack\Net\HttpResourceHints.cs" Link="Net\HttpResourceHints.cs" />
     <Compile Include="..\SocketJack\Net\HttpServer.cs" Link="Net\HttpServer.cs" />
+    <Compile Include="..\SocketJack\Net\HttpStaticAssets.cs" Link="Net\HttpStaticAssets.cs" />
     <Compile Include="..\SocketJack\Net\HttpTransfers.cs" Link="Net\HttpTransfers.cs" />
     <Compile Include="..\SocketJack\Net\HttpTransferRoutes.cs" Link="Net\HttpTransferRoutes.cs" />
     <Compile Include="..\SocketJack\Net\TypeScriptClientGenerator.cs" Link="Net\TypeScriptClientGenerator.cs" />
