@@ -35,12 +35,12 @@
     <Title>SocketJack</Title>
     <IsPackable>True</IsPackable>
     <Company>JackOfFates</Company>
-    <Version>2026.11.21.0</Version>
+    <Version>2026.11.22.0</Version>
     <BuildPackage>true</BuildPackage>
     <NeutralLanguage>en-001</NeutralLanguage>
     <IncludeSymbols>False</IncludeSymbols>
     <ImportedNamespaces>System.Text.Json=False,System.Text.Json.Serialization=False,Microsoft.VisualBasic=True,System=True,System.Collections=True,System.Collections.Generic=True,System.Diagnostics=True,System.Linq=True,System.Xml.Linq=True,System.Threading.Tasks=True,SocketJack=True</ImportedNamespaces>
-    <PackageReleaseNotes>Publishes the WPF companion for the SocketJack 2026.11.21.0 release.</PackageReleaseNotes>
+    <PackageReleaseNotes>Publishes the WPF companion for the SocketJack 2026.11.22.0 release.</PackageReleaseNotes>
     <PackageProjectUrl>https://www.nuget.org/packages/SocketJack.WPF/</PackageProjectUrl>
     <PackageIcon>SocketJackWpfIcon.png</PackageIcon>
     <PackageReadmeFile>Readme.md</PackageReadmeFile>

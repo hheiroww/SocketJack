@@ -57,6 +57,89 @@ export async function resolveRoot(value) {
   return root;
 }
 
+export async function bundleStyles(root, includes, output) {
+  if (!validAssetPath(output) || !output.endsWith('.css')) {
+    throw new Error('Choose a relative .css output name.');
+  }
+  const directory = path.posix.dirname(output);
+  const decoder = new TextDecoder('utf-8', { fatal: true });
+  const parts = [];
+  let size = 0;
+
+  for (const relative of includes) {
+    const input = await localEntry(root, relative);
+    if (!input?.stat.isFile() || !relative.endsWith('.css') || path.posix.dirname(relative) !== directory) {
+      throw new Error('Bundle only regular .css files from the output directory: ' + relative);
+    }
+    if (size + input.stat.size > maximumBytes) throw new Error('CSS input exceeds the 16 MiB bundle limit.');
+    const bytes = await readFile(input.file);
+    size += bytes.length;
+    if (size > maximumBytes) throw new Error('CSS input exceeds the 16 MiB bundle limit.');
+    const css = decoder.decode(bytes);
+    assertIndependentStylesheet(css, relative);
+    parts.push(css);
+  }
+  if (!parts.length) throw new Error('Choose at least one stylesheet.');
+
+  const bytes = Buffer.from(parts.join('\n') + '\n', 'utf-8');
+  const sha256 = digest(bytes);
+  const relative = output.slice(0, -4) + '.' + sha256.slice(0, 16) + '.css';
+  const destination = path.join(root, ...relative.split('/'));
+  const prior = await statIfPresent(destination);
+  if (prior) {
+    if (!prior.isFile() || prior.isSymbolicLink() || prior.size !== bytes.length ||
+        (await hashFile(destination)).sha256 !== sha256) {
+      throw new Error('Bundle path already holds different content: ' + relative);
+    }
+  } else {
+    await atomicWrite(destination, bytes, false);
+  }
+  return { path: relative, length: bytes.length, sha256 };
+}
+
+function assertIndependentStylesheet(css, file) {
+  const closer = new Map([['{', '}'], ['(', ')'], ['[', ']']]);
+  const stack = [];
+  const doubleQuote = /"(?:\\(?:\r\n|[\s\S])|[^"\\\r\n\f])*"/y;
+  const singleQuote = /'(?:\\(?:\r\n|[\s\S])|[^'\\\r\n\f])*'/y;
+  const ruleName = /[a-z0-9_-]*/iy;
+  let complete = true;
+  const incomplete = () => new Error('CSS has an unfinished token or rule: ' + file);
+
+  for (let offset = 0; offset < css.length;) {
+    const char = css[offset++];
+    if (/[ \t\r\n\f]/u.test(char)) continue;
+    if (char === '/' && css[offset] === '*') {
+      const end = css.indexOf('*/', offset + 1);
+      if (end < 0) throw incomplete();
+      offset = end + 2;
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      const quoted = char === '"' ? doubleQuote : singleQuote;
+      quoted.lastIndex = offset - 1;
+      if (!quoted.exec(css)) throw incomplete();
+      offset = quoted.lastIndex;
+    } else if (char === '\\') {
+      if (offset === css.length) throw incomplete();
+      offset++;
+    } else if (char === '@') {
+      ruleName.lastIndex = offset;
+      const name = ruleName.exec(css)[0].toLowerCase();
+      offset = ruleName.lastIndex;
+      if (css[offset] === '\\' || name === 'import' || name === 'namespace' || name === 'charset') {
+        throw new Error('Resolve CSS imports, namespaces, charset rules and escaped at-rule names first: ' + file);
+      }
+    } else if (closer.has(char)) {
+      stack.push(closer.get(char));
+    } else if (char === '}' || char === ')' || char === ']') {
+      if (stack.pop() !== char) throw incomplete();
+    }
+    if (stack.length === 0) complete = char === '}' || char === ';';
+  }
+  if (stack.length || !complete) throw incomplete();
+}
+
 async function findFiles(root, includes) {
   const candidates = new Set();
   for (const include of includes) {

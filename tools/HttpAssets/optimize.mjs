@@ -1,10 +1,11 @@
-import { prepare, resolveRoot } from './assets.mjs';
+import { bundleStyles, prepare, resolveRoot } from './assets.mjs';
 import { audit } from './audit.mjs';
 
 const usage = [
   'SocketJack HTTP asset tooling',
   '',
   'node tools/HttpAssets/optimize.mjs prepare --root DIST --manifest MANIFEST --include FILE_OR_DIR [--include FILE_OR_DIR ...]',
+  'node tools/HttpAssets/optimize.mjs bundle-css --root DIST --output NAME.css --include FILE [--include FILE ...]',
   'node tools/HttpAssets/optimize.mjs audit --root DIST --page FILE [--page FILE ...] [--json]',
   '  Audit options: --requests 20 --script-kib 150 --image-kib 96 --lcp-image RELATIVE_PATH',
   '',
@@ -22,6 +23,8 @@ try {
     if (command === 'prepare') {
       const result = await prepare(root, options.include, options.manifest);
       console.log('Prepared ' + result.assets + ' assets and ' + result.sidecars + ' compressed sidecars.');
+    } else if (command === 'bundle-css') {
+      console.log(JSON.stringify(await bundleStyles(root, options.include, options.output)));
     } else {
       const reports = await audit(root, options.page, {
         requests: integer(options.requests, 20),
@@ -50,9 +53,15 @@ try {
 }
 
 function parse(command, args) {
-  if (command !== 'prepare' && command !== 'audit') throw new Error('Choose prepare or audit. Use --help for syntax.');
-  const repeated = command === 'prepare' ? 'include' : 'page';
-  const names = command === 'prepare' ? new Set(['root', 'manifest']) : new Set(['root', 'requests', 'script-kib', 'image-kib', 'lcp-image']);
+  const commands = new Map([
+    ['prepare', { repeated: 'include', required: 'manifest', options: ['manifest'] }],
+    ['bundle-css', { repeated: 'include', required: 'output', options: ['output'] }],
+    ['audit', { repeated: 'page', options: ['requests', 'script-kib', 'image-kib', 'lcp-image'] }],
+  ]);
+  const spec = commands.get(command);
+  if (!spec) throw new Error('Choose prepare, bundle-css or audit. Use --help for syntax.');
+  const { repeated, required } = spec;
+  const names = new Set(['root', ...spec.options]);
   const result = { [repeated]: [] };
   for (let index = 0; index < args.length; index++) {
     const arg = args[index];
@@ -70,7 +79,7 @@ function parse(command, args) {
     else result[key] = value;
   }
 
-  if (!result.root || !result[repeated].length || (command === 'prepare' && !result.manifest)) {
+  if (!result.root || !result[repeated].length || (required && !result[required])) {
     throw new Error('Required arguments are missing. Use --help for syntax.');
   }
   return result;

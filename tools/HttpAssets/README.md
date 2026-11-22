@@ -54,6 +54,15 @@ Use Chrome DevTools or Lighthouse on the deployed page to validate the changes a
 
 ## Bundle where the page benefits
 
+Combine already built stylesheets in their existing cascade order with the dependency-free command.
+
+~~~sh
+node tools/HttpAssets/optimize.mjs bundle-css --root dist --output assets/home.css \
+  --include assets/base.css --include assets/home-layout.css
+~~~
+
+Read the generated path and SHA-256 from the JSON output and reference the fingerprinted bundle in the page. The command preserves source order and leaves the input files intact. Inputs must be UTF-8 stylesheets in the output directory so relative resources keep their meaning. Resolve imports, namespaces and encoding directives upstream. Run `prepare` on the resulting bundle to produce compressed variants.
+
 Keep entry points explicit. For CSS bundles, create an entry stylesheet that imports the stylesheets in their required order. Use your existing bundler to resolve relative `url()` references and copy font or image dependencies. For example, a project that already pins esbuild in its lockfile can add this command to its build workflow.
 
 ~~~sh
