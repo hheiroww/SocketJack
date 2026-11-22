@@ -4215,6 +4215,19 @@ CloseHttpConnection:
             set { if (Context != null) Context.ReasonPhrase = value; }
         }
         public Dictionary<string, string> Headers { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        /// <summary>Appends an HTTP Link preload for a resource required to render this document.</summary>
+        public void PreloadResource(string url, HttpPreloadDestination destination, bool anonymousCors = false) =>
+            AppendResourceHint(HttpResourceHints.Preload(url, destination, anonymousCors));
+
+        /// <summary>Appends an HTTP Link modulepreload for a module used by this document.</summary>
+        public void PreloadModule(string url) => AppendResourceHint(HttpResourceHints.ModulePreload(url));
+
+        private void AppendResourceHint(string hint) {
+            Headers ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            Headers.TryGetValue("Link", out var existing);
+            Headers["Link"] = string.IsNullOrWhiteSpace(existing) ? hint : existing + ", " + hint;
+        }
+
         public object Body {
             get {
                 return _Body;

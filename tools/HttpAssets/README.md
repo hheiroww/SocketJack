@@ -28,6 +28,17 @@ Load the complete manifest before enabling the snapshot. This verifies file hash
 
 On public GET and HEAD requests with the matching version query, the HTTP server sends `Cache-Control`, `Expires`, a representation-specific ETag and `Vary: Accept-Encoding`. It serves a verified Brotli, gzip or identity representation according to the request's accepted encodings. Keep PHP, generated pages, uploads, and account-dependent files out of the public asset mapping. Static requests with cookies, authorization, range headers, or an unmatched version continue through the regular static handler.
 
+## Preload critical resources
+
+Add a response hint when the document will use an asset immediately but the browser may otherwise discover it late. Use the exact URL from the consuming element so the preload can be reused.
+
+~~~csharp
+response.PreloadResource(stylesheet, HttpPreloadDestination.Style);
+response.PreloadModule("/assets/home.mjs");
+~~~
+
+For other HTTP stacks, `HttpResourceHints.Preload` and `ModulePreload` return values to append to the document's HTTP `Link` header. Font preloads include anonymous CORS, and image, stylesheet and classic script preloads can opt into the same mode as their consuming elements. Limit hints to measured rendering dependencies. Extra requests can compete with the assets the page needs to paint. [HTML resource hints](https://html.spec.whatwg.org/multipage/links.html#link-type-preload)
+
 ## Audit a staged page
 
 ~~~sh
